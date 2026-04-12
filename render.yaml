@@ -42,7 +42,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        value: https://solva-hris-api-staging.onrender.com
       - key: API_INTERNAL_HOSTPORT
         fromService:
           type: web

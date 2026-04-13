@@ -370,6 +370,82 @@ export async function getDashboardPayload() {
   });
 }
 
+export async function getCurrentPayrollRun() {
+  return useDatabase(async () => {
+    const run = await prisma.payrollRun.findFirst({
+      orderBy: { createdAt: "desc" },
+      include: {
+        period: true,
+        employees: {
+          include: {
+            employee: true,
+            lines: true
+          },
+          orderBy: {
+            employee: {
+              legalName: "asc"
+            }
+          }
+        }
+      }
+    });
+
+    if (!run) {
+      return null;
+    }
+
+    const results = run.employees.map((runEmployee) => {
+      const lines = runEmployee.lines.map((line) => ({
+        code: line.code,
+        name: line.name,
+        kind:
+          line.kind === "EARNING"
+            ? "earning"
+            : line.kind === "DEDUCTION"
+              ? "deduction"
+              : "employer_cost",
+        amount: decimalToNumber(line.amount) ?? 0
+      }));
+
+      return {
+        employeeId: runEmployee.employeeId,
+        payrollNumber: runEmployee.employee.payrollNumber ?? runEmployee.employee.employeeNumber,
+        displayName: runEmployee.employee.preferredName ?? runEmployee.employee.legalName,
+        grossPay: decimalToNumber(runEmployee.grossPay) ?? 0,
+        taxablePay: decimalToNumber(runEmployee.taxablePay) ?? 0,
+        totalDeductions: decimalToNumber(runEmployee.totalDeductions) ?? 0,
+        totalEmployerCosts: decimalToNumber(runEmployee.totalEmployerCosts) ?? 0,
+        netPay: decimalToNumber(runEmployee.netPay) ?? 0,
+        earnings: lines.filter((line) => line.kind === "earning"),
+        deductions: lines.filter((line) => line.kind === "deduction"),
+        employerCosts: lines.filter((line) => line.kind === "employer_cost"),
+        exceptions: Array.isArray(runEmployee.exceptions) ? runEmployee.exceptions : []
+      };
+    });
+
+    const totals = results.reduce(
+      (accumulator, result) => ({
+        grossPay: accumulator.grossPay + result.grossPay,
+        deductions: accumulator.deductions + result.totalDeductions,
+        employerCosts: accumulator.employerCosts + result.totalEmployerCosts,
+        netPay: accumulator.netPay + result.netPay
+      }),
+      { grossPay: 0, deductions: 0, employerCosts: 0, netPay: 0 }
+    );
+
+    return {
+      id: run.id,
+      period: `${run.period.code} (${isoDate(run.period.startDate)} to ${isoDate(run.period.endDate)})`,
+      cycle: run.cycle.toLowerCase(),
+      status: run.status.toLowerCase(),
+      version: run.version,
+      employeeCount: results.length,
+      totals,
+      results
+    };
+  });
+}
+
 export async function createEmployee(tenantId: string, input: {
   employeeNumber: string;
   payrollNumber?: string | undefined;

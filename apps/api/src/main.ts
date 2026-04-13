@@ -29,6 +29,7 @@ import {
   createEmployee,
   createLeaveRequest,
   decideLeaveRequest,
+  getCurrentPayrollRun,
   getDashboardPayload,
   listCandidates,
   listCompanies,
@@ -349,9 +350,9 @@ app.get("/api/documents/generated", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listGeneratedDocuments, demoGeneratedDocuments));
 }));
 
-app.get("/api/payroll/runs/current", (_request, response) => {
-  response.json(buildDemoPayrollRun());
-});
+app.get("/api/payroll/runs/current", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(getCurrentPayrollRun, buildDemoPayrollRun()));
+}));
 
 app.get("/api/reports/templates", (_request, response) => {
   response.json(demoCatalogues.reportTemplates);

@@ -46,6 +46,8 @@
 
 All tenant-owned endpoints must resolve the active tenant from the authenticated user, not from user-submitted request bodies.
 
+Payroll run endpoints now read the current seeded Supabase payroll run when the database is configured, including employee result lines, statutory totals, and approval status.
+
 ## Staging Auth Context
 
 Until full JWT login is implemented, staging accepts these headers to simulate tenant and user context:

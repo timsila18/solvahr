@@ -202,7 +202,8 @@ h2 {
 .panel,
 .progressPanel,
 .employeeWorkspace,
-.leaveWorkspace {
+.leaveWorkspace,
+.payrollWorkspace {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -244,14 +245,16 @@ h2 {
 .panel,
 .progressPanel,
 .employeeWorkspace,
-.leaveWorkspace {
+.leaveWorkspace,
+.payrollWorkspace {
   min-width: 0;
   padding: 22px;
 }
 
 .progressPanel,
 .employeeWorkspace,
-.leaveWorkspace {
+.leaveWorkspace,
+.payrollWorkspace {
   margin-bottom: 20px;
 }
 
@@ -538,6 +541,76 @@ h2 {
   opacity: 0.55;
 }
 
+.payrollRunGrid,
+.payrollDetailGrid {
+  display: grid;
+  gap: 18px;
+}
+
+.payrollRunGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.35fr);
+  margin-bottom: 18px;
+}
+
+.payrollSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payrollSummary div,
+.payrollActions,
+.statutoryList {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.payrollSummary div,
+.payrollActions,
+.statutoryList {
+  padding: 16px;
+}
+
+.payrollSummary span,
+.payrollActions p,
+.statutoryList span {
+  color: var(--muted);
+}
+
+.payrollSummary strong,
+.payrollSummary span,
+.statutoryList strong,
+.statutoryList span {
+  display: block;
+}
+
+.payrollSummary strong {
+  margin-top: 8px;
+  font-size: 1.2rem;
+}
+
+.payrollActions {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+
+.payrollActions p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.payrollDetailGrid {
+  grid-template-columns: minmax(320px, 1fr) minmax(260px, 0.4fr);
+}
+
+.statutoryList {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
 .pipelineStage {
   min-height: 92px;
   padding: 14px;
@@ -641,7 +714,9 @@ h2 {
   .sliceGrid,
   .employeeGrid,
   .leaveGrid,
-  .leaveList article {
+  .leaveList article,
+  .payrollRunGrid,
+  .payrollDetailGrid {
     grid-template-columns: 1fr;
   }
 
@@ -666,7 +741,8 @@ h2 {
   .metrics,
   .moduleGrid,
   .pipeline,
-  .formSplit {
+  .formSplit,
+  .payrollSummary {
     grid-template-columns: 1fr;
   }
 

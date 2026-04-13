@@ -10,6 +10,7 @@ import { MetricCard } from "../components/metric-card";
 import { ModuleTile } from "../components/module-tile";
 import { PayrollTable } from "../components/payroll-table";
 import { PhaseTwoPanel } from "../components/phase-two-panel";
+import { EmployeeWorkspace } from "../components/employee-workspace";
 
 const employee = {
   tenantId: "tenant-solva-demo",
@@ -71,8 +72,8 @@ const buildSlices = [
   {
     label: "Slice 3",
     title: "Employee workspace",
-    status: "Next",
-    detail: "Create employees, view records, and connect master data to Supabase."
+    status: "Active",
+    detail: "Create employees and view live Supabase employee records."
   },
   {
     label: "Slice 4",
@@ -208,6 +209,8 @@ export default function Home() {
           tasks={[...onboardingTasks]}
           workflowSteps={offerWorkflow.steps}
         />
+
+        <EmployeeWorkspace />
 
         <section className="contentGrid">
           <div className="panel">

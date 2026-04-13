@@ -200,7 +200,8 @@ h2 {
 .metricCard,
 .moduleTile,
 .panel,
-.progressPanel {
+.progressPanel,
+.employeeWorkspace {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -240,12 +241,14 @@ h2 {
 }
 
 .panel,
-.progressPanel {
+.progressPanel,
+.employeeWorkspace {
   min-width: 0;
   padding: 22px;
 }
 
-.progressPanel {
+.progressPanel,
+.employeeWorkspace {
   margin-bottom: 20px;
 }
 
@@ -352,6 +355,79 @@ h2 {
   line-height: 1.45;
 }
 
+.employeeGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.55fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.employeeForm {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.employeeForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.employeeForm input {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+}
+
+.employeeForm p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.employeeTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.employeeTable {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.employeeTable th,
+.employeeTable td {
+  border-bottom: 1px solid var(--line);
+  padding: 13px 14px;
+  text-align: left;
+}
+
+.employeeTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.employeeTable strong,
+.employeeTable span {
+  display: block;
+}
+
+.employeeTable span {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
 .pipelineStage {
   min-height: 92px;
   padding: 14px;
@@ -452,7 +528,8 @@ h2 {
   .commandBand,
   .contentGrid,
   .phaseTwoGrid,
-  .sliceGrid {
+  .sliceGrid,
+  .employeeGrid {
     grid-template-columns: 1fr;
   }
 

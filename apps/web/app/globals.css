@@ -81,15 +81,34 @@ a {
   gap: 8px;
 }
 
-.nav a {
+.brandButton {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.nav button {
   min-height: 42px;
   padding: 12px 14px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   text-decoration: none;
 }
 
-.nav a:first-child,
-.nav a:hover {
+.nav button,
+.nav a {
+  color: #d8e8e4;
+}
+
+.nav button:first-child,
+.nav button:hover,
+.nav .activeNav {
   background: #1f3a36;
   color: #ffffff;
 }
@@ -152,7 +171,8 @@ h2 {
   color: var(--ink);
 }
 
-.commandBand {
+.commandBand,
+.homeHero {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
   gap: 24px;
@@ -209,6 +229,14 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
+}
+
+.homeHero > div {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 30px;
 }
 
 .metricCard,
@@ -365,6 +393,39 @@ h2 {
 .sliceCard p {
   margin: 0;
   line-height: 1.45;
+}
+
+.appWidgetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.appWidget {
+  display: grid;
+  gap: 10px;
+  min-height: 150px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.appWidget:hover {
+  border-color: var(--teal);
+}
+
+.appWidget span,
+.appWidget small {
+  color: var(--muted);
+}
+
+.appWidget strong {
+  font-size: 1.35rem;
 }
 
 .employeeGrid {
@@ -886,9 +947,11 @@ h2 {
   }
 
   .commandBand,
+  .homeHero,
   .contentGrid,
   .phaseTwoGrid,
   .sliceGrid,
+  .appWidgetGrid,
   .employeeGrid,
   .leaveGrid,
   .leaveList article,

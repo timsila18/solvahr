@@ -40,6 +40,8 @@ Read `docs/ARCHITECTURE.md` for the service boundaries, module plan, and payroll
 
 Set the secret values in Render, not in git: `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SECRET_KEY`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. After Render creates the API service, set `NEXT_PUBLIC_API_URL` on the web service to the API service's public `.onrender.com` URL.
 
+If the GitHub repository is private, authorize the Render GitHub app for `timsila18/solvahr` before creating the Blueprint. Without that authorization, Render's API cannot fetch the repository even when the Render API key is valid.
+
 ## Payroll Compliance Note
 
 Statutory configuration must be reviewed by a qualified payroll/compliance professional before production use. The code intentionally treats rates, bands, caps, filing templates, and due dates as effective-dated configuration rather than permanent source-code constants.

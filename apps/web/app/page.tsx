@@ -14,6 +14,7 @@ import { EmployeeWorkspace } from "../components/employee-workspace";
 import { LeaveWorkspace } from "../components/leave-workspace";
 import { PayrollWorkspace } from "../components/payroll-workspace";
 import { PayrollReportsWorkspace } from "../components/payroll-reports-workspace";
+import { RecruitmentWorkspace } from "../components/recruitment-workspace";
 
 const employee = {
   tenantId: "tenant-solva-demo",
@@ -95,6 +96,12 @@ const buildSlices = [
     title: "Payroll reports",
     status: "Active",
     detail: "View payroll register, gross-to-net, bank, and statutory reports."
+  },
+  {
+    label: "Slice 7",
+    title: "Recruitment",
+    status: "Active",
+    detail: "Create candidates, review vacancies, and approve offers from Supabase."
   }
 ] as const;
 
@@ -224,6 +231,8 @@ export default function Home() {
           tasks={[...onboardingTasks]}
           workflowSteps={offerWorkflow.steps}
         />
+
+        <RecruitmentWorkspace />
 
         <EmployeeWorkspace />
 

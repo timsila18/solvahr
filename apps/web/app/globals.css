@@ -204,7 +204,8 @@ h2 {
 .employeeWorkspace,
 .leaveWorkspace,
 .payrollWorkspace,
-.payrollReportsWorkspace {
+.payrollReportsWorkspace,
+.recruitmentWorkspace {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -248,7 +249,8 @@ h2 {
 .employeeWorkspace,
 .leaveWorkspace,
 .payrollWorkspace,
-.payrollReportsWorkspace {
+.payrollReportsWorkspace,
+.recruitmentWorkspace {
   min-width: 0;
   padding: 22px;
 }
@@ -257,7 +259,8 @@ h2 {
 .employeeWorkspace,
 .leaveWorkspace,
 .payrollWorkspace,
-.payrollReportsWorkspace {
+.payrollReportsWorkspace,
+.recruitmentWorkspace {
   margin-bottom: 20px;
 }
 
@@ -684,6 +687,107 @@ h2 {
   border-bottom: 0;
 }
 
+.recruitmentGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.5fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.recruitmentForm {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.recruitmentForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.recruitmentForm input,
+.recruitmentForm select {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+}
+
+.recruitmentForm p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.recruitmentLists {
+  display: grid;
+  gap: 14px;
+}
+
+.stageGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stageGrid article {
+  min-height: 88px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fbfa;
+}
+
+.stageGrid span,
+.offerList span {
+  color: var(--muted);
+}
+
+.stageGrid strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.6rem;
+}
+
+.offerList {
+  display: grid;
+  gap: 10px;
+}
+
+.offerList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.offerList strong,
+.offerList span {
+  display: block;
+}
+
+.offerList span {
+  margin-top: 5px;
+}
+
+.offerList .secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .pipelineStage {
   min-height: 92px;
   padding: 14px;
@@ -789,7 +893,9 @@ h2 {
   .leaveGrid,
   .leaveList article,
   .payrollRunGrid,
-  .payrollDetailGrid {
+  .payrollDetailGrid,
+  .recruitmentGrid,
+  .offerList article {
     grid-template-columns: 1fr;
   }
 
@@ -815,7 +921,8 @@ h2 {
   .moduleGrid,
   .pipeline,
   .formSplit,
-  .payrollSummary {
+  .payrollSummary,
+  .stageGrid {
     grid-template-columns: 1fr;
   }
 

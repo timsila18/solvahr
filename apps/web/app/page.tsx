@@ -65,8 +65,8 @@ const buildSlices = [
   {
     label: "Slice 2",
     title: "Supabase activation",
-    status: "Waiting for DB URL",
-    detail: "Migration and seed run after the Supabase database password is supplied."
+    status: "Active",
+    detail: "Initial schema migrated, demo tenant seeded, and API writes verified."
   },
   {
     label: "Slice 3",

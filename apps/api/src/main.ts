@@ -28,6 +28,7 @@ import {
   createCandidate,
   createEmployee,
   createLeaveRequest,
+  decideLeaveRequest,
   getDashboardPayload,
   listCandidates,
   listCompanies,
@@ -171,6 +172,82 @@ app.post(
     });
 
     response.status(201).json(leaveRequest);
+  })
+);
+
+app.post(
+  "/api/leave/requests/:id/approve",
+  requirePermission("leave.approve"),
+  asyncHandler(async (request, response) => {
+    const leaveRequestId = request.params.id;
+    if (!leaveRequestId) {
+      sendError(response, 400, "Leave request id is required", { code: "missing_leave_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const leaveRequest = await decideLeaveRequest(leaveRequestId, "APPROVED", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!leaveRequest) {
+      response.status(202).json({
+        id: leaveRequestId,
+        status: "approved",
+        message: "Leave approval recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "leave.request.approve",
+      entityType: "leave_request",
+      entityId: leaveRequest.id,
+      after: leaveRequest
+    });
+
+    response.status(202).json(leaveRequest);
+  })
+);
+
+app.post(
+  "/api/leave/requests/:id/reject",
+  requirePermission("leave.approve"),
+  asyncHandler(async (request, response) => {
+    const leaveRequestId = request.params.id;
+    if (!leaveRequestId) {
+      sendError(response, 400, "Leave request id is required", { code: "missing_leave_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const leaveRequest = await decideLeaveRequest(leaveRequestId, "REJECTED", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!leaveRequest) {
+      response.status(202).json({
+        id: leaveRequestId,
+        status: "rejected",
+        message: "Leave rejection recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "leave.request.reject",
+      entityType: "leave_request",
+      entityId: leaveRequest.id,
+      after: leaveRequest
+    });
+
+    response.status(202).json(leaveRequest);
   })
 );
 

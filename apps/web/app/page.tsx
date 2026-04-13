@@ -80,7 +80,7 @@ const buildSlices = [
     label: "Slice 4",
     title: "Leave workflow",
     status: "Active",
-    detail: "Submit leave requests and view the live Supabase request queue."
+    detail: "Submit, approve, reject, and view the live Supabase request queue."
   }
 ] as const;
 

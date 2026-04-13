@@ -11,6 +11,8 @@
 - `GET /api/leave/types`
 - `GET /api/leave/requests`
 - `POST /api/leave/requests`
+- `POST /api/leave/requests/:id/approve`
+- `POST /api/leave/requests/:id/reject`
 - `GET /api/recruitment/requisitions`
 - `GET /api/recruitment/vacancies`
 - `GET /api/recruitment/candidates`

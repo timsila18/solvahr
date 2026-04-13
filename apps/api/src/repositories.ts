@@ -460,6 +460,55 @@ export async function createLeaveRequest(input: {
   });
 }
 
+export async function decideLeaveRequest(
+  id: string,
+  decision: "APPROVED" | "REJECTED",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.$transaction(async (transaction) => {
+    const leaveRequest = await transaction.leaveRequest.update({
+      where: { id },
+      data: {
+        status: decision
+      },
+      include: {
+        employee: true,
+        leaveType: true,
+        approvals: true
+      }
+    });
+
+    await transaction.leaveApproval.create({
+      data: {
+        leaveRequestId: id,
+        approverUserId: input.approverUserId,
+        step: leaveRequest.approvals.length + 1,
+        status: decision,
+        comments: input.comments ?? null,
+        decidedAt: new Date()
+      }
+    });
+
+    return {
+      id: leaveRequest.id,
+      employeeName: leaveRequest.employee.preferredName ?? leaveRequest.employee.legalName,
+      type: leaveRequest.leaveType.name,
+      days: decimalToNumber(leaveRequest.days),
+      startDate: isoDate(leaveRequest.startDate),
+      endDate: isoDate(leaveRequest.endDate),
+      status: decision.toLowerCase(),
+      approver: input.approverUserId
+    };
+  });
+}
+
 export async function approveOffer(id: string, comments?: string | undefined) {
   if (!isDatabaseConfigured()) {
     return null;

@@ -52,7 +52,7 @@ export function LeaveWorkspace() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [form, setForm] = useState<LeaveForm>(initialForm);
-  const [status, setStatus] = useState<"loading" | "idle" | "saving">("loading");
+  const [status, setStatus] = useState<"loading" | "idle" | "saving" | "deciding">("loading");
   const [message, setMessage] = useState("Loading leave workflow data");
 
   async function loadLeaveData() {
@@ -127,6 +127,33 @@ export function LeaveWorkspace() {
     setMessage("Leave request submitted to Supabase");
   }
 
+  async function decideLeaveRequest(id: string, decision: "approve" | "reject") {
+    setStatus("deciding");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} leave request`);
+
+    const response = await fetch(`${apiBaseUrl}/api/leave/requests/${id}/${decision}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-user-id": "demo-manager",
+        "x-user-roles": "manager"
+      },
+      body: JSON.stringify({
+        comments: decision === "approve" ? "Approved from manager workspace" : "Rejected from manager workspace"
+      })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      setStatus("idle");
+      setMessage(errorBody?.error?.message ?? "Leave decision could not be recorded");
+      return;
+    }
+
+    await loadLeaveData();
+    setMessage(`Leave request ${decision === "approve" ? "approved" : "rejected"} in Supabase`);
+  }
+
   return (
     <section className="leaveWorkspace" id="leave" aria-label="Leave workflow">
       <div className="panelHeader">
@@ -134,7 +161,7 @@ export function LeaveWorkspace() {
           <p className="eyebrow">Leave Workflow</p>
           <h2>Submit leave and watch the live request queue update.</h2>
         </div>
-        <span className="status">{status === "saving" ? "Submitting" : "Live"}</span>
+        <span className="status">{status === "saving" ? "Submitting" : status === "deciding" ? "Deciding" : "Live"}</span>
       </div>
 
       <div className="leaveGrid">
@@ -223,6 +250,24 @@ export function LeaveWorkspace() {
                 {request.startDate} to {request.endDate} - {request.days ?? 0} days
               </p>
               <b>{request.status}</b>
+              <div className="decisionActions">
+                <button
+                  className="secondaryButton"
+                  disabled={status === "deciding" || request.status !== "submitted"}
+                  onClick={() => decideLeaveRequest(request.id, "approve")}
+                  type="button"
+                >
+                  Approve
+                </button>
+                <button
+                  className="secondaryButton"
+                  disabled={status === "deciding" || request.status !== "submitted"}
+                  onClick={() => decideLeaveRequest(request.id, "reject")}
+                  type="button"
+                >
+                  Reject
+                </button>
+              </div>
             </article>
           ))}
           {!requests.length ? <p>No leave requests submitted yet.</p> : null}

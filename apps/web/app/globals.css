@@ -496,7 +496,7 @@ h2 {
 
 .leaveList article {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto auto;
   gap: 12px;
   align-items: center;
   min-height: 78px;
@@ -519,6 +519,23 @@ h2 {
 
 .leaveList b {
   color: var(--teal-dark);
+}
+
+.decisionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.decisionActions .secondaryButton {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.decisionActions .secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .pipelineStage {

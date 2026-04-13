@@ -201,7 +201,8 @@ h2 {
 .moduleTile,
 .panel,
 .progressPanel,
-.employeeWorkspace {
+.employeeWorkspace,
+.leaveWorkspace {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -242,13 +243,15 @@ h2 {
 
 .panel,
 .progressPanel,
-.employeeWorkspace {
+.employeeWorkspace,
+.leaveWorkspace {
   min-width: 0;
   padding: 22px;
 }
 
 .progressPanel,
-.employeeWorkspace {
+.employeeWorkspace,
+.leaveWorkspace {
   margin-bottom: 20px;
 }
 
@@ -428,6 +431,96 @@ h2 {
   color: var(--muted);
 }
 
+.leaveGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.55fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.leaveForm {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.leaveForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.leaveForm input,
+.leaveForm select,
+.leaveForm textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+}
+
+.leaveForm input,
+.leaveForm select {
+  min-height: 42px;
+}
+
+.leaveForm textarea {
+  min-height: 92px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.leaveForm p,
+.leaveList p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.formSplit {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.leaveList {
+  display: grid;
+  gap: 10px;
+}
+
+.leaveList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 78px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.leaveList strong,
+.leaveList span,
+.leaveList b {
+  display: block;
+}
+
+.leaveList span {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+.leaveList b {
+  color: var(--teal-dark);
+}
+
 .pipelineStage {
   min-height: 92px;
   padding: 14px;
@@ -529,7 +622,9 @@ h2 {
   .contentGrid,
   .phaseTwoGrid,
   .sliceGrid,
-  .employeeGrid {
+  .employeeGrid,
+  .leaveGrid,
+  .leaveList article {
     grid-template-columns: 1fr;
   }
 
@@ -553,7 +648,8 @@ h2 {
   .nav,
   .metrics,
   .moduleGrid,
-  .pipeline {
+  .pipeline,
+  .formSplit {
     grid-template-columns: 1fr;
   }
 

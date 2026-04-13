@@ -108,6 +108,27 @@ export async function listLeaveRequests() {
   });
 }
 
+export async function listLeaveTypes() {
+  return useDatabase(async () => {
+    const leaveTypes = await prisma.leaveType.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        policy: true
+      }
+    });
+
+    return leaveTypes.map((leaveType) => ({
+      id: leaveType.id,
+      code: leaveType.code,
+      name: leaveType.name,
+      requiresAttachment: leaveType.requiresAttachment,
+      allowHalfDay: leaveType.allowHalfDay,
+      annualEntitlement: decimalToNumber(leaveType.policy?.annualEntitlement),
+      accrualMethod: leaveType.policy?.accrualMethod ?? null
+    }));
+  });
+}
+
 export async function listRequisitions() {
   return useDatabase(async () => {
     const requisitions = await prisma.requisition.findMany({

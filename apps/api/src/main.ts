@@ -36,6 +36,7 @@ import {
   listGeneratedDocuments,
   listInterviews,
   listLeaveRequests,
+  listLeaveTypes,
   listOffers,
   listOnboardingTasks,
   listProbationReviews,
@@ -52,6 +53,11 @@ import {
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
+const demoLeaveTypes = [
+  { id: "leave-annual", code: "ANNUAL", name: "Annual Leave", requiresAttachment: false, allowHalfDay: true, annualEntitlement: 21, accrualMethod: "annual" },
+  { id: "leave-sick", code: "SICK", name: "Sick Leave", requiresAttachment: true, allowHalfDay: true, annualEntitlement: 14, accrualMethod: "annual" },
+  { id: "leave-compassionate", code: "COMPASSIONATE", name: "Compassionate Leave", requiresAttachment: false, allowHalfDay: false, annualEntitlement: 5, accrualMethod: "annual" }
+];
 
 app.use(cors());
 app.use(express.json());
@@ -136,6 +142,10 @@ app.post(
 
 app.get("/api/leave/requests", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listLeaveRequests, demoLeaveRequests));
+}));
+
+app.get("/api/leave/types", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listLeaveTypes, demoLeaveTypes));
 }));
 
 app.post(

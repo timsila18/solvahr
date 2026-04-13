@@ -11,6 +11,7 @@ import { ModuleTile } from "../components/module-tile";
 import { PayrollTable } from "../components/payroll-table";
 import { PhaseTwoPanel } from "../components/phase-two-panel";
 import { EmployeeWorkspace } from "../components/employee-workspace";
+import { LeaveWorkspace } from "../components/leave-workspace";
 
 const employee = {
   tenantId: "tenant-solva-demo",
@@ -78,8 +79,8 @@ const buildSlices = [
   {
     label: "Slice 4",
     title: "Leave workflow",
-    status: "Next",
-    detail: "Submit leave, route approvals, and write balances into tenant records."
+    status: "Active",
+    detail: "Submit leave requests and view the live Supabase request queue."
   }
 ] as const;
 
@@ -211,6 +212,8 @@ export default function Home() {
         />
 
         <EmployeeWorkspace />
+
+        <LeaveWorkspace />
 
         <section className="contentGrid">
           <div className="panel">

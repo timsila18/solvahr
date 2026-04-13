@@ -8,6 +8,7 @@
 - `GET /api/companies`
 - `GET /api/employees`
 - `POST /api/employees`
+- `GET /api/leave/types`
 - `GET /api/leave/requests`
 - `POST /api/leave/requests`
 - `GET /api/recruitment/requisitions`

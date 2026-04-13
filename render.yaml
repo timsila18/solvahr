@@ -4,6 +4,7 @@ services:
     runtime: node
     plan: free
     region: oregon
+    repo: https://github.com/timsila18/solvahr
     branch: main
     autoDeployTrigger: commit
     buildCommand: npm install && npm run build --workspace @solva/shared && npm run build --workspace @solva/api
@@ -32,6 +33,7 @@ services:
     runtime: node
     plan: free
     region: oregon
+    repo: https://github.com/timsila18/solvahr
     branch: main
     autoDeployTrigger: commit
     buildCommand: npm install && npm run build --workspace @solva/shared && npm run build --workspace @solva/web

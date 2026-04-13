@@ -55,6 +55,33 @@ const modules = [
   ["Audit Logs", "1,284 events", "Payroll changes tracked"]
 ] as const;
 
+const buildSlices = [
+  {
+    label: "Slice 1",
+    title: "API foundation",
+    status: "Ready for staging",
+    detail: "Auth context, RBAC guards, validation, write endpoints, and audit hooks."
+  },
+  {
+    label: "Slice 2",
+    title: "Supabase activation",
+    status: "Waiting for DB URL",
+    detail: "Migration and seed run after the Supabase database password is supplied."
+  },
+  {
+    label: "Slice 3",
+    title: "Employee workspace",
+    status: "Next",
+    detail: "Create employees, view records, and connect master data to Supabase."
+  },
+  {
+    label: "Slice 4",
+    title: "Leave workflow",
+    status: "Next",
+    detail: "Submit leave, route approvals, and write balances into tenant records."
+  }
+] as const;
+
 const candidates = [
   { fullName: "Mercy Njeri", stage: "interview", screeningScore: 87, source: "LinkedIn" },
   { fullName: "Daniel Otieno", stage: "shortlisted", screeningScore: 81, source: "Referral" },
@@ -151,6 +178,28 @@ export default function Home() {
           <MetricCard label="Payroll Cost" value={money(18450000)} hint="+3.8% variance" />
           <MetricCard label="Net To Bank" value={money(13944000)} hint="Bank file pending" />
           <MetricCard label="Approvals" value="29" hint="Leave, offers, payroll" />
+        </section>
+
+        <section className="progressPanel" aria-label="Build progress">
+          <div className="panelHeader">
+            <div>
+              <p className="eyebrow">Build Progress</p>
+              <h2>Small slices, visible checkpoints.</h2>
+            </div>
+            <span className="status">Slice 1</span>
+          </div>
+          <div className="sliceGrid">
+            {buildSlices.map((slice) => (
+              <article className="sliceCard" key={slice.label}>
+                <div>
+                  <span>{slice.label}</span>
+                  <strong>{slice.title}</strong>
+                </div>
+                <b>{slice.status}</b>
+                <p>{slice.detail}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         <PhaseTwoPanel

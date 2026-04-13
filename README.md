@@ -29,6 +29,8 @@ For local-only development, `docker-compose.yml` still provides a disposable Pos
 
 The API reads from Prisma/PostgreSQL when `DATABASE_URL` is configured. If the database is not configured or temporarily unavailable, read endpoints fall back to demo data so staging remains explorable while the real Supabase connection is being prepared.
 
+Write endpoints require RBAC permissions and return `503 database_not_configured` until the Supabase Postgres URL is configured. Staging currently accepts `x-tenant-id`, `x-user-id`, `x-user-email`, and `x-user-roles` headers as a temporary auth context before full JWT login is added.
+
 ## Architecture
 
 Read `docs/ARCHITECTURE.md` for the service boundaries, module plan, and payroll/reporting design.

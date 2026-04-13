@@ -199,7 +199,8 @@ h2 {
 
 .metricCard,
 .moduleTile,
-.panel {
+.panel,
+.progressPanel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -238,9 +239,14 @@ h2 {
   margin-bottom: 20px;
 }
 
-.panel {
+.panel,
+.progressPanel {
   min-width: 0;
   padding: 22px;
+}
+
+.progressPanel {
+  margin-bottom: 20px;
 }
 
 .panelHeader {
@@ -304,6 +310,46 @@ h2 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.sliceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sliceCard {
+  display: grid;
+  gap: 12px;
+  min-height: 176px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.sliceCard span,
+.sliceCard p {
+  color: var(--muted);
+}
+
+.sliceCard strong,
+.sliceCard b {
+  display: block;
+}
+
+.sliceCard strong {
+  margin-top: 6px;
+  font-size: 1.08rem;
+}
+
+.sliceCard b {
+  color: var(--coral);
+}
+
+.sliceCard p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .pipelineStage {
@@ -405,7 +451,8 @@ h2 {
 
   .commandBand,
   .contentGrid,
-  .phaseTwoGrid {
+  .phaseTwoGrid,
+  .sliceGrid {
     grid-template-columns: 1fr;
   }
 

@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { ZodError } from "zod";
 import {
   buildDemoPayrollRun,
   dashboardMetrics,
@@ -19,8 +20,14 @@ import {
   phaseTwoMetrics
 } from "./demo-data.js";
 import { asyncHandler, sendError } from "./http.js";
+import { attachUserContext, requirePermission } from "./auth.js";
+import { writeAuditLog } from "./audit.js";
 import { getDatabaseStatus, prisma } from "./prisma.js";
 import {
+  approveOffer,
+  createCandidate,
+  createEmployee,
+  createLeaveRequest,
   getDashboardPayload,
   listCandidates,
   listCompanies,
@@ -33,14 +40,22 @@ import {
   listOnboardingTasks,
   listProbationReviews,
   listRequisitions,
-  listVacancies
+  listVacancies,
+  requestPayrollApproval
 } from "./repositories.js";
+import {
+  approvalDecisionSchema,
+  createCandidateSchema,
+  createEmployeeSchema,
+  createLeaveRequestSchema
+} from "./validators.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
 
 app.use(cors());
 app.use(express.json());
+app.use(attachUserContext);
 
 app.get("/health", (_request, response) => {
   response.json({
@@ -93,9 +108,61 @@ app.get("/api/employees", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listEmployees, [...demoEmployees]));
 }));
 
+app.post(
+  "/api/employees",
+  requirePermission("employees.create"),
+  asyncHandler(async (request, response) => {
+    const input = createEmployeeSchema.parse(request.body);
+    const employee = await createEmployee(request.user.tenantId, input);
+
+    if (!employee) {
+      sendError(response, 503, "Database is not configured for writes", {
+        code: "database_not_configured"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "employees.create",
+      entityType: "employee",
+      entityId: employee.id,
+      after: employee
+    });
+
+    response.status(201).json(employee);
+  })
+);
+
 app.get("/api/leave/requests", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listLeaveRequests, demoLeaveRequests));
 }));
+
+app.post(
+  "/api/leave/requests",
+  requirePermission("leave.apply"),
+  asyncHandler(async (request, response) => {
+    const input = createLeaveRequestSchema.parse(request.body);
+    const leaveRequest = await createLeaveRequest(input);
+
+    if (!leaveRequest) {
+      sendError(response, 503, "Database is not configured for writes", {
+        code: "database_not_configured"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "leave.request.create",
+      entityType: "leave_request",
+      entityId: leaveRequest.id,
+      after: leaveRequest
+    });
+
+    response.status(201).json(leaveRequest);
+  })
+);
 
 app.get("/api/recruitment/requisitions", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listRequisitions, demoRequisitions));
@@ -109,6 +176,32 @@ app.get("/api/recruitment/candidates", asyncHandler(async (_request, response) =
   response.json(await withFallback(listCandidates, [...demoCandidates]));
 }));
 
+app.post(
+  "/api/recruitment/candidates",
+  requirePermission("recruitment.manage"),
+  asyncHandler(async (request, response) => {
+    const input = createCandidateSchema.parse(request.body);
+    const candidate = await createCandidate(request.user.tenantId, input);
+
+    if (!candidate) {
+      sendError(response, 503, "Database is not configured for writes", {
+        code: "database_not_configured"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "recruitment.candidate.create",
+      entityType: "candidate",
+      entityId: candidate.id,
+      after: candidate
+    });
+
+    response.status(201).json(candidate);
+  })
+);
+
 app.get("/api/recruitment/interviews", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listInterviews, demoInterviews));
 }));
@@ -117,14 +210,41 @@ app.get("/api/recruitment/offers", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listOffers, demoOffers));
 }));
 
-app.post("/api/recruitment/offers/:id/approve", (request, response) => {
-  response.status(202).json({
-    id: request.params.id,
-    status: "pending_next_approval",
-    message: "Offer approval step recorded",
-    auditAction: "recruitment.offer.approval.step"
-  });
-});
+app.post(
+  "/api/recruitment/offers/:id/approve",
+  requirePermission("recruitment.approve_offers"),
+  asyncHandler(async (request, response) => {
+    const offerId = request.params.id;
+    if (!offerId) {
+      sendError(response, 400, "Offer id is required", { code: "missing_offer_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const offer = await approveOffer(offerId, input.comments);
+
+    if (!offer) {
+      response.status(202).json({
+        id: offerId,
+        status: "pending_next_approval",
+        message: "Offer approval step recorded",
+        auditAction: "recruitment.offer.approval.step",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "recruitment.offer.approve",
+      entityType: "job_offer",
+      entityId: offer.id,
+      after: offer
+    });
+
+    response.status(202).json(offer);
+  })
+);
 
 app.get("/api/onboarding/tasks", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listOnboardingTasks, demoOnboardingTasks));
@@ -154,15 +274,43 @@ app.get("/api/settings/catalogues", (_request, response) => {
   response.json(demoCatalogues);
 });
 
-app.post("/api/payroll/runs/current/approve", (_request, response) => {
-  response.status(202).json({
-    status: "pending_approval",
-    message: "Payroll approval workflow started",
-    auditAction: "payroll.approval.requested"
-  });
-});
+app.post(
+  "/api/payroll/runs/current/approve",
+  requirePermission("payroll.approve"),
+  asyncHandler(async (request, response) => {
+    const payrollRun = await requestPayrollApproval();
+
+    if (!payrollRun) {
+      response.status(202).json({
+        status: "pending_approval",
+        message: "Payroll approval workflow started",
+        auditAction: "payroll.approval.requested",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "payroll.approval.requested",
+      entityType: "payroll_run",
+      entityId: payrollRun.id,
+      after: payrollRun
+    });
+
+    response.status(202).json(payrollRun);
+  })
+);
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if (error instanceof ZodError) {
+    sendError(response, 400, "Validation failed", {
+      code: "validation_failed",
+      issues: error.issues
+    });
+    return;
+  }
+
   console.error(error);
   sendError(response, 500, "Unexpected API error", error instanceof Error ? error.message : error);
 });

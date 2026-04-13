@@ -348,3 +348,146 @@ export async function getDashboardPayload() {
     };
   });
 }
+
+export async function createEmployee(tenantId: string, input: {
+  employeeNumber: string;
+  payrollNumber?: string | undefined;
+  legalName: string;
+  preferredName?: string | undefined;
+  companyEmail?: string | undefined;
+  phone?: string | undefined;
+  hireDate: string;
+  departmentId?: string | undefined;
+  branchId?: string | undefined;
+  positionId?: string | undefined;
+  gradeId?: string | undefined;
+  costCenterId?: string | undefined;
+}) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.employee.create({
+    data: {
+      tenantId,
+      employeeNumber: input.employeeNumber,
+      payrollNumber: input.payrollNumber ?? null,
+      legalName: input.legalName,
+      preferredName: input.preferredName ?? null,
+      companyEmail: input.companyEmail ?? null,
+      phone: input.phone ?? null,
+      hireDate: new Date(input.hireDate),
+      departmentId: input.departmentId ?? null,
+      branchId: input.branchId ?? null,
+      positionId: input.positionId ?? null,
+      gradeId: input.gradeId ?? null,
+      costCenterId: input.costCenterId ?? null
+    }
+  });
+}
+
+export async function createCandidate(tenantId: string, input: {
+  vacancyId?: string | undefined;
+  fullName: string;
+  email: string;
+  phone?: string | undefined;
+  source?: string | undefined;
+  salaryExpectation?: number | undefined;
+  noticePeriod?: string | undefined;
+  notes?: string | undefined;
+}) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.candidate.create({
+    data: {
+      tenantId,
+      vacancyId: input.vacancyId ?? null,
+      fullName: input.fullName,
+      email: input.email,
+      phone: input.phone ?? null,
+      source: input.source ?? null,
+      salaryExpectation: input.salaryExpectation ?? null,
+      noticePeriod: input.noticePeriod ?? null,
+      notes: input.notes ?? null
+    }
+  });
+}
+
+export async function createLeaveRequest(input: {
+  employeeId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason?: string | undefined;
+}) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.leaveRequest.create({
+    data: {
+      employeeId: input.employeeId,
+      leaveTypeId: input.leaveTypeId,
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+      days: input.days,
+      reason: input.reason ?? null
+    }
+  });
+}
+
+export async function approveOffer(id: string, comments?: string | undefined) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const offer = await prisma.jobOffer.update({
+    where: { id },
+    data: {
+      status: "APPROVED"
+    }
+  });
+
+  if (comments) {
+    await prisma.auditLog.create({
+      data: {
+        tenantId: offer.tenantId,
+        action: "recruitment.offer.comment",
+        entityType: "job_offer",
+        entityId: offer.id,
+        after: { comments }
+      }
+    });
+  }
+
+  return offer;
+}
+
+export async function requestPayrollApproval() {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const currentRun = await prisma.payrollRun.findFirst({
+    orderBy: { createdAt: "desc" },
+    where: {
+      status: {
+        in: ["DRAFT", "READY_FOR_REVIEW"]
+      }
+    }
+  });
+
+  if (!currentRun) {
+    return null;
+  }
+
+  return prisma.payrollRun.update({
+    where: { id: currentRun.id },
+    data: {
+      status: "PENDING_APPROVAL"
+    }
+  });
+}

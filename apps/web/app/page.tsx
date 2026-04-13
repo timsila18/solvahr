@@ -13,6 +13,7 @@ import { PhaseTwoPanel } from "../components/phase-two-panel";
 import { EmployeeWorkspace } from "../components/employee-workspace";
 import { LeaveWorkspace } from "../components/leave-workspace";
 import { PayrollWorkspace } from "../components/payroll-workspace";
+import { PayrollReportsWorkspace } from "../components/payroll-reports-workspace";
 
 const employee = {
   tenantId: "tenant-solva-demo",
@@ -88,6 +89,12 @@ const buildSlices = [
     title: "Payroll run",
     status: "Active",
     detail: "Review live payroll totals and request approval from Supabase-backed runs."
+  },
+  {
+    label: "Slice 6",
+    title: "Payroll reports",
+    status: "Active",
+    detail: "View payroll register, gross-to-net, bank, and statutory reports."
   }
 ] as const;
 
@@ -223,6 +230,8 @@ export default function Home() {
         <LeaveWorkspace />
 
         <PayrollWorkspace />
+
+        <PayrollReportsWorkspace />
 
         <section className="contentGrid">
           <div className="panel">

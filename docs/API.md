@@ -26,6 +26,7 @@
 - `GET /api/documents/generated`
 - `GET /api/payroll/runs/current`
 - `POST /api/payroll/runs/current/approve`
+- `GET /api/payroll/reports/current`
 - `GET /api/reports/templates`
 - `GET /api/settings/catalogues`
 

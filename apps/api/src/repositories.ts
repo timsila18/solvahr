@@ -446,6 +446,73 @@ export async function getCurrentPayrollRun() {
   });
 }
 
+export async function getCurrentPayrollReports() {
+  const run = await getCurrentPayrollRun();
+
+  if (!run) {
+    return null;
+  }
+
+  const payrollRegister = run.results.map((result) => ({
+    employeeId: result.employeeId,
+    employee: result.displayName,
+    payrollNumber: result.payrollNumber,
+    grossPay: result.grossPay,
+    taxablePay: result.taxablePay,
+    totalDeductions: result.totalDeductions,
+    employerCosts: result.totalEmployerCosts,
+    netPay: result.netPay
+  }));
+
+  const statutorySummary = run.results
+    .flatMap((result) => [...result.deductions, ...result.employerCosts])
+    .filter((line) => ["PAYE", "SHIF", "NSSF_EE", "NSSF_ER", "AHL_EE", "AHL_ER"].includes(line.code))
+    .reduce<Array<{ code: string; name: string; amount: number }>>((rows, line) => {
+      const existing = rows.find((row) => row.code === line.code);
+      if (existing) {
+        existing.amount += line.amount;
+      } else {
+        rows.push({ code: line.code, name: line.name, amount: line.amount });
+      }
+
+      return rows;
+    }, []);
+
+  return {
+    run: {
+      id: run.id,
+      period: run.period,
+      cycle: run.cycle,
+      status: run.status,
+      employeeCount: run.employeeCount
+    },
+    reports: {
+      payrollRegister,
+      grossToNet: payrollRegister.map((row) => ({
+        employee: row.employee,
+        grossPay: row.grossPay,
+        taxablePay: row.taxablePay,
+        deductions: row.totalDeductions,
+        netPay: row.netPay
+      })),
+      netToBank: payrollRegister.map((row) => ({
+        employee: row.employee,
+        payrollNumber: row.payrollNumber,
+        paymentMode: "bank",
+        bank: "Pending bank setup",
+        accountNumber: "Pending",
+        netPay: row.netPay
+      })),
+      statutorySummary,
+      employerSpend: {
+        grossPay: run.totals.grossPay,
+        employerCosts: run.totals.employerCosts,
+        totalSpend: run.totals.grossPay + run.totals.employerCosts
+      }
+    }
+  };
+}
+
 export async function createEmployee(tenantId: string, input: {
   employeeNumber: string;
   payrollNumber?: string | undefined;

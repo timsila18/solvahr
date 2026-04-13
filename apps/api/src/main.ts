@@ -30,6 +30,7 @@ import {
   createLeaveRequest,
   decideLeaveRequest,
   getCurrentPayrollRun,
+  getCurrentPayrollReports,
   getDashboardPayload,
   listCandidates,
   listCompanies,
@@ -352,6 +353,53 @@ app.get("/api/documents/generated", asyncHandler(async (_request, response) => {
 
 app.get("/api/payroll/runs/current", asyncHandler(async (_request, response) => {
   response.json(await withFallback(getCurrentPayrollRun, buildDemoPayrollRun()));
+}));
+
+app.get("/api/payroll/reports/current", asyncHandler(async (_request, response) => {
+  const demoRun = buildDemoPayrollRun();
+  const demoReport = {
+    run: {
+      id: demoRun.id,
+      period: demoRun.period,
+      cycle: demoRun.cycle,
+      status: demoRun.status,
+      employeeCount: demoRun.employeeCount
+    },
+    reports: {
+      payrollRegister: demoRun.results.map((result) => ({
+        employee: result.payrollNumber,
+        payrollNumber: result.payrollNumber,
+        grossPay: result.grossPay,
+        taxablePay: result.taxablePay,
+        totalDeductions: result.totalDeductions,
+        employerCosts: result.totalEmployerCosts,
+        netPay: result.netPay
+      })),
+      grossToNet: demoRun.results.map((result) => ({
+        employee: result.payrollNumber,
+        grossPay: result.grossPay,
+        taxablePay: result.taxablePay,
+        deductions: result.totalDeductions,
+        netPay: result.netPay
+      })),
+      netToBank: demoRun.results.map((result) => ({
+        employee: result.payrollNumber,
+        payrollNumber: result.payrollNumber,
+        paymentMode: "bank",
+        bank: "Pending bank setup",
+        accountNumber: "Pending",
+        netPay: result.netPay
+      })),
+      statutorySummary: [],
+      employerSpend: {
+        grossPay: demoRun.totals.grossPay,
+        employerCosts: demoRun.totals.employerCosts,
+        totalSpend: demoRun.totals.grossPay + demoRun.totals.employerCosts
+      }
+    }
+  };
+
+  response.json(await withFallback(getCurrentPayrollReports, demoReport));
 }));
 
 app.get("/api/reports/templates", (_request, response) => {

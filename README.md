@@ -33,6 +33,8 @@ The API reads from Prisma/PostgreSQL when `DATABASE_URL` is configured. If the d
 
 Read `docs/ARCHITECTURE.md` for the service boundaries, module plan, and payroll/reporting design.
 
+Read `docs/SUPABASE.md` for the Supabase database setup and migration steps.
+
 ## Staging Deploy
 
 `render.yaml` defines two Render staging web services:

@@ -27,6 +27,8 @@ Solva HRIS is a production-oriented starter for a multi-tenant HR and payroll op
 
 For local-only development, `docker-compose.yml` still provides a disposable PostgreSQL database, but the intended hosted database target is Supabase project `shjjeushhoeaniiwtzup`.
 
+The API reads from Prisma/PostgreSQL when `DATABASE_URL` is configured. If the database is not configured or temporarily unavailable, read endpoints fall back to demo data so staging remains explorable while the real Supabase connection is being prepared.
+
 ## Architecture
 
 Read `docs/ARCHITECTURE.md` for the service boundaries, module plan, and payroll/reporting design.

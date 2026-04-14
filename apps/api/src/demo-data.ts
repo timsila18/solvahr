@@ -324,6 +324,113 @@ export const demoGeneratedDocuments = [
   }
 ];
 
+export const demoPerformanceCycles = [
+  {
+    id: "perf-cycle-2026-q2",
+    code: "Q2-2026",
+    name: "Q2 2026 Performance Cycle",
+    reviewType: "quarterly",
+    status: "in_progress",
+    startDate: "2026-04-01",
+    endDate: "2026-06-30",
+    completionRate: 68
+  },
+  {
+    id: "perf-cycle-2026-probation",
+    code: "PROB-2026",
+    name: "2026 Probation Reviews",
+    reviewType: "probation",
+    status: "active",
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+    completionRate: 54
+  }
+];
+
+export const demoPerformanceGoals = [
+  {
+    id: "goal-001",
+    employeeName: "Amina Otieno",
+    department: "People Operations",
+    title: "Reduce payroll exception rate to below 1.5%",
+    category: "Operational Excellence",
+    weight: 35,
+    progress: 72,
+    status: "on_track"
+  },
+  {
+    id: "goal-002",
+    employeeName: "Brian Mwangi",
+    department: "Manufacturing",
+    title: "Improve shift attendance compliance to 98%",
+    category: "Attendance",
+    weight: 30,
+    progress: 61,
+    status: "watch"
+  },
+  {
+    id: "goal-003",
+    employeeName: "Faith Wambui",
+    department: "People Operations",
+    title: "Launch recruitment SLA dashboard for client accounts",
+    category: "Delivery",
+    weight: 35,
+    progress: 84,
+    status: "ahead"
+  }
+];
+
+export const demoPerformanceReviews = [
+  {
+    id: "review-001",
+    employeeName: "Amina Otieno",
+    reviewer: "Grace Wanjiku",
+    cycle: "Q2 2026 Performance Cycle",
+    score: 4.4,
+    recommendation: "high_performer",
+    status: "manager_review"
+  },
+  {
+    id: "review-002",
+    employeeName: "Brian Mwangi",
+    reviewer: "Peter Odhiambo",
+    cycle: "2026 Probation Reviews",
+    score: 3.2,
+    recommendation: "extend_probation",
+    status: "calibration"
+  },
+  {
+    id: "review-003",
+    employeeName: "Faith Wambui",
+    reviewer: "Amina Otieno",
+    cycle: "Q2 2026 Performance Cycle",
+    score: 4.6,
+    recommendation: "promote_readiness",
+    status: "completed"
+  }
+];
+
+export const demoPerformancePlans = [
+  {
+    id: "plan-001",
+    employeeName: "Brian Mwangi",
+    planType: "pip",
+    owner: "Peter Odhiambo",
+    status: "active",
+    dueDate: "2026-05-20",
+    focusArea: "Attendance and output consistency"
+  },
+  {
+    id: "plan-002",
+    employeeName: "Amina Otieno",
+    planType: "development",
+    owner: "Grace Wanjiku",
+    status: "active",
+    dueDate: "2026-06-15",
+    focusArea: "Manager coaching and team leadership"
+  }
+];
+
 export function buildDemoPayrollRun() {
   const rules = activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30");
   const results = demoEmployees.map((employee) =>

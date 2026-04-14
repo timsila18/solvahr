@@ -10,6 +10,7 @@ import { EmployeeWorkspace } from "./employee-workspace";
 import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
 import { PayrollSuite } from "./payroll-suite";
+import { PerformanceSuite } from "./performance-suite";
 import { PhaseTwoPanel } from "./phase-two-panel";
 import { RecruitmentSuite } from "./recruitment-suite";
 import { LoginScreen } from "./login-screen";
@@ -20,6 +21,7 @@ type ActiveScreen =
   | "employees"
   | "leave"
   | "payroll"
+  | "performance"
   | "recruitment"
   | "phaseTwo";
 
@@ -27,6 +29,7 @@ const moduleWidgets = [
   { key: "employees", title: "Employees", value: "Live records", hint: "Create and view staff files" },
   { key: "leave", title: "Leave", value: "Requests", hint: "Submit, approve, reject" },
   { key: "payroll", title: "Payroll", value: "Run, payslips, reports", hint: "Open the full payroll hub" },
+  { key: "performance", title: "Performance", value: "Goals, reviews, plans", hint: "Manage the full performance cycle" },
   { key: "recruitment", title: "Recruitment", value: "Pipeline", hint: "Vacancies and candidates" },
   { key: "phaseTwo", title: "Documents", value: "Workflows", hint: "Onboarding and approvals" }
 ] as const satisfies ReadonlyArray<{ key: ActiveScreen; title: string; value: string; hint: string }>;
@@ -43,7 +46,8 @@ const buildSlices = [
   ["Slice 9", "Login and staging session", "Done"],
   ["Slice 10", "Detailed payroll suite", "Done"],
   ["Slice 11", "Detailed leave suite", "Done"],
-  ["Slice 12", "Detailed recruitment suite", "Active"]
+  ["Slice 12", "Detailed recruitment suite", "Done"],
+  ["Slice 13", "Performance management suite", "Active"]
 ] as const;
 
 const candidates = [
@@ -197,7 +201,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 12</span>
+                <span className="status">Slice 13</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -217,6 +221,7 @@ export function AppDashboard() {
         {activeScreen === "employees" ? <EmployeeWorkspace /> : null}
         {activeScreen === "leave" ? <LeaveSuite /> : null}
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
+        {activeScreen === "performance" ? <PerformanceSuite /> : null}
         {activeScreen === "recruitment" ? <RecruitmentSuite /> : null}
         {activeScreen === "phaseTwo" ? (
           <PhaseTwoPanel

@@ -15,6 +15,10 @@ import {
   demoOffers,
   demoOnboardingTasks,
   buildDemoPayslips,
+  demoPerformanceCycles,
+  demoPerformanceGoals,
+  demoPerformancePlans,
+  demoPerformanceReviews,
   demoProbationReviews,
   demoRequisitions,
   demoTenant,
@@ -359,6 +363,22 @@ app.get("/api/documents/templates", asyncHandler(async (_request, response) => {
 app.get("/api/documents/generated", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listGeneratedDocuments, demoGeneratedDocuments));
 }));
+
+app.get("/api/performance/cycles", (_request, response) => {
+  response.json(demoPerformanceCycles);
+});
+
+app.get("/api/performance/goals", (_request, response) => {
+  response.json(demoPerformanceGoals);
+});
+
+app.get("/api/performance/reviews", (_request, response) => {
+  response.json(demoPerformanceReviews);
+});
+
+app.get("/api/performance/plans", (_request, response) => {
+  response.json(demoPerformancePlans);
+});
 
 app.get("/api/payroll/runs/current", asyncHandler(async (_request, response) => {
   response.json(await withFallback(getCurrentPayrollRun, buildDemoPayrollRun()));

@@ -338,6 +338,67 @@ export function buildDemoPayrollRun() {
   };
 }
 
+function maskAccountNumber(value: string | null | undefined) {
+  if (!value) {
+    return "Pending";
+  }
+
+  const lastFour = value.slice(-4);
+  return `****${lastFour}`;
+}
+
+export function buildDemoPayslips() {
+  const run = buildDemoPayrollRun();
+
+  return run.results.map((result, index) => {
+    const employee = demoEmployees[index] ?? demoEmployees.find((item) => item.employeeId === result.employeeId) ?? demoEmployees[0];
+    const generatedAt = new Date("2026-04-14T09:00:00.000Z").toISOString();
+
+    return {
+      payslipId: `payslip-${result.employeeId}`,
+      runId: run.id,
+      runEmployeeId: `run-employee-${result.employeeId}`,
+      status: "draft",
+      generatedAt,
+      releasedAt: null,
+      company: {
+        name: demoTenant.name,
+        country: demoTenant.country
+      },
+      period: {
+        label: run.period,
+        code: "2026-04",
+        cycle: run.cycle,
+        startDate: "2026-04-01",
+        endDate: "2026-04-30",
+        payDate: "2026-04-30"
+      },
+      employee: {
+        employeeId: result.employeeId,
+        displayName: employee.displayName,
+        legalName: employee.legalName,
+        employeeNumber: employee.employeeNumber,
+        payrollNumber: employee.payrollNumber,
+        department: employee.department,
+        branch: employee.branch,
+        paymentMode: "bank",
+        bankName: "Pending bank setup",
+        accountNumber: maskAccountNumber(null)
+      },
+      earnings: result.earnings,
+      deductions: result.deductions,
+      employerCosts: result.employerCosts,
+      totals: {
+        grossPay: result.grossPay,
+        taxablePay: result.taxablePay,
+        totalDeductions: result.totalDeductions,
+        totalEmployerCosts: result.totalEmployerCosts,
+        netPay: result.netPay
+      }
+    };
+  });
+}
+
 export const dashboardMetrics = {
   headcount: 248,
   openVacancies: 12,

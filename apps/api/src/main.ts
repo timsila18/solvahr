@@ -13,6 +13,7 @@ import {
   demoLeaveRequests,
   demoOffers,
   demoOnboardingTasks,
+  buildDemoPayslips,
   demoProbationReviews,
   demoRequisitions,
   demoTenant,
@@ -41,10 +42,12 @@ import {
   listLeaveRequests,
   listLeaveTypes,
   listOffers,
+  listCurrentPayslips,
   listOnboardingTasks,
   listProbationReviews,
   listRequisitions,
   listVacancies,
+  releaseCurrentPayslips,
   requestPayrollApproval
 } from "./repositories.js";
 import {
@@ -355,6 +358,14 @@ app.get("/api/payroll/runs/current", asyncHandler(async (_request, response) => 
   response.json(await withFallback(getCurrentPayrollRun, buildDemoPayrollRun()));
 }));
 
+app.get(
+  "/api/payroll/payslips/current",
+  requirePermission("payroll.view_sensitive"),
+  asyncHandler(async (_request, response) => {
+    response.json(await withFallback(listCurrentPayslips, buildDemoPayslips()));
+  })
+);
+
 app.get("/api/payroll/reports/current", asyncHandler(async (_request, response) => {
   const demoRun = buildDemoPayrollRun();
   const demoReport = {
@@ -435,6 +446,44 @@ app.post(
     });
 
     response.status(202).json(payrollRun);
+  })
+);
+
+app.post(
+  "/api/payroll/payslips/current/release",
+  requirePermission("payroll.release_payslips"),
+  asyncHandler(async (request, response) => {
+    const payslips = await releaseCurrentPayslips();
+
+    if (!payslips) {
+      response.status(202).json({
+        status: "released",
+        message: "Payslips generated from demo payroll data",
+        payslips: buildDemoPayslips().map((payslip) => ({
+          ...payslip,
+          status: "released",
+          releasedAt: new Date().toISOString()
+        })),
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "payroll.release_payslips",
+      entityType: "payroll_run",
+      entityId: String(payslips[0]?.runId ?? "current"),
+      after: {
+        payslipCount: payslips.length,
+        status: "released"
+      }
+    });
+
+    response.status(202).json({
+      status: "released",
+      payslips
+    });
   })
 );
 

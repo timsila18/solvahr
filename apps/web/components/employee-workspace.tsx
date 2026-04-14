@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import { useStagingSession } from "./staging-session";
 
 type EmployeeRow = {
   employeeId: string;
@@ -31,6 +32,7 @@ const initialForm: EmployeeForm = {
 
 export function EmployeeWorkspace() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const session = useStagingSession();
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [form, setForm] = useState<EmployeeForm>(initialForm);
   const [status, setStatus] = useState<"idle" | "loading" | "saving">("loading");
@@ -39,9 +41,7 @@ export function EmployeeWorkspace() {
   async function loadEmployees() {
     setStatus("loading");
     const response = await fetch(`${apiBaseUrl}/api/employees`, {
-      headers: {
-        "x-user-roles": "company_admin"
-      },
+      headers: session.headers,
       cache: "no-store"
     });
 
@@ -60,7 +60,7 @@ export function EmployeeWorkspace() {
       setStatus("idle");
       setMessage(error instanceof Error ? error.message : "Unable to load employee records");
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session.headers]);
 
   async function submitEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,7 +78,7 @@ export function EmployeeWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-roles": "company_admin"
+        ...session.headers
       },
       body: JSON.stringify(payload)
     });

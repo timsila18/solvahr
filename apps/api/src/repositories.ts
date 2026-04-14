@@ -14,6 +14,76 @@ function isoDate(value: Date | null | undefined): string | null {
   return value ? value.toISOString().slice(0, 10) : null;
 }
 
+function maskAccountNumber(value: string | null | undefined): string {
+  if (!value) {
+    return "Pending";
+  }
+
+  return `****${value.slice(-4)}`;
+}
+
+function normalizePayComponentKind(kind: "EARNING" | "DEDUCTION" | "EMPLOYER_COST") {
+  return kind === "EARNING" ? "earning" : kind === "DEDUCTION" ? "deduction" : "employer_cost";
+}
+
+type CurrentPayslipPayload = {
+  payslipId: string;
+  runId: string;
+  runEmployeeId: string;
+  status: string;
+  generatedAt: string;
+  releasedAt: string | null;
+  company: {
+    name: string;
+    country: string;
+  };
+  period: {
+    label: string;
+    code: string;
+    cycle: string;
+    startDate: string | null;
+    endDate: string | null;
+    payDate: string | null;
+  };
+  employee: {
+    employeeId: string;
+    displayName: string;
+    legalName: string;
+    employeeNumber: string;
+    payrollNumber: string | null;
+    department: string | null;
+    branch: string | null;
+    paymentMode: string;
+    bankName: string;
+    accountNumber: string;
+  };
+  earnings: Array<{
+    code: string;
+    name: string;
+    kind: "earning" | "deduction" | "employer_cost";
+    amount: number;
+  }>;
+  deductions: Array<{
+    code: string;
+    name: string;
+    kind: "earning" | "deduction" | "employer_cost";
+    amount: number;
+  }>;
+  employerCosts: Array<{
+    code: string;
+    name: string;
+    kind: "earning" | "deduction" | "employer_cost";
+    amount: number;
+  }>;
+  totals: {
+    grossPay: number;
+    taxablePay: number;
+    totalDeductions: number;
+    totalEmployerCosts: number;
+    netPay: number;
+  };
+};
+
 async function useDatabase<T>(query: () => Promise<T>): Promise<T | null> {
   if (!isDatabaseConfigured()) {
     return null;
@@ -511,6 +581,152 @@ export async function getCurrentPayrollReports() {
       }
     }
   };
+}
+
+export async function listCurrentPayslips(): Promise<CurrentPayslipPayload[] | null> {
+  return useDatabase(async () => {
+    const run = await prisma.payrollRun.findFirst({
+      orderBy: { createdAt: "desc" },
+      include: {
+        period: true,
+        employees: {
+          orderBy: {
+            employee: {
+              legalName: "asc"
+            }
+          },
+          include: {
+            employee: {
+              include: {
+                branch: true,
+                department: true,
+                bankDetails: true
+              }
+            },
+            lines: true,
+            payslip: true
+          }
+        }
+      }
+    });
+
+    if (!run) {
+      return [];
+    }
+
+    return run.employees.map((runEmployee) => {
+      const payload: CurrentPayslipPayload =
+        runEmployee.payslip?.payload && typeof runEmployee.payslip.payload === "object"
+          ? (runEmployee.payslip.payload as unknown as CurrentPayslipPayload)
+          : {
+              payslipId: runEmployee.payslip?.id ?? `draft-${runEmployee.id}`,
+              runId: run.id,
+              runEmployeeId: runEmployee.id,
+              status: runEmployee.payslip?.releasedAt ? "released" : "draft",
+              generatedAt: new Date().toISOString(),
+              releasedAt: runEmployee.payslip?.releasedAt?.toISOString() ?? null,
+              company: {
+                name: "Solva Demo Manufacturing",
+                country: "KE"
+              },
+              period: {
+                label: `${run.period.code} (${isoDate(run.period.startDate)} to ${isoDate(run.period.endDate)})`,
+                code: run.period.code,
+                cycle: run.cycle.toLowerCase(),
+                startDate: isoDate(run.period.startDate),
+                endDate: isoDate(run.period.endDate),
+                payDate: isoDate(run.period.payDate)
+              },
+              employee: {
+                employeeId: runEmployee.employee.id,
+                displayName: runEmployee.employee.preferredName ?? runEmployee.employee.legalName,
+                legalName: runEmployee.employee.legalName,
+                employeeNumber: runEmployee.employee.employeeNumber,
+                payrollNumber: runEmployee.employee.payrollNumber ?? runEmployee.employee.employeeNumber,
+                department: runEmployee.employee.department?.name ?? null,
+                branch: runEmployee.employee.branch?.name ?? null,
+                paymentMode: runEmployee.employee.bankDetails?.paymentMode ?? "bank",
+                bankName: runEmployee.employee.bankDetails?.bankName ?? "Pending bank setup",
+                accountNumber: maskAccountNumber(runEmployee.employee.bankDetails?.accountNumber)
+              },
+              earnings: runEmployee.lines
+                .filter((line) => line.kind === "EARNING")
+                .map((line) => ({
+                  code: line.code,
+                  name: line.name,
+                  kind: normalizePayComponentKind(line.kind),
+                  amount: decimalToNumber(line.amount) ?? 0
+                })),
+              deductions: runEmployee.lines
+                .filter((line) => line.kind === "DEDUCTION")
+                .map((line) => ({
+                  code: line.code,
+                  name: line.name,
+                  kind: normalizePayComponentKind(line.kind),
+                  amount: decimalToNumber(line.amount) ?? 0
+                })),
+              employerCosts: runEmployee.lines
+                .filter((line) => line.kind === "EMPLOYER_COST")
+                .map((line) => ({
+                  code: line.code,
+                  name: line.name,
+                  kind: normalizePayComponentKind(line.kind),
+                  amount: decimalToNumber(line.amount) ?? 0
+                })),
+              totals: {
+                grossPay: decimalToNumber(runEmployee.grossPay) ?? 0,
+                taxablePay: decimalToNumber(runEmployee.taxablePay) ?? 0,
+                totalDeductions: decimalToNumber(runEmployee.totalDeductions) ?? 0,
+                totalEmployerCosts: decimalToNumber(runEmployee.totalEmployerCosts) ?? 0,
+                netPay: decimalToNumber(runEmployee.netPay) ?? 0
+              }
+            };
+
+      return payload;
+    });
+  });
+}
+
+export async function releaseCurrentPayslips() {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const payslips = await listCurrentPayslips();
+  if (!payslips || !Array.isArray(payslips) || !payslips.length) {
+    return [];
+  }
+
+  const releasedAt = new Date();
+
+  await prisma.$transaction(
+    payslips.map((payslip) =>
+      prisma.payrollPayslip.upsert({
+        where: {
+          runEmployeeId: String(payslip.runEmployeeId)
+        },
+        update: {
+          releasedAt,
+          payload: {
+            ...(payslip as Record<string, unknown>),
+            status: "released",
+            releasedAt: releasedAt.toISOString()
+          }
+        },
+        create: {
+          runEmployeeId: String(payslip.runEmployeeId),
+          releasedAt,
+          payload: {
+            ...(payslip as Record<string, unknown>),
+            status: "released",
+            releasedAt: releasedAt.toISOString()
+          }
+        }
+      })
+    )
+  );
+
+  return listCurrentPayslips();
 }
 
 export async function createEmployee(tenantId: string, input: {

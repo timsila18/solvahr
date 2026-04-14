@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import { useStagingSession } from "./staging-session";
 
 type PayrollReportPayload = {
   run: {
@@ -57,6 +58,7 @@ function toCsv(rows: Record<string, string | number | null>[]) {
 
 export function PayrollReportsWorkspace() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const session = useStagingSession();
   const [payload, setPayload] = useState<PayrollReportPayload | null>(null);
   const [activeReport, setActiveReport] = useState<ReportKey>("payrollRegister");
   const [message, setMessage] = useState("Loading payroll reports");
@@ -64,9 +66,7 @@ export function PayrollReportsWorkspace() {
   useEffect(() => {
     async function loadReports() {
       const response = await fetch(`${apiBaseUrl}/api/payroll/reports/current`, {
-        headers: {
-          "x-user-roles": "payroll_admin"
-        },
+        headers: session.headers,
         cache: "no-store"
       });
 
@@ -82,7 +82,7 @@ export function PayrollReportsWorkspace() {
     loadReports().catch((error) => {
       setMessage(error instanceof Error ? error.message : "Unable to load payroll reports");
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session.headers]);
 
   const rows = payload?.reports[activeReport] ?? [];
   const headers = Object.keys(rows[0] ?? {});

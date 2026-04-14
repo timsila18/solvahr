@@ -1,5 +1,10 @@
 ﻿import { AppDashboard } from "../components/app-dashboard";
+import { StagingSessionProvider } from "../components/staging-session";
 
 export default function Home() {
-  return <AppDashboard />;
+  return (
+    <StagingSessionProvider>
+      <AppDashboard />
+    </StagingSessionProvider>
+  );
 }

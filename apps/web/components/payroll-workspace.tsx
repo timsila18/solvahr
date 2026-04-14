@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import { useStagingSession } from "./staging-session";
 
 type PayrollLine = {
   code: string;
@@ -50,6 +51,7 @@ function money(value: number) {
 
 export function PayrollWorkspace() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const session = useStagingSession();
   const [run, setRun] = useState<PayrollRun | null>(null);
   const [status, setStatus] = useState<"loading" | "idle" | "approving">("loading");
   const [message, setMessage] = useState("Loading payroll run");
@@ -57,9 +59,7 @@ export function PayrollWorkspace() {
   async function loadPayrollRun() {
     setStatus("loading");
     const response = await fetch(`${apiBaseUrl}/api/payroll/runs/current`, {
-      headers: {
-        "x-user-roles": "payroll_admin"
-      },
+      headers: session.headers,
       cache: "no-store"
     });
 
@@ -78,7 +78,7 @@ export function PayrollWorkspace() {
       setStatus("idle");
       setMessage(error instanceof Error ? error.message : "Unable to load payroll run");
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session.headers]);
 
   async function requestApproval() {
     setStatus("approving");
@@ -88,7 +88,7 @@ export function PayrollWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-roles": "payroll_admin"
+        ...session.headers
       },
       body: "{}"
     });

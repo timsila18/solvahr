@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import { useStagingSession } from "./staging-session";
 
 type EmployeeOption = {
   employeeId: string;
@@ -48,6 +49,7 @@ const initialForm: LeaveForm = {
 
 export function LeaveWorkspace() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const session = useStagingSession();
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -57,7 +59,7 @@ export function LeaveWorkspace() {
 
   async function loadLeaveData() {
     setStatus("loading");
-    const headers = { "x-user-roles": "company_admin" };
+    const headers = session.headers;
     const [employeeResponse, typeResponse, requestResponse] = await Promise.all([
       fetch(`${apiBaseUrl}/api/employees`, { headers, cache: "no-store" }),
       fetch(`${apiBaseUrl}/api/leave/types`, { headers, cache: "no-store" }),
@@ -89,7 +91,7 @@ export function LeaveWorkspace() {
       setStatus("idle");
       setMessage(error instanceof Error ? error.message : "Unable to load leave workflow data");
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session.headers]);
 
   async function submitLeave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,7 +102,7 @@ export function LeaveWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-roles": "company_admin"
+        ...session.headers
       },
       body: JSON.stringify({
         employeeId: form.employeeId,
@@ -135,8 +137,7 @@ export function LeaveWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-id": "demo-manager",
-        "x-user-roles": "manager"
+        ...session.headers
       },
       body: JSON.stringify({
         comments: decision === "approve" ? "Approved from manager workspace" : "Rejected from manager workspace"

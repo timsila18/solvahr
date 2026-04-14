@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getApiBaseUrl } from "../lib/api";
+import { useStagingSession } from "./staging-session";
 
 type Vacancy = {
   id: string;
@@ -69,6 +70,7 @@ function money(value: number | null | undefined) {
 
 export function RecruitmentWorkspace() {
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const session = useStagingSession();
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -78,7 +80,7 @@ export function RecruitmentWorkspace() {
 
   async function loadRecruitment() {
     setStatus("loading");
-    const headers = { "x-user-roles": "recruiter" };
+    const headers = session.headers;
     const [vacancyResponse, candidateResponse, offerResponse] = await Promise.all([
       fetch(`${apiBaseUrl}/api/recruitment/vacancies`, { headers, cache: "no-store" }),
       fetch(`${apiBaseUrl}/api/recruitment/candidates`, { headers, cache: "no-store" }),
@@ -109,7 +111,7 @@ export function RecruitmentWorkspace() {
       setStatus("idle");
       setMessage(error instanceof Error ? error.message : "Unable to load recruitment pipeline");
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, session.headers]);
 
   async function submitCandidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,7 +122,7 @@ export function RecruitmentWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-roles": "recruiter"
+        ...session.headers
       },
       body: JSON.stringify({
         vacancyId: form.vacancyId || undefined,
@@ -157,7 +159,7 @@ export function RecruitmentWorkspace() {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-user-roles": "company_admin"
+        ...session.headers
       },
       body: JSON.stringify({
         comments: "Approved from recruitment workspace"

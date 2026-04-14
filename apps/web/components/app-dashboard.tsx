@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  calculatePayroll,
-  activeRulesForDate,
   createWorkflowInstance,
-  kenyaStatutoryRules2026,
   phaseTwoWorkflowDefinitions,
   summarizePipeline
 } from "@solva/shared";
@@ -12,53 +9,24 @@ import { useState } from "react";
 import { EmployeeWorkspace } from "./employee-workspace";
 import { LeaveWorkspace } from "./leave-workspace";
 import { MetricCard } from "./metric-card";
-import { ModuleTile } from "./module-tile";
-import { PayrollReportsWorkspace } from "./payroll-reports-workspace";
-import { PayrollTable } from "./payroll-table";
-import { PayrollWorkspace } from "./payroll-workspace";
+import { PayrollSuite } from "./payroll-suite";
 import { PhaseTwoPanel } from "./phase-two-panel";
 import { RecruitmentWorkspace } from "./recruitment-workspace";
+import { LoginScreen } from "./login-screen";
+import { useStagingSession } from "./staging-session";
 
-type ActiveScreen = "home" | "employees" | "leave" | "payroll" | "payrollReports" | "recruitment" | "phaseTwo";
-
-const employee = {
-  tenantId: "tenant-solva-demo",
-  employeeId: "emp-001",
-  payrollNumber: "SOL-001",
-  displayName: "Amina Otieno",
-  department: "People Operations",
-  branch: "Nairobi HQ",
-  costCenter: "HR-001",
-  payGroup: "monthly",
-  basicSalary: 120000,
-  statutory: {
-    paye: true,
-    personalRelief: true,
-    shif: true,
-    nssf: true,
-    housingLevy: true
-  }
-};
-
-const payrollResult = calculatePayroll({
-  tenantId: "tenant-solva-demo",
-  country: "KE",
-  period: "2026-04",
-  cycle: "monthly",
-  employee,
-  rules: activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30"),
-  components: [
-    { code: "BASIC", name: "Basic Salary", kind: "earning", amount: 120000, taxTreatment: "taxable" },
-    { code: "COMMUTER", name: "Commuter Allowance", kind: "earning", amount: 10000, taxTreatment: "taxable" },
-    { code: "WELFARE", name: "Staff Welfare", kind: "deduction", amount: 500 }
-  ]
-});
+type ActiveScreen =
+  | "home"
+  | "employees"
+  | "leave"
+  | "payroll"
+  | "recruitment"
+  | "phaseTwo";
 
 const moduleWidgets = [
   { key: "employees", title: "Employees", value: "Live records", hint: "Create and view staff files" },
   { key: "leave", title: "Leave", value: "Requests", hint: "Submit, approve, reject" },
-  { key: "payroll", title: "Payroll", value: "Current run", hint: "Review totals and approval" },
-  { key: "payrollReports", title: "Reports", value: "Payroll exports", hint: "Register, bank, statutory" },
+  { key: "payroll", title: "Payroll", value: "Run, payslips, reports", hint: "Open the full payroll hub" },
   { key: "recruitment", title: "Recruitment", value: "Pipeline", hint: "Vacancies and candidates" },
   { key: "phaseTwo", title: "Documents", value: "Workflows", hint: "Onboarding and approvals" }
 ] as const satisfies ReadonlyArray<{ key: ActiveScreen; title: string; value: string; hint: string }>;
@@ -68,10 +36,12 @@ const buildSlices = [
   ["Slice 2", "Supabase activation", "Done"],
   ["Slice 3", "Employee workspace", "Done"],
   ["Slice 4", "Leave workflow", "Done"],
-  ["Slice 5", "Payroll run", "Done"],
-  ["Slice 6", "Payroll reports", "Done"],
-  ["Slice 7", "Recruitment", "Done"],
-  ["Slice 8", "App-style navigation", "Active"]
+  ["Slice 5", "Leave approval", "Done"],
+  ["Slice 6", "Payroll run", "Done"],
+  ["Slice 7", "Payroll reports", "Done"],
+  ["Slice 8", "App-style navigation", "Done"],
+  ["Slice 9", "Login and staging session", "Done"],
+  ["Slice 10", "Detailed payroll suite", "Active"]
 ] as const;
 
 const candidates = [
@@ -121,11 +91,31 @@ function money(value: number) {
 }
 
 export function AppDashboard() {
+  const session = useStagingSession();
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>("home");
 
   function openScreen(screen: ActiveScreen) {
     setActiveScreen(screen);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  if (!session.ready) {
+    return (
+      <main className="loginShell">
+        <section className="loginPanel loginPanelLoading" aria-label="Loading session">
+          <img className="loginWordmark" src="/brand/solva-hr-wordmark-dark.svg" alt="Solva HR" />
+          <div className="loginCopy">
+            <p className="eyebrow">Preparing Workspace</p>
+            <h1>Loading your Solva HR session.</h1>
+            <span>Bringing payroll, people, and approvals together.</span>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!session.loggedIn) {
+    return <LoginScreen />;
   }
 
   return (
@@ -152,14 +142,19 @@ export function AppDashboard() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Solva Demo Manufacturing</p>
+            <p className="eyebrow">{session.name} - {session.role.replaceAll("_", " ")}</p>
             <h1>{activeScreen === "home" ? "Choose a workspace." : moduleWidgets.find((item) => item.key === activeScreen)?.title}</h1>
           </div>
-          {activeScreen !== "home" ? (
-            <button className="secondaryButton" onClick={() => openScreen("home")} type="button">
-              Back Home
+          <div className="topbarActions">
+            {activeScreen !== "home" ? (
+              <button className="secondaryButton" onClick={() => openScreen("home")} type="button">
+                Back Home
+              </button>
+            ) : null}
+            <button className="secondaryButton" onClick={session.logout} type="button">
+              Sign Out
             </button>
-          ) : null}
+          </div>
         </header>
 
         {activeScreen === "home" ? (
@@ -200,7 +195,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 8</span>
+                <span className="status">Slice 10</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -219,8 +214,7 @@ export function AppDashboard() {
 
         {activeScreen === "employees" ? <EmployeeWorkspace /> : null}
         {activeScreen === "leave" ? <LeaveWorkspace /> : null}
-        {activeScreen === "payroll" ? <PayrollWorkspace /> : null}
-        {activeScreen === "payrollReports" ? <PayrollReportsWorkspace /> : null}
+        {activeScreen === "payroll" ? <PayrollSuite /> : null}
         {activeScreen === "recruitment" ? <RecruitmentWorkspace /> : null}
         {activeScreen === "phaseTwo" ? (
           <PhaseTwoPanel
@@ -230,36 +224,8 @@ export function AppDashboard() {
             workflowSteps={offerWorkflow.steps}
           />
         ) : null}
-
-        {activeScreen === "payroll" ? (
-          <section className="contentGrid">
-            <div className="panel">
-              <div className="panelHeader">
-                <div>
-                  <p className="eyebrow">Demo Payroll Result</p>
-                  <h2>Amina Otieno</h2>
-                </div>
-                <span className="status">Ready</span>
-              </div>
-              <PayrollTable result={payrollResult} />
-            </div>
-
-            <div className="panel">
-              <div className="panelHeader">
-                <div>
-                  <p className="eyebrow">Module Map</p>
-                  <h2>Operational Coverage</h2>
-                </div>
-              </div>
-              <div className="moduleGrid">
-                {moduleWidgets.map((item) => (
-                  <ModuleTile key={item.title} title={item.title} value={item.value} hint={item.hint} />
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : null}
       </section>
     </main>
   );
 }
+

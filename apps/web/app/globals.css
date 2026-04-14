@@ -128,6 +128,14 @@ a {
   margin-bottom: 20px;
 }
 
+.topbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: var(--coral);
@@ -186,6 +194,88 @@ h2 {
   overflow: hidden;
 }
 
+.loginShell {
+  display: grid;
+  min-height: 100vh;
+  padding: 28px;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(16, 32, 30, 0.96), rgba(15, 118, 110, 0.94)),
+    #10201e;
+}
+
+.loginPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  gap: 26px;
+  width: min(920px, 100%);
+  padding: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 50px rgba(12, 23, 29, 0.18);
+}
+
+.loginPanelLoading {
+  grid-template-columns: 1fr;
+  max-width: 640px;
+}
+
+.loginWordmark {
+  width: min(260px, 100%);
+  height: auto;
+}
+
+.loginCopy {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.loginCopy span {
+  color: var(--muted);
+}
+
+.loginForm {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.loginForm label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.loginForm input,
+.loginForm select {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+}
+
+.loginIconCard {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f4fbfa, #edf5ff);
+}
+
+.loginIconCard img {
+  width: min(180px, 100%);
+  height: auto;
+}
+
 .commandCopy {
   display: flex;
   min-height: 310px;
@@ -225,6 +315,7 @@ h2 {
 .progressPanel,
 .employeeWorkspace,
 .leaveWorkspace,
+.payslipWorkspace,
 .payrollWorkspace,
 .payrollReportsWorkspace,
 .recruitmentWorkspace {
@@ -284,6 +375,7 @@ h2 {
 .progressPanel,
 .employeeWorkspace,
 .leaveWorkspace,
+.payslipWorkspace,
 .payrollWorkspace,
 .payrollReportsWorkspace,
 .recruitmentWorkspace {
@@ -294,10 +386,54 @@ h2 {
 .progressPanel,
 .employeeWorkspace,
 .leaveWorkspace,
+.payslipWorkspace,
 .payrollWorkspace,
 .payrollReportsWorkspace,
 .recruitmentWorkspace {
   margin-bottom: 20px;
+}
+
+.payrollSuiteIntro {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.75fr) minmax(320px, 1.25fr);
+  gap: 18px;
+  margin-bottom: 20px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.payrollSuiteIntro span {
+  color: var(--muted);
+}
+
+.payrollSectionNav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payrollSectionNav button {
+  display: grid;
+  gap: 8px;
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.payrollSectionNav button small {
+  color: var(--muted);
+}
+
+.payrollSectionNav .activePayrollNav {
+  border-color: var(--teal);
+  background: #ecf8f5;
 }
 
 .panelHeader {
@@ -756,6 +892,149 @@ h2 {
   border-bottom: 0;
 }
 
+.payslipGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.payslipList,
+.payslipCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.payslipList {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.payslipToolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.payslipToolbar p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.payslipListItem {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.payslipListItem span,
+.payslipListItem small,
+.payslipHeader p,
+.payslipHeader span,
+.payslipMeta span,
+.payslipActions span,
+.payslipLine span {
+  color: var(--muted);
+}
+
+.activePayslip {
+  border-color: var(--teal);
+  background: #ecf8f5;
+}
+
+.payslipCard {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  background: #ffffff;
+}
+
+.payslipHeader,
+.payslipMeta,
+.payslipColumns,
+.payslipTotals,
+.payslipActions {
+  display: grid;
+  gap: 14px;
+}
+
+.payslipHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.payslipHeader p {
+  margin: 10px 0 0;
+}
+
+.payslipWordmark {
+  width: min(220px, 100%);
+  height: auto;
+}
+
+.payslipMeta,
+.payslipTotals {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payslipMeta div,
+.payslipTotals div,
+.payslipSection {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.payslipMeta strong,
+.payslipMeta span,
+.payslipTotals strong,
+.payslipTotals span {
+  display: block;
+}
+
+.payslipMeta strong,
+.payslipTotals strong {
+  margin-top: 8px;
+}
+
+.payslipColumns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payslipSection {
+  display: grid;
+  gap: 12px;
+}
+
+.payslipLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.payslipLine:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.payslipActions {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
 .recruitmentGrid {
   display: grid;
   grid-template-columns: minmax(280px, 0.5fr) minmax(320px, 1fr);
@@ -956,6 +1235,7 @@ h2 {
 
   .commandBand,
   .homeHero,
+  .loginPanel,
   .contentGrid,
   .phaseTwoGrid,
   .sliceGrid,
@@ -963,6 +1243,12 @@ h2 {
   .employeeGrid,
   .leaveGrid,
   .leaveList article,
+  .payrollSuiteIntro,
+  .payrollSectionNav,
+  .payslipGrid,
+  .payslipColumns,
+  .payslipMeta,
+  .payslipTotals,
   .payrollRunGrid,
   .payrollDetailGrid,
   .recruitmentGrid,
@@ -983,8 +1269,21 @@ h2 {
     padding: 18px;
   }
 
+  .loginShell {
+    padding: 18px;
+  }
+
+  .loginPanel {
+    padding: 22px;
+  }
+
   .topbar {
     display: grid;
+  }
+
+  .payslipHeader,
+  .payslipActions {
+    grid-template-columns: 1fr;
   }
 
   .nav,

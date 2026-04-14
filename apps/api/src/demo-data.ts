@@ -324,6 +324,49 @@ export const demoGeneratedDocuments = [
   }
 ];
 
+export const demoEmployeeDocuments = [
+  {
+    id: "emp-doc-001",
+    employeeId: "emp-001",
+    employeeName: "Amina Otieno",
+    category: "Contract",
+    name: "Signed Employment Contract",
+    restricted: false,
+    expiresAt: null,
+    version: 1
+  },
+  {
+    id: "emp-doc-002",
+    employeeId: "emp-001",
+    employeeName: "Amina Otieno",
+    category: "Statutory",
+    name: "KRA PIN Certificate",
+    restricted: false,
+    expiresAt: null,
+    version: 1
+  },
+  {
+    id: "emp-doc-003",
+    employeeId: "emp-002",
+    employeeName: "Brian Mwangi",
+    category: "Identity",
+    name: "National ID Copy",
+    restricted: false,
+    expiresAt: null,
+    version: 1
+  },
+  {
+    id: "emp-doc-004",
+    employeeId: "emp-002",
+    employeeName: "Brian Mwangi",
+    category: "Medical",
+    name: "Occupational Health Clearance",
+    restricted: true,
+    expiresAt: "2026-12-31",
+    version: 2
+  }
+];
+
 export const demoPerformanceCycles = [
   {
     id: "perf-cycle-2026-q2",

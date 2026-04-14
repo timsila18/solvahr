@@ -154,6 +154,28 @@ export async function listEmployees() {
   });
 }
 
+export async function listEmployeeDocuments() {
+  return useDatabase(async () => {
+    const documents = await prisma.employeeDocument.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        employee: true
+      }
+    });
+
+    return documents.map((document) => ({
+      id: document.id,
+      employeeId: document.employeeId,
+      employeeName: document.employee.preferredName ?? document.employee.legalName,
+      category: document.category,
+      name: document.name,
+      restricted: document.restricted,
+      expiresAt: isoDate(document.expiresAt),
+      version: document.version
+    }));
+  });
+}
+
 export async function listLeaveRequests() {
   return useDatabase(async () => {
     const requests = await prisma.leaveRequest.findMany({

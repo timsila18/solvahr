@@ -6,7 +6,7 @@ import {
   summarizePipeline
 } from "@solva/shared";
 import { useState } from "react";
-import { EmployeeWorkspace } from "./employee-workspace";
+import { EmployeeSuite } from "./employee-suite";
 import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
 import { PayrollSuite } from "./payroll-suite";
@@ -47,7 +47,8 @@ const buildSlices = [
   ["Slice 10", "Detailed payroll suite", "Done"],
   ["Slice 11", "Detailed leave suite", "Done"],
   ["Slice 12", "Detailed recruitment suite", "Done"],
-  ["Slice 13", "Performance management suite", "Active"]
+  ["Slice 13", "Performance management suite", "Done"],
+  ["Slice 14", "Employee records hub", "Active"]
 ] as const;
 
 const candidates = [
@@ -201,7 +202,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 13</span>
+                <span className="status">Slice 14</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -218,7 +219,7 @@ export function AppDashboard() {
           </>
         ) : null}
 
-        {activeScreen === "employees" ? <EmployeeWorkspace /> : null}
+        {activeScreen === "employees" ? <EmployeeSuite /> : null}
         {activeScreen === "leave" ? <LeaveSuite /> : null}
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
         {activeScreen === "performance" ? <PerformanceSuite /> : null}

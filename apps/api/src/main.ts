@@ -7,6 +7,7 @@ import {
   demoCatalogues,
   demoCandidates,
   demoDocumentTemplates,
+  demoEmployeeDocuments,
   demoEmployees,
   demoGeneratedDocuments,
   demoLeaveBalances,
@@ -41,6 +42,7 @@ import {
   listCandidates,
   listCompanies,
   listDocumentTemplates,
+  listEmployeeDocuments,
   listEmployees,
   listGeneratedDocuments,
   listLeaveBalances,
@@ -124,6 +126,10 @@ app.get("/api/companies", asyncHandler(async (_request, response) => {
 
 app.get("/api/employees", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listEmployees, [...demoEmployees]));
+}));
+
+app.get("/api/employees/documents", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listEmployeeDocuments, demoEmployeeDocuments));
 }));
 
 app.post(

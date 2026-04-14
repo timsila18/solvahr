@@ -11,7 +11,7 @@ import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
 import { PayrollSuite } from "./payroll-suite";
 import { PhaseTwoPanel } from "./phase-two-panel";
-import { RecruitmentWorkspace } from "./recruitment-workspace";
+import { RecruitmentSuite } from "./recruitment-suite";
 import { LoginScreen } from "./login-screen";
 import { useStagingSession } from "./staging-session";
 
@@ -42,7 +42,8 @@ const buildSlices = [
   ["Slice 8", "App-style navigation", "Done"],
   ["Slice 9", "Login and staging session", "Done"],
   ["Slice 10", "Detailed payroll suite", "Done"],
-  ["Slice 11", "Detailed leave suite", "Active"]
+  ["Slice 11", "Detailed leave suite", "Done"],
+  ["Slice 12", "Detailed recruitment suite", "Active"]
 ] as const;
 
 const candidates = [
@@ -196,7 +197,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 11</span>
+                <span className="status">Slice 12</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -216,7 +217,7 @@ export function AppDashboard() {
         {activeScreen === "employees" ? <EmployeeWorkspace /> : null}
         {activeScreen === "leave" ? <LeaveSuite /> : null}
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
-        {activeScreen === "recruitment" ? <RecruitmentWorkspace /> : null}
+        {activeScreen === "recruitment" ? <RecruitmentSuite /> : null}
         {activeScreen === "phaseTwo" ? (
           <PhaseTwoPanel
             pipeline={summarizePipeline(candidates.map((candidate) => candidate.stage))}

@@ -1142,6 +1142,20 @@ h2 {
   gap: 14px;
 }
 
+.recruitmentDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(260px, 0.42fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.recruitmentInsightList {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
 .stageGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1313,6 +1327,7 @@ h2 {
   .payslipColumns,
   .payslipMeta,
   .payslipTotals,
+  .recruitmentDetailGrid,
   .payrollRunGrid,
   .payrollDetailGrid,
   .recruitmentGrid,

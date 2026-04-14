@@ -53,21 +53,23 @@ a {
   gap: 12px;
 }
 
-.brandMark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  place-items: center;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: var(--teal-dark);
-  font-weight: 800;
-}
-
 .brand strong,
 .brand span,
 .metricCard strong,
 .moduleTile strong {
+  display: block;
+}
+
+.brandIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  flex: 0 0 auto;
+}
+
+.brandWordmark {
+  width: min(240px, 100%);
+  height: auto;
   display: block;
 }
 
@@ -237,6 +239,12 @@ h2 {
   flex-direction: column;
   justify-content: center;
   padding: 30px;
+}
+
+.homeWordmark {
+  width: min(320px, 100%);
+  height: auto;
+  margin-top: 20px;
 }
 
 .metricCard,

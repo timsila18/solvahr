@@ -132,11 +132,8 @@ export function AppDashboard() {
     <main className="shell">
       <aside className="sidebar" aria-label="Primary">
         <button className="brand brandButton" onClick={() => openScreen("home")} type="button">
-          <span className="brandMark">S</span>
-          <div>
-            <strong>Solva HRIS</strong>
-            <span>Enterprise Suite</span>
-          </div>
+          <img className="brandIcon" src="/brand/solva-hr-icon-light.svg" alt="Solva HR icon" />
+          <img className="brandWordmark" src="/brand/solva-hr-wordmark-light.svg" alt="Solva HR" />
         </button>
         <nav className="nav">
           {moduleWidgets.map((item) => (
@@ -171,6 +168,7 @@ export function AppDashboard() {
               <div>
                 <p className="eyebrow">Command Home</p>
                 <h2>Open a module, work the task, come back home.</h2>
+                <img className="homeWordmark" src="/brand/solva-hr-wordmark-dark.svg" alt="Solva HR wordmark" />
               </div>
               <img
                 className="teamImage"

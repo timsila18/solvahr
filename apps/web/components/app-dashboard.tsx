@@ -7,7 +7,7 @@ import {
 } from "@solva/shared";
 import { useState } from "react";
 import { EmployeeWorkspace } from "./employee-workspace";
-import { LeaveWorkspace } from "./leave-workspace";
+import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
 import { PayrollSuite } from "./payroll-suite";
 import { PhaseTwoPanel } from "./phase-two-panel";
@@ -41,7 +41,8 @@ const buildSlices = [
   ["Slice 7", "Payroll reports", "Done"],
   ["Slice 8", "App-style navigation", "Done"],
   ["Slice 9", "Login and staging session", "Done"],
-  ["Slice 10", "Detailed payroll suite", "Active"]
+  ["Slice 10", "Detailed payroll suite", "Done"],
+  ["Slice 11", "Detailed leave suite", "Active"]
 ] as const;
 
 const candidates = [
@@ -195,7 +196,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 10</span>
+                <span className="status">Slice 11</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -213,7 +214,7 @@ export function AppDashboard() {
         ) : null}
 
         {activeScreen === "employees" ? <EmployeeWorkspace /> : null}
-        {activeScreen === "leave" ? <LeaveWorkspace /> : null}
+        {activeScreen === "leave" ? <LeaveSuite /> : null}
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
         {activeScreen === "recruitment" ? <RecruitmentWorkspace /> : null}
         {activeScreen === "phaseTwo" ? (

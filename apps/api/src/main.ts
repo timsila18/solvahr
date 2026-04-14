@@ -9,6 +9,7 @@ import {
   demoDocumentTemplates,
   demoEmployees,
   demoGeneratedDocuments,
+  demoLeaveBalances,
   demoInterviews,
   demoLeaveRequests,
   demoOffers,
@@ -38,6 +39,7 @@ import {
   listDocumentTemplates,
   listEmployees,
   listGeneratedDocuments,
+  listLeaveBalances,
   listInterviews,
   listLeaveRequests,
   listLeaveTypes,
@@ -152,6 +154,10 @@ app.get("/api/leave/requests", asyncHandler(async (_request, response) => {
 
 app.get("/api/leave/types", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listLeaveTypes, demoLeaveTypes));
+}));
+
+app.get("/api/leave/balances", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listLeaveBalances, demoLeaveBalances));
 }));
 
 app.post(

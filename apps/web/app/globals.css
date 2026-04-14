@@ -708,6 +708,68 @@ h2 {
   gap: 10px;
 }
 
+.leaveSummaryGrid,
+.leavePolicyGrid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.leaveSummaryGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.leaveSummaryGrid article,
+.leavePolicyCard {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.leaveSummaryGrid span,
+.leavePolicyCard span,
+.leavePolicyCard small,
+.leavePolicyCard p,
+.workspaceMessage {
+  color: var(--muted);
+}
+
+.leaveSummaryGrid strong,
+.leavePolicyCard strong,
+.leavePolicyCard span,
+.leavePolicyCard small,
+.leavePolicyCard b {
+  display: block;
+}
+
+.leaveSummaryGrid strong {
+  margin-top: 8px;
+  font-size: 1.3rem;
+}
+
+.leavePolicyGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.leavePolicyCard strong {
+  margin: 8px 0;
+}
+
+.leavePolicyCard small {
+  margin-bottom: 12px;
+}
+
+.leavePolicyCard b {
+  color: var(--teal-dark);
+}
+
+.leavePolicyCard p,
+.workspaceMessage {
+  margin: 0;
+  line-height: 1.45;
+}
+
 .leaveList article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(130px, auto) auto auto;
@@ -1243,6 +1305,8 @@ h2 {
   .employeeGrid,
   .leaveGrid,
   .leaveList article,
+  .leaveSummaryGrid,
+  .leavePolicyGrid,
   .payrollSuiteIntro,
   .payrollSectionNav,
   .payslipGrid,

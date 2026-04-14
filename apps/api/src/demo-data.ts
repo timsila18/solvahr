@@ -86,6 +86,51 @@ export const demoLeaveRequests = [
   }
 ];
 
+export const demoLeaveBalances = [
+  {
+    id: "leave-balance-001",
+    employeeId: "emp-001",
+    employeeName: "Amina Otieno",
+    employeeNumber: "E-001",
+    leaveTypeCode: "ANNUAL",
+    leaveTypeName: "Annual Leave",
+    periodYear: 2026,
+    opening: 4,
+    accrued: 7,
+    taken: 5,
+    adjusted: 0,
+    closing: 6
+  },
+  {
+    id: "leave-balance-002",
+    employeeId: "emp-001",
+    employeeName: "Amina Otieno",
+    employeeNumber: "E-001",
+    leaveTypeCode: "SICK",
+    leaveTypeName: "Sick Leave",
+    periodYear: 2026,
+    opening: 0,
+    accrued: 14,
+    taken: 0,
+    adjusted: 0,
+    closing: 14
+  },
+  {
+    id: "leave-balance-003",
+    employeeId: "emp-002",
+    employeeName: "Brian Mwangi",
+    employeeNumber: "E-002",
+    leaveTypeCode: "ANNUAL",
+    leaveTypeName: "Annual Leave",
+    periodYear: 2026,
+    opening: 0,
+    accrued: 6,
+    taken: 2,
+    adjusted: 0,
+    closing: 4
+  }
+];
+
 export const demoRequisitions = [
   {
     id: "req-001",

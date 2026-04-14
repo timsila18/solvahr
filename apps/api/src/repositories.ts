@@ -199,6 +199,33 @@ export async function listLeaveTypes() {
   });
 }
 
+export async function listLeaveBalances() {
+  return useDatabase(async () => {
+    const balances = await prisma.leaveBalance.findMany({
+      orderBy: [{ periodYear: "desc" }, { employee: { legalName: "asc" } }],
+      include: {
+        employee: true,
+        leaveType: true
+      }
+    });
+
+    return balances.map((balance) => ({
+      id: balance.id,
+      employeeId: balance.employeeId,
+      employeeName: balance.employee.preferredName ?? balance.employee.legalName,
+      employeeNumber: balance.employee.employeeNumber,
+      leaveTypeCode: balance.leaveType.code,
+      leaveTypeName: balance.leaveType.name,
+      periodYear: balance.periodYear,
+      opening: decimalToNumber(balance.opening) ?? 0,
+      accrued: decimalToNumber(balance.accrued) ?? 0,
+      taken: decimalToNumber(balance.taken) ?? 0,
+      adjusted: decimalToNumber(balance.adjusted) ?? 0,
+      closing: decimalToNumber(balance.closing) ?? 0
+    }));
+  });
+}
+
 export async function listRequisitions() {
   return useDatabase(async () => {
     const requisitions = await prisma.requisition.findMany({

@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  createWorkflowInstance,
-  phaseTwoWorkflowDefinitions,
-  summarizePipeline
-} from "@solva/shared";
 import { useState } from "react";
 import { EmployeeSuite } from "./employee-suite";
 import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
+import { OnboardingSuite } from "./onboarding-suite";
 import { PayrollSuite } from "./payroll-suite";
 import { PerformanceSuite } from "./performance-suite";
-import { PhaseTwoPanel } from "./phase-two-panel";
 import { RecruitmentSuite } from "./recruitment-suite";
 import { LoginScreen } from "./login-screen";
 import { useStagingSession } from "./staging-session";
@@ -23,7 +18,7 @@ type ActiveScreen =
   | "payroll"
   | "performance"
   | "recruitment"
-  | "phaseTwo";
+  | "onboarding";
 
 const moduleWidgets = [
   { key: "employees", title: "Employees", value: "Live records", hint: "Create and view staff files" },
@@ -31,7 +26,7 @@ const moduleWidgets = [
   { key: "payroll", title: "Payroll", value: "Run, payslips, reports", hint: "Open the full payroll hub" },
   { key: "performance", title: "Performance", value: "Goals, reviews, plans", hint: "Manage the full performance cycle" },
   { key: "recruitment", title: "Recruitment", value: "Pipeline", hint: "Vacancies and candidates" },
-  { key: "phaseTwo", title: "Documents", value: "Workflows", hint: "Onboarding and approvals" }
+  { key: "onboarding", title: "Onboarding", value: "Tasks, probation, docs", hint: "Launch the onboarding and probation hub" }
 ] as const satisfies ReadonlyArray<{ key: ActiveScreen; title: string; value: string; hint: string }>;
 
 const buildSlices = [
@@ -48,46 +43,9 @@ const buildSlices = [
   ["Slice 11", "Detailed leave suite", "Done"],
   ["Slice 12", "Detailed recruitment suite", "Done"],
   ["Slice 13", "Performance management suite", "Done"],
-  ["Slice 14", "Employee records hub", "Active"]
+  ["Slice 14", "Employee records hub", "Done"],
+  ["Slice 15", "Onboarding and probation hub", "Active"]
 ] as const;
-
-const candidates = [
-  { fullName: "Mercy Njeri", stage: "interview", screeningScore: 87, source: "LinkedIn" },
-  { fullName: "Daniel Otieno", stage: "shortlisted", screeningScore: 81, source: "Referral" },
-  { fullName: "Faith Wambui", stage: "offer", screeningScore: 91, source: "Careers Page" }
-] as const;
-
-const onboardingTasks = [
-  {
-    personName: "Faith Wambui",
-    title: "Submit KRA PIN, SHA, NSSF, and bank details",
-    ownerRole: "candidate",
-    dueDate: "2026-04-25",
-    status: "in progress"
-  },
-  {
-    personName: "Faith Wambui",
-    title: "Prepare laptop, email, and HRIS employee account",
-    ownerRole: "admin officer",
-    dueDate: "2026-05-02",
-    status: "not started"
-  },
-  {
-    personName: "Brian Mwangi",
-    title: "Complete 90-day probation review",
-    ownerRole: "manager",
-    dueDate: "2026-04-18",
-    status: "in progress"
-  }
-] as const;
-
-const offerWorkflowDefinition = phaseTwoWorkflowDefinitions.find((workflow) => workflow.code === "offer-approval");
-
-if (!offerWorkflowDefinition) {
-  throw new Error("Missing offer approval workflow definition");
-}
-
-const offerWorkflow = createWorkflowInstance(offerWorkflowDefinition, "job_offer", "offer-001");
 
 function money(value: number) {
   return new Intl.NumberFormat("en-KE", {
@@ -202,7 +160,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 14</span>
+                <span className="status">Slice 15</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -224,14 +182,7 @@ export function AppDashboard() {
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
         {activeScreen === "performance" ? <PerformanceSuite /> : null}
         {activeScreen === "recruitment" ? <RecruitmentSuite /> : null}
-        {activeScreen === "phaseTwo" ? (
-          <PhaseTwoPanel
-            pipeline={summarizePipeline(candidates.map((candidate) => candidate.stage))}
-            candidates={[...candidates]}
-            tasks={[...onboardingTasks]}
-            workflowSteps={offerWorkflow.steps}
-          />
-        ) : null}
+        {activeScreen === "onboarding" ? <OnboardingSuite /> : null}
       </section>
     </main>
   );

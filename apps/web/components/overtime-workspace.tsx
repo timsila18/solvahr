@@ -15,6 +15,10 @@ type OvertimeRequest = {
   reason: string;
   approver: string;
   status: string;
+  workflow?: {
+    currentStepLabel?: string;
+    currentOwnerRole?: string;
+  } | null;
 };
 
 export function OvertimeWorkspace() {
@@ -45,30 +49,32 @@ export function OvertimeWorkspace() {
     });
   }, [apiBaseUrl, session.headers]);
 
-  async function approveOvertime(id: string) {
+  async function decideOvertime(id: string, decision: "approve" | "reject") {
     setStatus("acting");
-    setMessage("Approving overtime request");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} overtime request`);
 
-    const response = await fetch(`${apiBaseUrl}/api/attendance/overtime/${id}/approve`, {
+    const response = await fetch(`${apiBaseUrl}/api/attendance/overtime/${id}/${decision}-step`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         ...session.headers
       },
-      body: "{}"
+      body: JSON.stringify({
+        comments: `${decision === "approve" ? "Approved" : "Rejected"} from overtime workspace`
+      })
     });
 
     if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
       setStatus("idle");
-      setMessage("Overtime approval failed");
+      setMessage(errorBody?.error?.message ?? "Overtime approval failed");
       return;
     }
 
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, status: "approved" } : row))
-    );
+    const updated = (await response.json()) as OvertimeRequest;
+    setRows((current) => current.map((row) => (row.id === id ? updated : row)));
     setStatus("idle");
-    setMessage("Overtime approval recorded");
+    setMessage(`Overtime ${decision} step recorded`);
   }
 
   return (
@@ -98,18 +104,43 @@ export function OvertimeWorkspace() {
               <span>
                 {row.shiftDate} - {row.employeeNumber} - {row.approver}
               </span>
+              {row.workflow?.currentStepLabel ? (
+                <span>
+                  {row.workflow.currentStepLabel} - {row.workflow.currentOwnerRole ?? "pending owner"}
+                </span>
+              ) : null}
               <span>{row.reason}</span>
             </div>
             <div className="decisionActions workflowActionStack">
-              {row.status === "submitted" ? (
-                <button
-                  className="secondaryButton"
-                  disabled={status === "acting"}
-                  onClick={() => approveOvertime(row.id)}
-                  type="button"
-                >
-                  Approve
-                </button>
+              {["submitted", "pending_approval"].includes(row.status) ? (
+                <>
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      status === "acting" ||
+                      !!row.workflow?.currentOwnerRole &&
+                        session.role !== row.workflow.currentOwnerRole &&
+                        session.role !== "company_admin"
+                    }
+                    onClick={() => decideOvertime(row.id, "approve")}
+                    type="button"
+                  >
+                    Approve Step
+                  </button>
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      status === "acting" ||
+                      !!row.workflow?.currentOwnerRole &&
+                        session.role !== row.workflow.currentOwnerRole &&
+                        session.role !== "company_admin"
+                    }
+                    onClick={() => decideOvertime(row.id, "reject")}
+                    type="button"
+                  >
+                    Reject
+                  </button>
+                </>
               ) : (
                 <span className="tableBadge">{humanize(row.status)}</span>
               )}

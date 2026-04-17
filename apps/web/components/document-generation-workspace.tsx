@@ -20,6 +20,10 @@ type GeneratedDocument = {
   entityId: string;
   status: string;
   preview: string;
+  workflow?: {
+    currentStepLabel?: string;
+    currentOwnerRole?: string;
+  } | null;
 };
 
 export function DocumentGenerationWorkspace() {
@@ -28,6 +32,7 @@ export function DocumentGenerationWorkspace() {
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [message, setMessage] = useState("Loading document templates");
+  const [status, setStatus] = useState<"idle" | "acting">("idle");
 
   useEffect(() => {
     async function loadDocuments() {
@@ -58,6 +63,34 @@ export function DocumentGenerationWorkspace() {
     });
   }, [apiBaseUrl, session.headers]);
 
+  async function decideDocument(id: string, decision: "approve" | "reject") {
+    setStatus("acting");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} generated document`);
+
+    const response = await fetch(`${apiBaseUrl}/api/documents/generated/${id}/${decision}-step`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...session.headers
+      },
+      body: JSON.stringify({
+        comments: `${decision === "approve" ? "Approved" : "Rejected"} from document workspace`
+      })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      setStatus("idle");
+      setMessage(errorBody?.error?.message ?? "Generated document action failed");
+      return;
+    }
+
+    const updated = (await response.json()) as GeneratedDocument;
+    setDocuments((current) => current.map((item) => (item.id === id ? updated : item)));
+    setStatus("idle");
+    setMessage(`Document ${decision} step recorded`);
+  }
+
   return (
     <section className="recruitmentWorkspace" aria-label="Document generation workspace">
       <div className="panelHeader">
@@ -83,9 +116,55 @@ export function DocumentGenerationWorkspace() {
           ))}
         </div>
 
-        <div className="documentPreview">
-          <strong>{documents[0]?.templateCode ?? "No generated document yet"}</strong>
-          <p>{documents[0]?.preview ?? "Generated documents will preview here once a template is rendered."}</p>
+        <div className="offerList">
+          {documents.map((document) => (
+            <article key={document.id}>
+              <div>
+                <strong>{document.templateCode}</strong>
+                <span>
+                  {document.entityType} - {document.status}
+                </span>
+                {document.workflow?.currentStepLabel ? (
+                  <span>
+                    {document.workflow.currentStepLabel} - {document.workflow.currentOwnerRole ?? "pending owner"}
+                  </span>
+                ) : null}
+                <span>{document.preview}</span>
+              </div>
+              <div className="decisionActions workflowActionStack">
+                {["submitted", "pending_approval"].includes(document.status) ? (
+                  <>
+                    <button
+                      className="secondaryButton"
+                      disabled={
+                        status === "acting" ||
+                        !!document.workflow?.currentOwnerRole &&
+                          session.role !== document.workflow.currentOwnerRole &&
+                          session.role !== "company_admin"
+                      }
+                      onClick={() => decideDocument(document.id, "approve")}
+                      type="button"
+                    >
+                      Approve Step
+                    </button>
+                    <button
+                      className="secondaryButton"
+                      disabled={
+                        status === "acting" ||
+                        !!document.workflow?.currentOwnerRole &&
+                          session.role !== document.workflow.currentOwnerRole &&
+                          session.role !== "company_admin"
+                      }
+                      onClick={() => decideDocument(document.id, "reject")}
+                      type="button"
+                    >
+                      Reject
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </article>
+          ))}
         </div>
       </div>
     </section>

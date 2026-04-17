@@ -11,7 +11,7 @@ export type WorkflowStepDefinition = {
 export type WorkflowDefinitionConfig = {
   code: string;
   name: string;
-  module: "employees" | "recruitment" | "onboarding" | "probation" | "payroll" | "leave" | "documents";
+  module: "employees" | "recruitment" | "onboarding" | "probation" | "payroll" | "leave" | "documents" | "attendance" | "training";
   trigger: string;
   steps: WorkflowStepDefinition[];
 };
@@ -92,6 +92,36 @@ export const phaseTwoWorkflowDefinitions: WorkflowDefinitionConfig[] = [
       { step: 1, label: "Payroll admin review", approverRole: "payroll_admin", escalationHours: 12 },
       { step: 2, label: "Finance review", approverRole: "finance_user", escalationHours: 24 },
       { step: 3, label: "Company admin sign-off", approverRole: "company_admin", escalationHours: 24 }
+    ]
+  },
+  {
+    code: "training-request-approval",
+    name: "Training Request Approval",
+    module: "training",
+    trigger: "training.request.submitted",
+    steps: [
+      { step: 1, label: "Supervisor sponsorship", approverRole: "supervisor", escalationHours: 24 },
+      { step: 2, label: "HR learning approval", approverRole: "hr_admin", escalationHours: 24 }
+    ]
+  },
+  {
+    code: "overtime-approval",
+    name: "Overtime Approval",
+    module: "attendance",
+    trigger: "overtime.request.submitted",
+    steps: [
+      { step: 1, label: "Supervisor overtime review", approverRole: "supervisor", escalationHours: 12 },
+      { step: 2, label: "Payroll overtime validation", approverRole: "payroll_admin", escalationHours: 24 }
+    ]
+  },
+  {
+    code: "document-approval",
+    name: "Generated Document Approval",
+    module: "documents",
+    trigger: "document.generated",
+    steps: [
+      { step: 1, label: "HR document review", approverRole: "hr_admin", escalationHours: 12 },
+      { step: 2, label: "Company admin release", approverRole: "company_admin", escalationHours: 24 }
     ]
   }
 ];

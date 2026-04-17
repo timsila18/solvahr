@@ -22,6 +22,7 @@ type WorkflowDefinition = {
 type WorkflowQueueItem = {
   id: string;
   module: string;
+  entityType: string;
   entityId: string;
   subject: string;
   title: string;
@@ -74,30 +75,50 @@ export function WorkflowQueueWorkspace() {
     let path = "";
     let body: Record<string, string> | undefined;
 
-    if (item.module === "leave" && (action === "approve" || action === "reject")) {
+    if (item.entityType === "leave_request" && (action === "approve" || action === "reject")) {
       path = `/api/leave/requests/${item.entityId}/${action}`;
       body = {
         comments: `Decision from workflow center: ${action}`
       };
-    } else if (item.module === "employees" && (action === "approve" || action === "reject")) {
+    } else if (item.entityType === "employee_request" && (action === "approve" || action === "reject")) {
       path = `/api/employee-requests/${item.entityId}/${action}`;
       body = {
         comments: `Employee request ${action} from workflow center`
       };
-    } else if (item.module === "recruitment" && (action === "approve" || action === "reject")) {
+    } else if (item.entityType === "job_offer" && (action === "approve" || action === "reject")) {
       path = `/api/recruitment/offers/${item.entityId}/${action}`;
       body = {
         comments: `${humanize(action)} from workflow center`
       };
-    } else if (item.module === "payroll" && action === "request_approval") {
+    } else if (item.entityType === "requisition" && (action === "approve" || action === "reject")) {
+      path = `/api/recruitment/requisitions/${item.entityId}/${action}-step`;
+      body = {
+        comments: `${humanize(action)} from workflow center`
+      };
+    } else if (item.entityType === "training_request" && (action === "approve" || action === "reject")) {
+      path = `/api/training/requests/${item.entityId}/${action}-step`;
+      body = {
+        comments: `${humanize(action)} from workflow center`
+      };
+    } else if (item.entityType === "overtime_request" && (action === "approve" || action === "reject")) {
+      path = `/api/attendance/overtime/${item.entityId}/${action}-step`;
+      body = {
+        comments: `${humanize(action)} from workflow center`
+      };
+    } else if (item.entityType === "generated_document" && (action === "approve" || action === "reject")) {
+      path = `/api/documents/generated/${item.entityId}/${action}-step`;
+      body = {
+        comments: `${humanize(action)} from workflow center`
+      };
+    } else if (item.entityType === "payroll_run" && action === "request_approval") {
       path = "/api/payroll/runs/current/approve";
       body = {};
-    } else if (item.module === "payroll" && action === "approve") {
+    } else if (item.entityType === "payroll_run" && action === "approve") {
       path = "/api/payroll/runs/current/approve-step";
       body = {
         comments: "Approved from workflow center"
       };
-    } else if (item.module === "payroll" && action === "reject") {
+    } else if (item.entityType === "payroll_run" && action === "reject") {
       path = "/api/payroll/runs/current/reject-step";
       body = {
         comments: "Rejected from workflow center"

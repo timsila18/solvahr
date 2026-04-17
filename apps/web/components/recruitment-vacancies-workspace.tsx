@@ -14,6 +14,10 @@ type Requisition = {
   budgetRange?: string | null;
   status: string;
   justification: string;
+  workflow?: {
+    currentStepLabel?: string;
+    currentOwnerRole?: string;
+  } | null;
 };
 
 type Vacancy = {
@@ -34,6 +38,7 @@ export function RecruitmentVacanciesWorkspace() {
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [message, setMessage] = useState("Loading requisitions and vacancies");
+  const [status, setStatus] = useState<"idle" | "acting">("idle");
 
   useEffect(() => {
     async function loadData() {
@@ -63,6 +68,34 @@ export function RecruitmentVacanciesWorkspace() {
       setMessage(error instanceof Error ? error.message : "Unable to load recruitment planning data");
     });
   }, [apiBaseUrl, session.headers]);
+
+  async function decideRequisition(id: string, decision: "approve" | "reject") {
+    setStatus("acting");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} requisition`);
+
+    const response = await fetch(`${apiBaseUrl}/api/recruitment/requisitions/${id}/${decision}-step`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...session.headers
+      },
+      body: JSON.stringify({
+        comments: `${decision === "approve" ? "Approved" : "Rejected"} from requisition workspace`
+      })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      setStatus("idle");
+      setMessage(errorBody?.error?.message ?? "Requisition workflow action failed");
+      return;
+    }
+
+    const updated = (await response.json()) as Requisition;
+    setRequisitions((current) => current.map((item) => (item.id === id ? updated : item)));
+    setStatus("idle");
+    setMessage(`Requisition ${decision} step recorded`);
+  }
 
   const openVacancies = vacancies.filter((vacancy) => vacancy.status === "open").length;
   const submittedRequisitions = requisitions.filter((requisition) => requisition.status === "submitted").length;
@@ -117,7 +150,15 @@ export function RecruitmentVacanciesWorkspace() {
                   <td>{requisition.department ?? "Unassigned"}</td>
                   <td>{requisition.headcount}</td>
                   <td>{requisition.budgetRange ?? "Pending budget"}</td>
-                  <td>{requisition.status}</td>
+                  <td>
+                    {requisition.status}
+                    {requisition.workflow?.currentStepLabel ? (
+                      <>
+                        <br />
+                        {requisition.workflow.currentStepLabel} - {requisition.workflow.currentOwnerRole ?? "pending owner"}
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -125,6 +166,45 @@ export function RecruitmentVacanciesWorkspace() {
         </div>
 
         <div className="compactList recruitmentInsightList">
+          {requisitions.map((requisition) => (
+            <article key={requisition.id}>
+              <strong>{requisition.code} - {requisition.title}</strong>
+              <span>
+                {requisition.department ?? "Unassigned"} - {requisition.status} - {requisition.headcount} headcount
+              </span>
+              <span>{requisition.justification}</span>
+              {["submitted", "pending_approval"].includes(requisition.status) ? (
+                <div className="decisionActions workflowActionStack">
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      status === "acting" ||
+                      !!requisition.workflow?.currentOwnerRole &&
+                        session.role !== requisition.workflow.currentOwnerRole &&
+                        session.role !== "company_admin"
+                    }
+                    onClick={() => decideRequisition(requisition.id, "approve")}
+                    type="button"
+                  >
+                    Approve Step
+                  </button>
+                  <button
+                    className="secondaryButton"
+                    disabled={
+                      status === "acting" ||
+                      !!requisition.workflow?.currentOwnerRole &&
+                        session.role !== requisition.workflow.currentOwnerRole &&
+                        session.role !== "company_admin"
+                    }
+                    onClick={() => decideRequisition(requisition.id, "reject")}
+                    type="button"
+                  >
+                    Reject
+                  </button>
+                </div>
+              ) : null}
+            </article>
+          ))}
           {vacancies.map((vacancy) => (
             <article key={vacancy.id}>
               <strong>{vacancy.title}</strong>

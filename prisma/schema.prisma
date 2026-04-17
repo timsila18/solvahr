@@ -136,6 +136,8 @@ model Tenant {
   vacancies      Vacancy[]
   candidates     Candidate[]
   jobOffers      JobOffer[]
+  trainingRequests TrainingRequest[]
+  overtimeRequests OvertimeRequest[]
   onboardingTasks OnboardingTask[]
   probationReviews ProbationReview[]
   documentTemplates DocumentTemplate[]
@@ -714,6 +716,43 @@ model GeneratedDocument {
   status      String            @default("draft")
   createdAt   DateTime          @default(now())
   offers      JobOffer[]
+}
+
+model TrainingRequest {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  employeeName String
+  courseTitle String
+  managerName String
+  budgetTag   String
+  requestedAt DateTime       @default(now())
+  status      WorkflowStatus @default(SUBMITTED)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, requestedAt])
+}
+
+model OvertimeRequest {
+  id            String         @id @default(cuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code          String
+  employeeName  String
+  employeeNumber String
+  shiftDate     DateTime
+  hours         Decimal        @db.Decimal(8, 2)
+  reason        String
+  approverName  String
+  status        WorkflowStatus @default(SUBMITTED)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, shiftDate])
 }
 
 model WorkflowDefinition {

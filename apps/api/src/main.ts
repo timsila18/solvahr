@@ -52,6 +52,10 @@ import {
   createEmployeeApprovalRequestRecord,
   createLeaveRequest,
   decideOfferApproval,
+  decideGeneratedDocumentApproval,
+  decideOvertimeRequestApproval,
+  decideRequisitionApproval,
+  decideTrainingRequestApproval,
   decideEmployeeApprovalRequestRecord,
   decideLeaveRequest,
   decidePayrollApproval,
@@ -67,6 +71,7 @@ import {
   listEmployeeDocuments,
   listEmployees,
   listGeneratedDocuments,
+  listOvertimeRequests,
   listLeaveBalances,
   listInterviews,
   listLeaveRequests,
@@ -76,6 +81,7 @@ import {
   listOnboardingTasks,
   listProbationReviews,
   listRequisitions,
+  listTrainingRequests,
   listVacancies,
   listWorkflowStatesForEntities,
   releaseCurrentPayslips,
@@ -167,26 +173,169 @@ app.get("/api/attendance/timesheets", (_request, response) => {
   response.json(demoTimesheets);
 });
 
-app.get("/api/attendance/overtime", (_request, response) => {
-  response.json(demoOvertimeRequests);
-});
+app.get("/api/attendance/overtime", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listOvertimeRequests, demoOvertimeRequests));
+}));
 
-app.post("/api/attendance/overtime/:id/approve", (request, response) => {
-  response.status(202).json({
-    id: request.params.id,
-    status: "approved",
-    message: "Overtime approval recorded",
-    persistence: "demo_fallback"
-  });
-});
+app.post(
+  "/api/attendance/overtime/:id/approve-step",
+  requirePermission("attendance.approve_overtime"),
+  asyncHandler(async (request, response) => {
+    const overtimeId = request.params.id;
+    if (!overtimeId) {
+      sendError(response, 400, "Overtime id is required", { code: "missing_overtime_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const overtimeRequest = await decideOvertimeRequestApproval(overtimeId, "approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!overtimeRequest) {
+      response.status(202).json({
+        id: overtimeId,
+        status: "submitted",
+        message: "Overtime approval step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "attendance.overtime.approve",
+      entityType: "overtime_request",
+      entityId: overtimeRequest.id,
+      after: overtimeRequest
+    });
+
+    response.status(202).json(overtimeRequest);
+  })
+);
+
+app.post(
+  "/api/attendance/overtime/:id/reject-step",
+  requirePermission("attendance.approve_overtime"),
+  asyncHandler(async (request, response) => {
+    const overtimeId = request.params.id;
+    if (!overtimeId) {
+      sendError(response, 400, "Overtime id is required", { code: "missing_overtime_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const overtimeRequest = await decideOvertimeRequestApproval(overtimeId, "reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!overtimeRequest) {
+      response.status(202).json({
+        id: overtimeId,
+        status: "rejected",
+        message: "Overtime rejection step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "attendance.overtime.reject",
+      entityType: "overtime_request",
+      entityId: overtimeRequest.id,
+      after: overtimeRequest
+    });
+
+    response.status(202).json(overtimeRequest);
+  })
+);
 
 app.get("/api/training/catalog", (_request, response) => {
   response.json(demoTrainingCatalog);
 });
 
-app.get("/api/training/requests", (_request, response) => {
-  response.json(demoTrainingRequests);
-});
+app.get("/api/training/requests", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listTrainingRequests, demoTrainingRequests));
+}));
+
+app.post(
+  "/api/training/requests/:id/approve-step",
+  requirePermission("training.approve"),
+  asyncHandler(async (request, response) => {
+    const trainingRequestId = request.params.id;
+    if (!trainingRequestId) {
+      sendError(response, 400, "Training request id is required", { code: "missing_training_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const trainingRequest = await decideTrainingRequestApproval(trainingRequestId, "approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!trainingRequest) {
+      response.status(202).json({
+        id: trainingRequestId,
+        status: "submitted",
+        message: "Training approval step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "training.request.approve",
+      entityType: "training_request",
+      entityId: trainingRequest.id,
+      after: trainingRequest
+    });
+
+    response.status(202).json(trainingRequest);
+  })
+);
+
+app.post(
+  "/api/training/requests/:id/reject-step",
+  requirePermission("training.approve"),
+  asyncHandler(async (request, response) => {
+    const trainingRequestId = request.params.id;
+    if (!trainingRequestId) {
+      sendError(response, 400, "Training request id is required", { code: "missing_training_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const trainingRequest = await decideTrainingRequestApproval(trainingRequestId, "reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!trainingRequest) {
+      response.status(202).json({
+        id: trainingRequestId,
+        status: "rejected",
+        message: "Training rejection step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "training.request.reject",
+      entityType: "training_request",
+      entityId: trainingRequest.id,
+      after: trainingRequest
+    });
+
+    response.status(202).json(trainingRequest);
+  })
+);
 
 app.get("/api/training/records", (_request, response) => {
   response.json(demoTrainingRecords);
@@ -523,6 +672,82 @@ app.get("/api/recruitment/requisitions", asyncHandler(async (_request, response)
   response.json(await withFallback(listRequisitions, demoRequisitions));
 }));
 
+app.post(
+  "/api/recruitment/requisitions/:id/approve-step",
+  requirePermission("recruitment.approve_requisitions"),
+  asyncHandler(async (request, response) => {
+    const requisitionId = request.params.id;
+    if (!requisitionId) {
+      sendError(response, 400, "Requisition id is required", { code: "missing_requisition_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const requisition = await decideRequisitionApproval(requisitionId, "approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!requisition) {
+      response.status(202).json({
+        id: requisitionId,
+        status: "submitted",
+        message: "Requisition approval step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "recruitment.requisition.approve",
+      entityType: "requisition",
+      entityId: requisition.id,
+      after: requisition
+    });
+
+    response.status(202).json(requisition);
+  })
+);
+
+app.post(
+  "/api/recruitment/requisitions/:id/reject-step",
+  requirePermission("recruitment.approve_requisitions"),
+  asyncHandler(async (request, response) => {
+    const requisitionId = request.params.id;
+    if (!requisitionId) {
+      sendError(response, 400, "Requisition id is required", { code: "missing_requisition_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const requisition = await decideRequisitionApproval(requisitionId, "reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!requisition) {
+      response.status(202).json({
+        id: requisitionId,
+        status: "rejected",
+        message: "Requisition rejection step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "recruitment.requisition.reject",
+      entityType: "requisition",
+      entityId: requisition.id,
+      after: requisition
+    });
+
+    response.status(202).json(requisition);
+  })
+);
+
 app.get("/api/recruitment/vacancies", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listVacancies, demoVacancies));
 }));
@@ -659,6 +884,82 @@ app.get("/api/documents/generated", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listGeneratedDocuments, demoGeneratedDocuments));
 }));
 
+app.post(
+  "/api/documents/generated/:id/approve-step",
+  requirePermission("documents.approve"),
+  asyncHandler(async (request, response) => {
+    const documentId = request.params.id;
+    if (!documentId) {
+      sendError(response, 400, "Generated document id is required", { code: "missing_generated_document_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const document = await decideGeneratedDocumentApproval(documentId, "approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!document) {
+      response.status(202).json({
+        id: documentId,
+        status: "submitted",
+        message: "Document approval step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "documents.generated.approve",
+      entityType: "generated_document",
+      entityId: document.id,
+      after: document
+    });
+
+    response.status(202).json(document);
+  })
+);
+
+app.post(
+  "/api/documents/generated/:id/reject-step",
+  requirePermission("documents.approve"),
+  asyncHandler(async (request, response) => {
+    const documentId = request.params.id;
+    if (!documentId) {
+      sendError(response, 400, "Generated document id is required", { code: "missing_generated_document_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const document = await decideGeneratedDocumentApproval(documentId, "reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!document) {
+      response.status(202).json({
+        id: documentId,
+        status: "rejected",
+        message: "Document rejection step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "documents.generated.reject",
+      entityType: "generated_document",
+      entityId: document.id,
+      after: document
+    });
+
+    response.status(202).json(document);
+  })
+);
+
 app.get("/api/welfare/cases", (_request, response) => {
   response.json(demoWelfareCases);
 });
@@ -683,18 +984,28 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
       hireDate: string;
     };
   }>;
-  const [leaveRequests, offers, probationReviews, payrollRun] = await Promise.all([
-    withFallback(listLeaveRequests, demoLeaveRequests),
-    withFallback(listOffers, demoOffers),
-    withFallback(listProbationReviews, demoProbationReviews),
-    withFallback(getCurrentPayrollRun, buildDemoPayrollRun())
-  ]);
+  const [leaveRequests, offers, probationReviews, payrollRun, requisitions, trainingRequests, overtimeRequests, generatedDocuments] =
+    await Promise.all([
+      withFallback(listLeaveRequests, demoLeaveRequests),
+      withFallback(listOffers, demoOffers),
+      withFallback(listProbationReviews, demoProbationReviews),
+      withFallback(getCurrentPayrollRun, buildDemoPayrollRun()),
+      withFallback(listRequisitions, demoRequisitions),
+      withFallback(listTrainingRequests, demoTrainingRequests),
+      withFallback(listOvertimeRequests, demoOvertimeRequests),
+      withFallback(listGeneratedDocuments, demoGeneratedDocuments)
+    ]);
+
   const workflowStates = (await withFallback(
     () =>
       listWorkflowStatesForEntities([
         ...employeeRequests.map((item) => ({ entityType: "employee_request", entityId: item.id })),
         ...((leaveRequests as typeof demoLeaveRequests).map((item) => ({ entityType: "leave_request", entityId: item.id }))),
         ...((offers as typeof demoOffers).map((item) => ({ entityType: "job_offer", entityId: item.id }))),
+        ...((requisitions as typeof demoRequisitions).map((item) => ({ entityType: "requisition", entityId: item.id }))),
+        ...((trainingRequests as typeof demoTrainingRequests).map((item) => ({ entityType: "training_request", entityId: item.id }))),
+        ...((overtimeRequests as typeof demoOvertimeRequests).map((item) => ({ entityType: "overtime_request", entityId: item.id }))),
+        ...((generatedDocuments as typeof demoGeneratedDocuments).map((item) => ({ entityType: "generated_document", entityId: item.id }))),
         {
           entityType: "payroll_run",
           entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id
@@ -708,11 +1019,15 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
     currentStepLabel: string;
     currentOwnerRole: string;
   }>;
-  const workflowStateMap = new Map(workflowStates.map((item) => [`${item.entityType}:${item.entityId}`, item]));
 
+  const workflowStateMap = new Map(workflowStates.map((item) => [`${item.entityType}:${item.entityId}`, item]));
   const definitions = demoCatalogues.workflowDefinitions;
   const leaveDefinition = definitions.find((item) => item.code === "leave-approval");
   const offerDefinition = definitions.find((item) => item.code === "offer-approval");
+  const requisitionDefinition = definitions.find((item) => item.code === "manpower-requisition-approval");
+  const trainingDefinition = definitions.find((item) => item.code === "training-request-approval");
+  const overtimeDefinition = definitions.find((item) => item.code === "overtime-approval");
+  const documentDefinition = definitions.find((item) => item.code === "document-approval");
   const probationDefinition = definitions.find((item) => item.code === "probation-confirmation");
   const payrollDefinition = definitions.find((item) => item.code === "payroll-approval");
 
@@ -724,6 +1039,7 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         return {
           id: `employee-${item.id}`,
           module: "employees",
+          entityType: "employee_request",
           entityId: item.id,
           subject: item.payload.legalName,
           title: "Employee creation request",
@@ -732,10 +1048,7 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
           ownerRole: workflowState?.currentOwnerRole ?? item.approverRole,
           dueAt: item.payload.hireDate,
           summary: `${item.payload.employeeNumber} submitted by ${item.requestedByEmail}`,
-          availableActions: canActAsWorkflowOwner(
-            _request.user.roles,
-            workflowState?.currentOwnerRole ?? item.approverRole
-          )
+          availableActions: canActAsWorkflowOwner(_request.user.roles, workflowState?.currentOwnerRole ?? item.approverRole)
             ? ["approve", "reject"]
             : []
         };
@@ -747,6 +1060,7 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         return {
           id: `leave-${item.id}`,
           module: "leave",
+          entityType: "leave_request",
           entityId: item.id,
           subject: item.employeeName,
           title: item.type,
@@ -770,6 +1084,7 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         return {
           id: `offer-${item.id}`,
           module: "recruitment",
+          entityType: "job_offer",
           entityId: item.id,
           subject: item.candidateName,
           title: item.vacancyTitle,
@@ -786,11 +1101,108 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
             : []
         };
       })),
+    ...((requisitions as typeof demoRequisitions)
+      .filter((item) => item.status === "submitted")
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`requisition:${item.id}`);
+        return {
+          id: `requisition-${item.id}`,
+          module: "recruitment",
+          entityType: "requisition",
+          entityId: item.id,
+          subject: item.code,
+          title: item.title,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? requisitionDefinition?.steps[0]?.label ?? "Line manager review",
+          ownerRole: workflowState?.currentOwnerRole ?? requisitionDefinition?.steps[0]?.approverRole ?? "manager",
+          dueAt: null,
+          summary: `${item.headcount} headcount for ${item.department ?? "unassigned department"} at ${item.budgetRange ?? "pending budget"}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? requisitionDefinition?.steps[0]?.approverRole ?? "manager"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
+    ...((trainingRequests as typeof demoTrainingRequests)
+      .filter((item) => item.status === "submitted")
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`training_request:${item.id}`);
+        return {
+          id: `training-${item.id}`,
+          module: "training",
+          entityType: "training_request",
+          entityId: item.id,
+          subject: item.employeeName,
+          title: item.courseTitle,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? trainingDefinition?.steps[0]?.label ?? "Supervisor sponsorship",
+          ownerRole: workflowState?.currentOwnerRole ?? trainingDefinition?.steps[0]?.approverRole ?? "supervisor",
+          dueAt: item.requestedAt,
+          summary: `${item.manager} sponsoring under ${item.budgetTag}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? trainingDefinition?.steps[0]?.approverRole ?? "supervisor"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
+    ...((overtimeRequests as typeof demoOvertimeRequests)
+      .filter((item) => item.status === "submitted")
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`overtime_request:${item.id}`);
+        return {
+          id: `overtime-${item.id}`,
+          module: "attendance",
+          entityType: "overtime_request",
+          entityId: item.id,
+          subject: item.employeeName,
+          title: `${item.hours} hrs overtime`,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? overtimeDefinition?.steps[0]?.label ?? "Supervisor overtime review",
+          ownerRole: workflowState?.currentOwnerRole ?? overtimeDefinition?.steps[0]?.approverRole ?? "supervisor",
+          dueAt: item.shiftDate,
+          summary: `${item.employeeNumber} on ${item.shiftDate} for ${item.reason}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? overtimeDefinition?.steps[0]?.approverRole ?? "supervisor"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
+    ...((generatedDocuments as typeof demoGeneratedDocuments)
+      .filter((item) => item.status === "submitted")
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`generated_document:${item.id}`);
+        return {
+          id: `document-${item.id}`,
+          module: "documents",
+          entityType: "generated_document",
+          entityId: item.id,
+          subject: item.templateCode,
+          title: `${item.entityType} document`,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? documentDefinition?.steps[0]?.label ?? "HR document review",
+          ownerRole: workflowState?.currentOwnerRole ?? documentDefinition?.steps[0]?.approverRole ?? "hr_admin",
+          dueAt: null,
+          summary: item.preview,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? documentDefinition?.steps[0]?.approverRole ?? "hr_admin"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
     ...((probationReviews as typeof demoProbationReviews)
       .filter((item) => item.status !== "approved")
       .map((item) => ({
         id: `probation-${item.id}`,
         module: "probation",
+        entityType: "probation_review",
         entityId: item.id,
         subject: item.employeeName,
         title: "Probation confirmation",
@@ -806,6 +1218,7 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
       return {
         id: `payroll-${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).id}`,
         module: "payroll",
+        entityType: "payroll_run",
         entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id,
         subject: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).period,
         title: "Current payroll run",

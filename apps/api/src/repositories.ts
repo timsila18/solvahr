@@ -795,6 +795,14 @@ export async function listRequisitions() {
       }
     });
 
+    const workflowStates = await listWorkflowStatesForEntities(
+      requisitions.map((requisition) => ({
+        entityType: "requisition",
+        entityId: requisition.id
+      }))
+    );
+    const workflowStateMap = new Map((workflowStates ?? []).map((item) => [`requisition:${item.entityId}`, item]));
+
     return requisitions.map((requisition) => ({
       id: requisition.id,
       code: requisition.code,
@@ -806,8 +814,9 @@ export async function listRequisitions() {
         requisition.budgetedSalaryMin && requisition.budgetedSalaryMax
           ? `KES ${requisition.budgetedSalaryMin} - ${requisition.budgetedSalaryMax}`
           : null,
-      status: requisition.status.toLowerCase(),
-      justification: requisition.justification
+      status: workflowStateMap.get(`requisition:${requisition.id}`)?.status ?? requisition.status.toLowerCase(),
+      justification: requisition.justification,
+      workflow: workflowStateMap.get(`requisition:${requisition.id}`) ?? null
     }));
   });
 }
@@ -975,13 +984,79 @@ export async function listGeneratedDocuments() {
       include: { template: true }
     });
 
+    const workflowStates = await listWorkflowStatesForEntities(
+      documents.map((document) => ({
+        entityType: "generated_document",
+        entityId: document.id
+      }))
+    );
+    const workflowStateMap = new Map((workflowStates ?? []).map((item) => [`generated_document:${item.entityId}`, item]));
+
     return documents.map((document) => ({
       id: document.id,
       templateCode: document.template.code,
       entityType: document.entityType,
       entityId: document.entityId,
-      status: document.status,
-      preview: document.renderedBody
+      status: workflowStateMap.get(`generated_document:${document.id}`)?.status ?? document.status,
+      preview: document.renderedBody,
+      workflow: workflowStateMap.get(`generated_document:${document.id}`) ?? null
+    }));
+  });
+}
+
+export async function listTrainingRequests() {
+  return useDatabase(async () => {
+    const requests = await prisma.trainingRequest.findMany({
+      orderBy: { requestedAt: "desc" }
+    });
+
+    const workflowStates = await listWorkflowStatesForEntities(
+      requests.map((request) => ({
+        entityType: "training_request",
+        entityId: request.id
+      }))
+    );
+    const workflowStateMap = new Map((workflowStates ?? []).map((item) => [`training_request:${item.entityId}`, item]));
+
+    return requests.map((request) => ({
+      id: request.id,
+      code: request.code,
+      employeeName: request.employeeName,
+      courseTitle: request.courseTitle,
+      manager: request.managerName,
+      budgetTag: request.budgetTag,
+      requestedAt: isoDate(request.requestedAt),
+      status: workflowStateMap.get(`training_request:${request.id}`)?.status ?? request.status.toLowerCase(),
+      workflow: workflowStateMap.get(`training_request:${request.id}`) ?? null
+    }));
+  });
+}
+
+export async function listOvertimeRequests() {
+  return useDatabase(async () => {
+    const requests = await prisma.overtimeRequest.findMany({
+      orderBy: [{ shiftDate: "desc" }, { createdAt: "desc" }]
+    });
+
+    const workflowStates = await listWorkflowStatesForEntities(
+      requests.map((request) => ({
+        entityType: "overtime_request",
+        entityId: request.id
+      }))
+    );
+    const workflowStateMap = new Map((workflowStates ?? []).map((item) => [`overtime_request:${item.entityId}`, item]));
+
+    return requests.map((request) => ({
+      id: request.id,
+      code: request.code,
+      employeeName: request.employeeName,
+      employeeNumber: request.employeeNumber,
+      shiftDate: isoDate(request.shiftDate),
+      hours: decimalToNumber(request.hours),
+      reason: request.reason,
+      approver: request.approverName,
+      status: workflowStateMap.get(`overtime_request:${request.id}`)?.status ?? request.status.toLowerCase(),
+      workflow: workflowStateMap.get(`overtime_request:${request.id}`) ?? null
     }));
   });
 }
@@ -1569,6 +1644,289 @@ export async function decideOfferApproval(
         status: nextWorkflowState?.status ?? updatedOffer.status.toLowerCase(),
         offeredSalary: decimalToNumber(updatedOffer.offeredSalary),
         proposedStartDate: isoDate(updatedOffer.proposedStartDate),
+        workflow: nextWorkflowState ?? workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+}
+
+export async function decideRequisitionApproval(
+  id: string,
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const requisition = await transaction.requisition.findUnique({
+        where: { id },
+        include: {
+          department: true
+        }
+      });
+
+      if (!requisition) {
+        return null;
+      }
+
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: requisition.tenantId,
+        definitionCode: "manpower-requisition-approval",
+        entityType: "requisition",
+        entityId: requisition.id
+      });
+
+      const nextWorkflowState = workflowState
+        ? await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: requisition.tenantId,
+            entityType: "requisition",
+            entityId: requisition.id,
+            decision,
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          })
+        : null;
+
+      const updatedRequisition = await transaction.requisition.update({
+        where: { id },
+        data: {
+          status:
+            nextWorkflowState?.status === "approved"
+              ? "APPROVED"
+              : nextWorkflowState?.status === "rejected"
+                ? "REJECTED"
+                : "SUBMITTED"
+        },
+        include: {
+          department: true
+        }
+      });
+
+      return {
+        id: updatedRequisition.id,
+        code: updatedRequisition.code,
+        title: updatedRequisition.title,
+        department: updatedRequisition.department?.name,
+        hiringManager: updatedRequisition.hiringManagerId,
+        headcount: updatedRequisition.headcount,
+        budgetRange:
+          updatedRequisition.budgetedSalaryMin && updatedRequisition.budgetedSalaryMax
+            ? `KES ${updatedRequisition.budgetedSalaryMin} - ${updatedRequisition.budgetedSalaryMax}`
+            : null,
+        status: nextWorkflowState?.status ?? updatedRequisition.status.toLowerCase(),
+        justification: updatedRequisition.justification,
+        workflow: nextWorkflowState ?? workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+}
+
+export async function decideGeneratedDocumentApproval(
+  id: string,
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const document = await transaction.generatedDocument.findUnique({
+        where: { id },
+        include: { template: true }
+      });
+
+      if (!document) {
+        return null;
+      }
+
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: document.tenantId,
+        definitionCode: "document-approval",
+        entityType: "generated_document",
+        entityId: document.id
+      });
+
+      const nextWorkflowState = workflowState
+        ? await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: document.tenantId,
+            entityType: "generated_document",
+            entityId: document.id,
+            decision,
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          })
+        : null;
+
+      const updatedDocument = await transaction.generatedDocument.update({
+        where: { id },
+        data: {
+          status:
+            nextWorkflowState?.status === "approved"
+              ? "approved"
+              : nextWorkflowState?.status === "rejected"
+                ? "rejected"
+                : "submitted"
+        },
+        include: { template: true }
+      });
+
+      return {
+        id: updatedDocument.id,
+        templateCode: updatedDocument.template.code,
+        entityType: updatedDocument.entityType,
+        entityId: updatedDocument.entityId,
+        status: nextWorkflowState?.status ?? updatedDocument.status,
+        preview: updatedDocument.renderedBody,
+        workflow: nextWorkflowState ?? workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+}
+
+export async function decideTrainingRequestApproval(
+  id: string,
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const request = await transaction.trainingRequest.findUnique({
+        where: { id }
+      });
+
+      if (!request) {
+        return null;
+      }
+
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: request.tenantId,
+        definitionCode: "training-request-approval",
+        entityType: "training_request",
+        entityId: request.id
+      });
+
+      const nextWorkflowState = workflowState
+        ? await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: request.tenantId,
+            entityType: "training_request",
+            entityId: request.id,
+            decision,
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          })
+        : null;
+
+      const updatedRequest = await transaction.trainingRequest.update({
+        where: { id },
+        data: {
+          status:
+            nextWorkflowState?.status === "approved"
+              ? "APPROVED"
+              : nextWorkflowState?.status === "rejected"
+                ? "REJECTED"
+                : "SUBMITTED"
+        }
+      });
+
+      return {
+        id: updatedRequest.id,
+        code: updatedRequest.code,
+        employeeName: updatedRequest.employeeName,
+        courseTitle: updatedRequest.courseTitle,
+        manager: updatedRequest.managerName,
+        budgetTag: updatedRequest.budgetTag,
+        requestedAt: isoDate(updatedRequest.requestedAt),
+        status: nextWorkflowState?.status ?? updatedRequest.status.toLowerCase(),
+        workflow: nextWorkflowState ?? workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+}
+
+export async function decideOvertimeRequestApproval(
+  id: string,
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      const request = await transaction.overtimeRequest.findUnique({
+        where: { id }
+      });
+
+      if (!request) {
+        return null;
+      }
+
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: request.tenantId,
+        definitionCode: "overtime-approval",
+        entityType: "overtime_request",
+        entityId: request.id
+      });
+
+      const nextWorkflowState = workflowState
+        ? await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: request.tenantId,
+            entityType: "overtime_request",
+            entityId: request.id,
+            decision,
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          })
+        : null;
+
+      const updatedRequest = await transaction.overtimeRequest.update({
+        where: { id },
+        data: {
+          status:
+            nextWorkflowState?.status === "approved"
+              ? "APPROVED"
+              : nextWorkflowState?.status === "rejected"
+                ? "REJECTED"
+                : "SUBMITTED"
+        }
+      });
+
+      return {
+        id: updatedRequest.id,
+        code: updatedRequest.code,
+        employeeName: updatedRequest.employeeName,
+        employeeNumber: updatedRequest.employeeNumber,
+        shiftDate: isoDate(updatedRequest.shiftDate),
+        hours: decimalToNumber(updatedRequest.hours),
+        reason: updatedRequest.reason,
+        approver: updatedRequest.approverName,
+        status: nextWorkflowState?.status ?? updatedRequest.status.toLowerCase(),
         workflow: nextWorkflowState ?? workflowState
       };
     },

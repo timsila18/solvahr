@@ -357,6 +357,42 @@ async function main() {
     }
   });
 
+  await prisma.requisition.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "REQ-2026-015" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "REQ-2026-015",
+      title: "Employee Relations Officer",
+      departmentId: department.id,
+      positionId: position.id,
+      hiringManagerId: employee.id,
+      headcount: 1,
+      budgetedSalaryMin: "95000.00",
+      budgetedSalaryMax: "120000.00",
+      justification: "Strengthen welfare, grievance, and discipline case turnaround.",
+      status: "SUBMITTED"
+    }
+  });
+
+  await prisma.requisition.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "REQ-2026-016" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "REQ-2026-016",
+      title: "HR Operations Analyst",
+      departmentId: department.id,
+      positionId: position.id,
+      hiringManagerId: employee.id,
+      headcount: 1,
+      budgetedSalaryMin: "110000.00",
+      budgetedSalaryMax: "135000.00",
+      justification: "Support workflow monitoring, records compliance, and HR reporting turnaround.",
+      status: "SUBMITTED"
+    }
+  });
+
   const vacancy = await prisma.vacancy.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: "VAC-2026-009" } },
     update: {},
@@ -411,9 +447,32 @@ async function main() {
       templateId: template.id,
       entityType: "job_offer",
       entityId: candidate.id,
-      renderedBody: "Dear Faith Wambui, we are pleased to offer you the role of Payroll Implementation Specialist."
+      renderedBody: "Dear Faith Wambui, we are pleased to offer you the role of Payroll Implementation Specialist.",
+      status: "submitted"
     }
   });
+
+  const pendingDocumentBody =
+    "Dear Team, this probation confirmation draft is awaiting release after HR review and company sign-off.";
+  const existingPendingDocument = await prisma.generatedDocument.findFirst({
+    where: {
+      tenantId: tenant.id,
+      renderedBody: pendingDocumentBody
+    }
+  });
+
+  if (!existingPendingDocument) {
+    await prisma.generatedDocument.create({
+      data: {
+        tenantId: tenant.id,
+        templateId: template.id,
+        entityType: "probation_review",
+        entityId: employee.id,
+        renderedBody: pendingDocumentBody,
+        status: "submitted"
+      }
+    });
+  }
 
   await prisma.jobOffer.create({
     data: {
@@ -469,6 +528,99 @@ async function main() {
       score: "78.00",
       recommendation: "extend_probation",
       comments: "Progress is strong, with extra payroll controls coaching recommended."
+    }
+  });
+
+  await prisma.trainingRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "TR-2026-001" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "TR-2026-001",
+      employeeName: "Amina Otieno",
+      courseTitle: "Kenya Payroll Compliance Masterclass",
+      managerName: "Grace Wanjiku",
+      budgetTag: "LND-2026-Q2",
+      requestedAt: new Date("2026-04-14"),
+      status: "SUBMITTED"
+    }
+  });
+
+  await prisma.trainingRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "TR-2026-002" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "TR-2026-002",
+      employeeName: "Faith Wambui",
+      courseTitle: "Manager Essentials for Performance Reviews",
+      managerName: "Amina Otieno",
+      budgetTag: "LND-2026-Q2",
+      requestedAt: new Date("2026-04-15"),
+      status: "APPROVED"
+    }
+  });
+
+  await prisma.trainingRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "TR-2026-003" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "TR-2026-003",
+      employeeName: "Brian Mwangi",
+      courseTitle: "Employee Relations and Case Handling",
+      managerName: "Peter Odhiambo",
+      budgetTag: "OPS-TRAINING",
+      requestedAt: new Date("2026-04-16"),
+      status: "SUBMITTED"
+    }
+  });
+
+  await prisma.overtimeRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "OT-2026-001" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "OT-2026-001",
+      employeeName: "Brian Mwangi",
+      employeeNumber: "E-002",
+      shiftDate: new Date("2026-04-16"),
+      hours: "3.00",
+      reason: "Machine restart and production recovery",
+      approverName: "Peter Odhiambo",
+      status: "SUBMITTED"
+    }
+  });
+
+  await prisma.overtimeRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "OT-2026-002" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "OT-2026-002",
+      employeeName: "Mary Njeri",
+      employeeNumber: "E-017",
+      shiftDate: new Date("2026-04-15"),
+      hours: "2.50",
+      reason: "Month-end stock reconciliation",
+      approverName: "Grace Wanjiku",
+      status: "APPROVED"
+    }
+  });
+
+  await prisma.overtimeRequest.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: "OT-2026-003" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      code: "OT-2026-003",
+      employeeName: "Daniel Kiptoo",
+      employeeNumber: "E-031",
+      shiftDate: new Date("2026-04-14"),
+      hours: "4.00",
+      reason: "Emergency client payroll cut-off support",
+      approverName: "Grace Wanjiku",
+      status: "SUBMITTED"
     }
   });
 }

@@ -44,17 +44,21 @@ import {
   createEmployeeApprovalRequest,
   decideEmployeeApprovalRequest,
   findEmployeeApprovalRequest,
-  listEmployeeApprovalRequests
+  listEmployeeApprovalRequests as listRuntimeEmployeeApprovalRequests
 } from "./runtime-store.js";
 import {
   approveOffer,
   createCandidate,
   createEmployee,
+  createEmployeeApprovalRequestRecord,
   createLeaveRequest,
+  decideEmployeeApprovalRequestRecord,
   decideLeaveRequest,
+  findEmployeeApprovalRequestById,
   getCurrentPayrollRun,
   getCurrentPayrollReports,
   getDashboardPayload,
+  listEmployeeApprovalRequests,
   listCandidates,
   listCompanies,
   listAuditLogs,
@@ -195,7 +199,7 @@ app.get("/api/employees/documents", asyncHandler(async (_request, response) => {
 }));
 
 app.get("/api/employee-requests", requirePermission("employees.view"), asyncHandler(async (_request, response) => {
-  response.json(listEmployeeApprovalRequests());
+  response.json(await withFallback(listEmployeeApprovalRequests, listRuntimeEmployeeApprovalRequests()));
 }));
 
 app.post(
@@ -214,14 +218,23 @@ app.post(
     const input = createEmployeeSchema.parse(request.body);
 
     if (!canApprove) {
-      const approvalRequest = createEmployeeApprovalRequest({
-        tenantId: request.user.tenantId,
-        requestedByUserId: request.user.id,
-        requestedByEmail: request.user.email,
-        requestedByName: request.user.email.split("@")[0] ?? request.user.email,
-        approverRole: "supervisor",
-        payload: input
-      });
+      const approvalRequest =
+        (await createEmployeeApprovalRequestRecord({
+          tenantId: request.user.tenantId,
+          requestedByUserId: request.user.id,
+          requestedByEmail: request.user.email,
+          requestedByName: request.user.email.split("@")[0] ?? request.user.email,
+          approverRole: "supervisor",
+          payload: input
+        })) ??
+        createEmployeeApprovalRequest({
+          tenantId: request.user.tenantId,
+          requestedByUserId: request.user.id,
+          requestedByEmail: request.user.email,
+          requestedByName: request.user.email.split("@")[0] ?? request.user.email,
+          approverRole: "supervisor",
+          payload: input
+        });
 
       await writeAuditLog({
         request,
@@ -272,7 +285,8 @@ app.post(
     }
 
     const input = approvalDecisionSchema.parse(request.body);
-    const pendingRequest = findEmployeeApprovalRequest(employeeRequestId);
+    const pendingRequest =
+      (await findEmployeeApprovalRequestById(employeeRequestId)) ?? findEmployeeApprovalRequest(employeeRequestId);
 
     if (!pendingRequest) {
       sendError(response, 404, "Employee approval request not found", { code: "employee_request_not_found" });
@@ -305,7 +319,11 @@ app.post(
       return;
     }
 
-    const approvalRequest = decideEmployeeApprovalRequest(employeeRequestId, "approved", input.comments);
+    const approvalRequest =
+      (await decideEmployeeApprovalRequestRecord(employeeRequestId, "approved", {
+        comments: input.comments,
+        approvedEmployeeId: employee.id
+      })) ?? decideEmployeeApprovalRequest(employeeRequestId, "approved", input.comments);
 
     await writeAuditLog({
       request,
@@ -336,7 +354,8 @@ app.post(
     }
 
     const input = approvalDecisionSchema.parse(request.body);
-    const pendingRequest = findEmployeeApprovalRequest(employeeRequestId);
+    const pendingRequest =
+      (await findEmployeeApprovalRequestById(employeeRequestId)) ?? findEmployeeApprovalRequest(employeeRequestId);
 
     if (!pendingRequest) {
       sendError(response, 404, "Employee approval request not found", { code: "employee_request_not_found" });
@@ -360,7 +379,10 @@ app.post(
     }
 
     const before = cloneForAudit(pendingRequest);
-    const approvalRequest = decideEmployeeApprovalRequest(employeeRequestId, "rejected", input.comments);
+    const approvalRequest =
+      (await decideEmployeeApprovalRequestRecord(employeeRequestId, "rejected", {
+        comments: input.comments
+      })) ?? decideEmployeeApprovalRequest(employeeRequestId, "rejected", input.comments);
 
     await writeAuditLog({
       request,
@@ -604,7 +626,17 @@ app.get("/api/disciplinary/cases", (_request, response) => {
 });
 
 app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
-  const employeeRequests = listEmployeeApprovalRequests();
+  const employeeRequests = (await withFallback(listEmployeeApprovalRequests, listRuntimeEmployeeApprovalRequests())) as Array<{
+    id: string;
+    approverRole: string;
+    status: string;
+    requestedByEmail: string;
+    payload: {
+      legalName: string;
+      employeeNumber: string;
+      hireDate: string;
+    };
+  }>;
   const [leaveRequests, offers, probationReviews, payrollRun] = await Promise.all([
     withFallback(listLeaveRequests, demoLeaveRequests),
     withFallback(listOffers, demoOffers),

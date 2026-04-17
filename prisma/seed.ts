@@ -7,6 +7,59 @@ function jsonValue(value: unknown) {
   return JSON.parse(JSON.stringify(value));
 }
 
+async function ensureUser(input: {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  roleCode: string;
+}) {
+  const user = await prisma.user.upsert({
+    where: { email: input.email },
+    update: {
+      id: input.id,
+      tenantId: input.tenantId,
+      name: input.name,
+      isActive: true
+    },
+    create: {
+      id: input.id,
+      tenantId: input.tenantId,
+      email: input.email,
+      name: input.name,
+      passwordHash: "staging-auth-not-enabled",
+      isActive: true
+    }
+  });
+
+  const role = await prisma.role.findUnique({
+    where: {
+      tenantId_code: {
+        tenantId: input.tenantId,
+        code: input.roleCode
+      }
+    }
+  });
+
+  if (role) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: user.id,
+          roleId: role.id
+        }
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        roleId: role.id
+      }
+    });
+  }
+
+  return user;
+}
+
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { id: "tenant-solva-demo" },
@@ -70,6 +123,72 @@ async function main() {
       )
     );
   }
+
+  await Promise.all([
+    ensureUser({
+      id: "demo-operator",
+      tenantId: tenant.id,
+      email: "operator@solvahr.app",
+      name: "Solva Operator",
+      roleCode: "operator"
+    }),
+    ensureUser({
+      id: "demo-supervisor",
+      tenantId: tenant.id,
+      email: "supervisor@solvahr.app",
+      name: "Solva Supervisor",
+      roleCode: "supervisor"
+    }),
+    ensureUser({
+      id: "demo-company-admin",
+      tenantId: tenant.id,
+      email: "companyadmin@solvahr.app",
+      name: "Solva Company Admin",
+      roleCode: "company_admin"
+    }),
+    ensureUser({
+      id: "demo-hr-admin",
+      tenantId: tenant.id,
+      email: "hradmin@solvahr.app",
+      name: "Solva HR Admin",
+      roleCode: "hr_admin"
+    }),
+    ensureUser({
+      id: "demo-payroll-admin",
+      tenantId: tenant.id,
+      email: "payrolladmin@solvahr.app",
+      name: "Solva Payroll Admin",
+      roleCode: "payroll_admin"
+    }),
+    ensureUser({
+      id: "demo-manager",
+      tenantId: tenant.id,
+      email: "manager@solvahr.app",
+      name: "Solva Manager",
+      roleCode: "manager"
+    }),
+    ensureUser({
+      id: "demo-recruiter",
+      tenantId: tenant.id,
+      email: "recruiter@solvahr.app",
+      name: "Solva Recruiter",
+      roleCode: "recruiter"
+    }),
+    ensureUser({
+      id: "demo-employee",
+      tenantId: tenant.id,
+      email: "employee@solvahr.app",
+      name: "Solva Employee",
+      roleCode: "employee"
+    }),
+    ensureUser({
+      id: "demo-auditor",
+      tenantId: tenant.id,
+      email: "auditor@solvahr.app",
+      name: "Solva Auditor",
+      roleCode: "auditor"
+    })
+  ]);
 
   const branch = await prisma.branch.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: "NRB-HQ" } },

@@ -143,6 +143,7 @@ model Tenant {
   workflowDefinitions WorkflowDefinition[]
   workflowInstances WorkflowInstance[]
   auditLogs      AuditLog[]
+  employeeApprovalRequests EmployeeApprovalRequest[]
 }
 
 model User {
@@ -158,10 +159,32 @@ model User {
   roles        UserRole[]
   sessions     Session[]
   auditLogs    AuditLog[] @relation("AuditActor")
+  requestedEmployeeApprovals EmployeeApprovalRequest[] @relation("EmployeeApprovalRequester")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
   @@index([tenantId])
+}
+
+model EmployeeApprovalRequest {
+  id                 String         @id @default(cuid())
+  tenantId           String
+  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedByUserId  String?
+  requestedByUser    User?          @relation("EmployeeApprovalRequester", fields: [requestedByUserId], references: [id])
+  requestedByEmail   String
+  requestedByName    String
+  approverRole       String
+  status             WorkflowStatus @default(SUBMITTED)
+  payload            Json
+  approvedEmployeeId String?
+  decisionComments   String?
+  decidedAt          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([requestedByUserId, createdAt])
 }
 
 model Role {

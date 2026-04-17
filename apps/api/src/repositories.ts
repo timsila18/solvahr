@@ -176,6 +176,125 @@ export async function listEmployeeDocuments() {
   });
 }
 
+type EmployeeApprovalPayload = {
+  employeeNumber: string;
+  legalName: string;
+  companyEmail?: string | undefined;
+  hireDate: string;
+};
+
+function normalizeApprovalRequestStatus(status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "CANCELLED") {
+  switch (status) {
+    case "APPROVED":
+      return "approved";
+    case "REJECTED":
+      return "rejected";
+    default:
+      return "pending_approval";
+  }
+}
+
+function mapEmployeeApprovalRequest(record: {
+  id: string;
+  tenantId: string;
+  requestedByUserId: string | null;
+  requestedByEmail: string;
+  requestedByName: string;
+  approverRole: string;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "CANCELLED";
+  payload: Prisma.JsonValue;
+  approvedEmployeeId: string | null;
+  decisionComments: string | null;
+  decidedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  const payload = record.payload as EmployeeApprovalPayload;
+
+  return {
+    id: record.id,
+    tenantId: record.tenantId,
+    requestedByUserId: record.requestedByUserId,
+    requestedByEmail: record.requestedByEmail,
+    requestedByName: record.requestedByName,
+    approverRole: record.approverRole,
+    status: normalizeApprovalRequestStatus(record.status),
+    payload,
+    approvedEmployeeId: record.approvedEmployeeId,
+    decisionComments: record.decisionComments,
+    decidedAt: record.decidedAt?.toISOString() ?? null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString()
+  };
+}
+
+export async function listEmployeeApprovalRequests() {
+  return useDatabase(async () => {
+    const requests = await prisma.employeeApprovalRequest.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+
+    return requests.map(mapEmployeeApprovalRequest);
+  });
+}
+
+export async function createEmployeeApprovalRequestRecord(input: {
+  tenantId: string;
+  requestedByUserId?: string | null;
+  requestedByEmail: string;
+  requestedByName: string;
+  approverRole: string;
+  payload: EmployeeApprovalPayload;
+}) {
+  return useDatabase(async () => {
+    const request = await prisma.employeeApprovalRequest.create({
+      data: {
+        tenantId: input.tenantId,
+        requestedByUserId: input.requestedByUserId ?? null,
+        requestedByEmail: input.requestedByEmail,
+        requestedByName: input.requestedByName,
+        approverRole: input.approverRole,
+        payload: input.payload
+      }
+    });
+
+    return mapEmployeeApprovalRequest(request);
+  });
+}
+
+export async function findEmployeeApprovalRequestById(id: string) {
+  return useDatabase(async () => {
+    const request = await prisma.employeeApprovalRequest.findUnique({
+      where: { id }
+    });
+
+    return request ? mapEmployeeApprovalRequest(request) : null;
+  });
+}
+
+export async function decideEmployeeApprovalRequestRecord(
+  id: string,
+  decision: "approved" | "rejected",
+  input: {
+    comments?: string | undefined;
+    approvedEmployeeId?: string | null;
+  }
+) {
+  return useDatabase(async () => {
+    const request = await prisma.employeeApprovalRequest.update({
+      where: { id },
+      data: {
+        status: decision === "approved" ? "APPROVED" : "REJECTED",
+        decisionComments: input.comments ?? null,
+        approvedEmployeeId: input.approvedEmployeeId ?? null,
+        decidedAt: new Date()
+      }
+    });
+
+    return mapEmployeeApprovalRequest(request);
+  });
+}
+
 function classifyAuditRisk(action: string) {
   if (
     action.includes("terminate") ||

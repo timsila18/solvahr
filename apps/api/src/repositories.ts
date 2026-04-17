@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { phaseTwoWorkflowDefinitions } from "@solva/shared";
 import { buildDemoPayrollRun, dashboardMetrics, demoCatalogues, phaseTwoMetrics } from "./demo-data.js";
 import { isDatabaseConfigured, prisma } from "./prisma.js";
 
@@ -90,6 +91,284 @@ async function useDatabase<T>(query: () => Promise<T>): Promise<T | null> {
   }
 
   return query();
+}
+
+type StoredWorkflowStepDefinition = {
+  step: number;
+  label: string;
+  approverRole: string;
+  escalationHours?: number | undefined;
+  requiredPermission?: string | undefined;
+};
+
+function parseWorkflowDefinitionSteps(value: Prisma.JsonValue): StoredWorkflowStepDefinition[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is Prisma.JsonObject => typeof item === "object" && item !== null && !Array.isArray(item))
+    .map((item) => ({
+      step: Number(item.step ?? 0),
+      label: String(item.label ?? "Approval step"),
+      approverRole: String(item.approverRole ?? "company_admin"),
+      escalationHours: item.escalationHours == null ? undefined : Number(item.escalationHours),
+      requiredPermission: item.requiredPermission == null ? undefined : String(item.requiredPermission)
+    }))
+    .filter((item) => item.step > 0);
+}
+
+type WorkflowState = {
+  entityType: string;
+  entityId: string;
+  definitionCode: string;
+  definitionName: string;
+  module: string;
+  status: string;
+  currentStep: number;
+  currentStepLabel: string;
+  currentOwnerRole: string;
+  steps: Array<{
+    step: number;
+    label: string;
+    approverRole: string;
+    status: string;
+    comments: string | null;
+    decidedAt: string | null;
+  }>;
+};
+
+function mapWorkflowState(instance: {
+  entityType: string;
+  entityId: string;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "CANCELLED";
+  currentStep: number;
+  definition: { code: string; name: string; module: string; steps: Prisma.JsonValue } | null;
+  steps: Array<{
+    step: number;
+    approverRole: string;
+    status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "CANCELLED";
+    comments: string | null;
+    decidedAt: Date | null;
+  }>;
+}) {
+  const definedSteps = instance.definition ? parseWorkflowDefinitionSteps(instance.definition.steps) : [];
+  const currentStep = instance.steps.find((step) => step.step === instance.currentStep) ?? instance.steps[0];
+  const currentStepDefinition = definedSteps.find((step) => step.step === currentStep?.step);
+
+  return {
+    entityType: instance.entityType,
+    entityId: instance.entityId,
+    definitionCode: instance.definition?.code ?? "unknown",
+    definitionName: instance.definition?.name ?? "Workflow",
+    module: instance.definition?.module ?? "system",
+    status: instance.status.toLowerCase(),
+    currentStep: instance.currentStep,
+    currentStepLabel: currentStepDefinition?.label ?? (currentStep ? `Step ${currentStep.step}` : "Pending"),
+    currentOwnerRole: currentStep?.approverRole ?? "company_admin",
+    steps: instance.steps.map((step) => ({
+      step: step.step,
+      label: definedSteps.find((definitionStep) => definitionStep.step === step.step)?.label ?? `Step ${step.step}`,
+      approverRole: step.approverRole,
+      status: step.status.toLowerCase(),
+      comments: step.comments,
+      decidedAt: step.decidedAt?.toISOString() ?? null
+    }))
+  } satisfies WorkflowState;
+}
+
+async function createWorkflowInstanceForEntity(
+  transaction: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    definitionCode: string;
+    entityType: string;
+    entityId: string;
+  }
+) {
+  let definition = await transaction.workflowDefinition.findUnique({
+    where: {
+      tenantId_code: {
+        tenantId: input.tenantId,
+        code: input.definitionCode
+      }
+    }
+  });
+
+  if (!definition) {
+    const localDefinition = phaseTwoWorkflowDefinitions.find((item) => item.code === input.definitionCode);
+    if (localDefinition) {
+      definition = await transaction.workflowDefinition.create({
+        data: {
+          tenantId: input.tenantId,
+          code: localDefinition.code,
+          name: localDefinition.name,
+          module: localDefinition.module,
+          trigger: localDefinition.trigger,
+          steps: localDefinition.steps
+        }
+      });
+    }
+  }
+
+  if (!definition) {
+    return null;
+  }
+
+  const steps = parseWorkflowDefinitionSteps(definition.steps);
+
+  const instance = await transaction.workflowInstance.create({
+    data: {
+      tenantId: input.tenantId,
+      definitionId: definition.id,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      status: "SUBMITTED",
+      currentStep: steps[0]?.step ?? 1,
+      steps: {
+        create: steps.map((step) => ({
+          step: step.step,
+          approverRole: step.approverRole,
+          status: step.step === steps[0]?.step ? "SUBMITTED" : "DRAFT"
+        }))
+      }
+    },
+    include: {
+      definition: true,
+      steps: {
+        orderBy: { step: "asc" }
+      }
+    }
+  });
+
+  return mapWorkflowState(instance);
+}
+
+async function decideWorkflowInstanceForEntity(
+  transaction: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    entityType: string;
+    entityId: string;
+    decision: "approve" | "reject";
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  const instance = await transaction.workflowInstance.findFirst({
+    where: {
+      tenantId: input.tenantId,
+      entityType: input.entityType,
+      entityId: input.entityId
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      definition: true,
+      steps: {
+        orderBy: { step: "asc" }
+      }
+    }
+  });
+
+  if (!instance) {
+    return null;
+  }
+
+  const currentStep = instance.steps.find((step) => step.step === instance.currentStep);
+  if (!currentStep) {
+    return mapWorkflowState(instance);
+  }
+
+  await transaction.workflowStep.update({
+    where: { id: currentStep.id },
+    data: {
+      approverUserId: input.approverUserId,
+      status: input.decision === "approve" ? "APPROVED" : "REJECTED",
+      comments: input.comments ?? null,
+      decidedAt: new Date()
+    }
+  });
+
+  const nextStep = instance.steps.find((step) => step.step > instance.currentStep);
+
+  if (input.decision === "reject" || !nextStep) {
+    const finalized = await transaction.workflowInstance.update({
+      where: { id: instance.id },
+      data: {
+        status: input.decision === "reject" ? "REJECTED" : "APPROVED"
+      },
+      include: {
+        definition: true,
+        steps: {
+          orderBy: { step: "asc" }
+        }
+      }
+    });
+
+    return mapWorkflowState(finalized);
+  }
+
+  await transaction.workflowStep.update({
+    where: { id: nextStep.id },
+    data: {
+      status: "SUBMITTED"
+    }
+  });
+
+  const advanced = await transaction.workflowInstance.update({
+    where: { id: instance.id },
+    data: {
+      currentStep: nextStep.step,
+      status: "SUBMITTED"
+    },
+    include: {
+      definition: true,
+      steps: {
+        orderBy: { step: "asc" }
+      }
+    }
+  });
+
+  return mapWorkflowState(advanced);
+}
+
+export async function listWorkflowStatesForEntities(
+  entities: Array<{
+    entityType: string;
+    entityId: string;
+  }>
+) {
+  return useDatabase(async () => {
+    if (!entities.length) {
+      return [];
+    }
+
+    const instances = await prisma.workflowInstance.findMany({
+      where: {
+        OR: entities.map((entity) => ({
+          entityType: entity.entityType,
+          entityId: entity.entityId
+        }))
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        definition: true,
+        steps: {
+          orderBy: { step: "asc" }
+        }
+      }
+    });
+
+    const latest = new Map<string, WorkflowState>();
+    for (const instance of instances) {
+      const key = `${instance.entityType}:${instance.entityId}`;
+      if (!latest.has(key)) {
+        latest.set(key, mapWorkflowState(instance));
+      }
+    }
+
+    return [...latest.values()];
+  });
 }
 
 export async function listCompanies() {
@@ -247,16 +526,30 @@ export async function createEmployeeApprovalRequestRecord(input: {
   payload: EmployeeApprovalPayload;
 }) {
   return useDatabase(async () => {
-    const request = await prisma.employeeApprovalRequest.create({
-      data: {
-        tenantId: input.tenantId,
-        requestedByUserId: input.requestedByUserId ?? null,
-        requestedByEmail: input.requestedByEmail,
-        requestedByName: input.requestedByName,
-        approverRole: input.approverRole,
-        payload: input.payload
-      }
-    });
+    const request = await prisma.$transaction(
+      async (transaction) => {
+        const createdRequest = await transaction.employeeApprovalRequest.create({
+          data: {
+            tenantId: input.tenantId,
+            requestedByUserId: input.requestedByUserId ?? null,
+            requestedByEmail: input.requestedByEmail,
+            requestedByName: input.requestedByName,
+            approverRole: input.approverRole,
+            payload: input.payload
+          }
+        });
+
+        await createWorkflowInstanceForEntity(transaction, {
+          tenantId: input.tenantId,
+          definitionCode: "employee-create-approval",
+          entityType: "employee_request",
+          entityId: createdRequest.id
+        });
+
+        return createdRequest;
+      },
+      { timeout: 15000, maxWait: 5000 }
+    );
 
     return mapEmployeeApprovalRequest(request);
   });
@@ -276,20 +569,44 @@ export async function decideEmployeeApprovalRequestRecord(
   id: string,
   decision: "approved" | "rejected",
   input: {
+    approverUserId: string;
     comments?: string | undefined;
     approvedEmployeeId?: string | null;
   }
 ) {
   return useDatabase(async () => {
-    const request = await prisma.employeeApprovalRequest.update({
-      where: { id },
-      data: {
-        status: decision === "approved" ? "APPROVED" : "REJECTED",
-        decisionComments: input.comments ?? null,
-        approvedEmployeeId: input.approvedEmployeeId ?? null,
-        decidedAt: new Date()
-      }
-    });
+    const request = await prisma.$transaction(
+      async (transaction) => {
+        const existing = await transaction.employeeApprovalRequest.findUnique({
+          where: { id },
+          select: { tenantId: true }
+        });
+
+        const updated = await transaction.employeeApprovalRequest.update({
+          where: { id },
+          data: {
+            status: decision === "approved" ? "APPROVED" : "REJECTED",
+            decisionComments: input.comments ?? null,
+            approvedEmployeeId: input.approvedEmployeeId ?? null,
+            decidedAt: new Date()
+          }
+        });
+
+        if (existing) {
+          await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: existing.tenantId,
+            entityType: "employee_request",
+            entityId: id,
+            decision: decision === "approved" ? "approve" : "reject",
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          });
+        }
+
+        return updated;
+      },
+      { timeout: 15000, maxWait: 5000 }
+    );
 
     return mapEmployeeApprovalRequest(request);
   });
@@ -1046,16 +1363,37 @@ export async function createLeaveRequest(input: {
     return null;
   }
 
-  return prisma.leaveRequest.create({
-    data: {
-      employeeId: input.employeeId,
-      leaveTypeId: input.leaveTypeId,
-      startDate: new Date(input.startDate),
-      endDate: new Date(input.endDate),
-      days: input.days,
-      reason: input.reason ?? null
-    }
-  });
+  return prisma.$transaction(
+    async (transaction) => {
+      const employee = await transaction.employee.findUnique({
+        where: { id: input.employeeId },
+        select: { tenantId: true }
+      });
+
+      const leaveRequest = await transaction.leaveRequest.create({
+        data: {
+          employeeId: input.employeeId,
+          leaveTypeId: input.leaveTypeId,
+          startDate: new Date(input.startDate),
+          endDate: new Date(input.endDate),
+          days: input.days,
+          reason: input.reason ?? null
+        }
+      });
+
+      if (employee) {
+        await createWorkflowInstanceForEntity(transaction, {
+          tenantId: employee.tenantId,
+          definitionCode: "leave-approval",
+          entityType: "leave_request",
+          entityId: leaveRequest.id
+        });
+      }
+
+      return leaveRequest;
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
 }
 
 export async function decideLeaveRequest(
@@ -1070,41 +1408,71 @@ export async function decideLeaveRequest(
     return null;
   }
 
-  return prisma.$transaction(async (transaction) => {
-    const leaveRequest = await transaction.leaveRequest.update({
-      where: { id },
-      data: {
-        status: decision
-      },
-      include: {
-        employee: true,
-        leaveType: true,
-        approvals: true
-      }
-    });
+  return prisma.$transaction(
+    async (transaction) => {
+      const existingRequest = await transaction.leaveRequest.findUnique({
+        where: { id },
+        include: {
+          employee: true,
+          leaveType: true,
+          approvals: true
+        }
+      });
 
-    await transaction.leaveApproval.create({
-      data: {
-        leaveRequestId: id,
+      if (!existingRequest) {
+        return null;
+      }
+
+      await transaction.leaveApproval.create({
+        data: {
+          leaveRequestId: id,
+          approverUserId: input.approverUserId,
+          step: existingRequest.approvals.length + 1,
+          status: decision,
+          comments: input.comments ?? null,
+          decidedAt: new Date()
+        }
+      });
+
+      const workflowState = await decideWorkflowInstanceForEntity(transaction, {
+        tenantId: existingRequest.employee.tenantId,
+        entityType: "leave_request",
+        entityId: id,
+        decision: decision === "APPROVED" ? "approve" : "reject",
         approverUserId: input.approverUserId,
-        step: leaveRequest.approvals.length + 1,
-        status: decision,
-        comments: input.comments ?? null,
-        decidedAt: new Date()
-      }
-    });
+        comments: input.comments
+      });
 
-    return {
-      id: leaveRequest.id,
-      employeeName: leaveRequest.employee.preferredName ?? leaveRequest.employee.legalName,
-      type: leaveRequest.leaveType.name,
-      days: decimalToNumber(leaveRequest.days),
-      startDate: isoDate(leaveRequest.startDate),
-      endDate: isoDate(leaveRequest.endDate),
-      status: decision.toLowerCase(),
-      approver: input.approverUserId
-    };
-  });
+      const leaveRequest = await transaction.leaveRequest.update({
+        where: { id },
+        data: {
+          status:
+            workflowState?.status === "approved"
+              ? "APPROVED"
+              : workflowState?.status === "rejected"
+                ? "REJECTED"
+                : "SUBMITTED"
+        },
+        include: {
+          employee: true,
+          leaveType: true,
+          approvals: true
+        }
+      });
+
+      return {
+        id: leaveRequest.id,
+        employeeName: leaveRequest.employee.preferredName ?? leaveRequest.employee.legalName,
+        type: leaveRequest.leaveType.name,
+        days: decimalToNumber(leaveRequest.days),
+        startDate: isoDate(leaveRequest.startDate),
+        endDate: isoDate(leaveRequest.endDate),
+        status: workflowState?.status === "submitted" ? "submitted" : leaveRequest.status.toLowerCase(),
+        approver: input.approverUserId
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
 }
 
 export async function approveOffer(id: string, comments?: string | undefined) {

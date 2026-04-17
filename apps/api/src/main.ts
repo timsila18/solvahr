@@ -76,6 +76,7 @@ import {
   listProbationReviews,
   listRequisitions,
   listVacancies,
+  listWorkflowStatesForEntities,
   releaseCurrentPayslips,
   requestPayrollApproval
 } from "./repositories.js";
@@ -321,6 +322,7 @@ app.post(
 
     const approvalRequest =
       (await decideEmployeeApprovalRequestRecord(employeeRequestId, "approved", {
+        approverUserId: request.user.id,
         comments: input.comments,
         approvedEmployeeId: employee.id
       })) ?? decideEmployeeApprovalRequest(employeeRequestId, "approved", input.comments);
@@ -381,6 +383,7 @@ app.post(
     const before = cloneForAudit(pendingRequest);
     const approvalRequest =
       (await decideEmployeeApprovalRequestRecord(employeeRequestId, "rejected", {
+        approverUserId: request.user.id,
         comments: input.comments
       })) ?? decideEmployeeApprovalRequest(employeeRequestId, "rejected", input.comments);
 
@@ -643,6 +646,21 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
     withFallback(listProbationReviews, demoProbationReviews),
     withFallback(getCurrentPayrollRun, buildDemoPayrollRun())
   ]);
+  const workflowStates = (await withFallback(
+    () =>
+      listWorkflowStatesForEntities([
+        ...employeeRequests.map((item) => ({ entityType: "employee_request", entityId: item.id })),
+        ...((leaveRequests as typeof demoLeaveRequests).map((item) => ({ entityType: "leave_request", entityId: item.id })))
+      ]),
+    []
+  )) as Array<{
+    entityType: string;
+    entityId: string;
+    status: string;
+    currentStepLabel: string;
+    currentOwnerRole: string;
+  }>;
+  const workflowStateMap = new Map(workflowStates.map((item) => [`${item.entityType}:${item.entityId}`, item]));
 
   const definitions = demoCatalogues.workflowDefinitions;
   const leaveDefinition = definitions.find((item) => item.code === "leave-approval");
@@ -653,36 +671,50 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
   const queue = [
     ...employeeRequests
       .filter((item) => item.status === "pending_approval")
-      .map((item) => ({
-        id: `employee-${item.id}`,
-        module: "employees",
-        entityId: item.id,
-        subject: item.payload.legalName,
-        title: "Employee creation request",
-        status: item.status,
-        currentStep: "Supervisor approval",
-        ownerRole: item.approverRole,
-        dueAt: item.payload.hireDate,
-        summary: `${item.payload.employeeNumber} submitted by ${item.requestedByEmail}`,
-        availableActions: canActAsWorkflowOwner(_request.user.roles, item.approverRole) ? ["approve", "reject"] : []
-      })),
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`employee_request:${item.id}`);
+        return {
+          id: `employee-${item.id}`,
+          module: "employees",
+          entityId: item.id,
+          subject: item.payload.legalName,
+          title: "Employee creation request",
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? "Supervisor approval",
+          ownerRole: workflowState?.currentOwnerRole ?? item.approverRole,
+          dueAt: item.payload.hireDate,
+          summary: `${item.payload.employeeNumber} submitted by ${item.requestedByEmail}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? item.approverRole
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      }),
     ...((leaveRequests as typeof demoLeaveRequests)
       .filter((item) => item.status === "submitted")
-      .map((item) => ({
-        id: `leave-${item.id}`,
-        module: "leave",
-        entityId: item.id,
-        subject: item.employeeName,
-        title: item.type,
-        status: item.status,
-        currentStep: leaveDefinition?.steps[0]?.label ?? "Supervisor review",
-        ownerRole: leaveDefinition?.steps[0]?.approverRole ?? "supervisor",
-        dueAt: item.startDate,
-        summary: `${item.days} day request from ${item.startDate} to ${item.endDate}`,
-        availableActions: canActAsWorkflowOwner(_request.user.roles, leaveDefinition?.steps[0]?.approverRole ?? "supervisor")
-          ? ["approve", "reject"]
-          : []
-      }))),
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`leave_request:${item.id}`);
+        return {
+          id: `leave-${item.id}`,
+          module: "leave",
+          entityId: item.id,
+          subject: item.employeeName,
+          title: item.type,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? leaveDefinition?.steps[0]?.label ?? "Supervisor review",
+          ownerRole: workflowState?.currentOwnerRole ?? leaveDefinition?.steps[0]?.approverRole ?? "supervisor",
+          dueAt: item.startDate,
+          summary: `${item.days} day request from ${item.startDate} to ${item.endDate}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? leaveDefinition?.steps[0]?.approverRole ?? "supervisor"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
     ...((offers as typeof demoOffers)
       .filter((item) => item.status === "pending_approval")
       .map((item) => ({

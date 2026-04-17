@@ -747,6 +747,102 @@ export const demoOvertimeRequests = [
   }
 ];
 
+export const demoTrainingCatalog = [
+  {
+    id: "course-001",
+    code: "TRN-KE-PAY-01",
+    title: "Kenya Payroll Compliance Masterclass",
+    category: "Payroll",
+    deliveryMode: "virtual",
+    provider: "Solva Academy",
+    durationHours: 12,
+    status: "active",
+    seats: 20
+  },
+  {
+    id: "course-002",
+    code: "TRN-HR-ER-02",
+    title: "Employee Relations and Case Handling",
+    category: "Employee Relations",
+    deliveryMode: "classroom",
+    provider: "Solva Academy",
+    durationHours: 8,
+    status: "active",
+    seats: 15
+  },
+  {
+    id: "course-003",
+    code: "TRN-MGR-03",
+    title: "Manager Essentials for Performance Reviews",
+    category: "Leadership",
+    deliveryMode: "hybrid",
+    provider: "External Faculty",
+    durationHours: 6,
+    status: "scheduled",
+    seats: 25
+  }
+];
+
+export const demoTrainingRequests = [
+  {
+    id: "train-req-001",
+    employeeName: "Amina Otieno",
+    courseTitle: "Kenya Payroll Compliance Masterclass",
+    manager: "Grace Wanjiku",
+    budgetTag: "LND-2026-Q2",
+    requestedAt: "2026-04-14",
+    status: "submitted"
+  },
+  {
+    id: "train-req-002",
+    employeeName: "Faith Wambui",
+    courseTitle: "Manager Essentials for Performance Reviews",
+    manager: "Amina Otieno",
+    budgetTag: "LND-2026-Q2",
+    requestedAt: "2026-04-15",
+    status: "approved"
+  },
+  {
+    id: "train-req-003",
+    employeeName: "Brian Mwangi",
+    courseTitle: "Employee Relations and Case Handling",
+    manager: "Peter Odhiambo",
+    budgetTag: "OPS-TRAINING",
+    requestedAt: "2026-04-16",
+    status: "submitted"
+  }
+];
+
+export const demoTrainingRecords = [
+  {
+    id: "train-rec-001",
+    employeeName: "Amina Otieno",
+    courseTitle: "Advanced Payroll Variance Analysis",
+    completedOn: "2026-03-21",
+    certificateStatus: "uploaded",
+    cpdHours: 10,
+    outcome: "completed"
+  },
+  {
+    id: "train-rec-002",
+    employeeName: "Brian Mwangi",
+    courseTitle: "Safety Refresher for Shift Supervisors",
+    completedOn: "2026-02-28",
+    certificateStatus: "pending_upload",
+    cpdHours: 4,
+    outcome: "completed"
+  },
+  {
+    id: "train-rec-003",
+    employeeName: "Faith Wambui",
+    courseTitle: "Interviewing and Candidate Evaluation",
+    completedOn: "2026-04-02",
+    certificateStatus: "uploaded",
+    cpdHours: 6,
+    outcome: "completed"
+  }
+];
+
 export function buildDemoPayrollRun() {
   const rules = activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30");
   const results = demoEmployees.map((employee) =>

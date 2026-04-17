@@ -20,6 +20,9 @@ import {
   demoOnboardingTasks,
   buildDemoPayslips,
   demoDisciplinaryCases,
+  demoTrainingCatalog,
+  demoTrainingRecords,
+  demoTrainingRequests,
   demoPerformanceCycles,
   demoPerformanceGoals,
   demoPerformancePlans,
@@ -155,6 +158,18 @@ app.post("/api/attendance/overtime/:id/approve", (request, response) => {
     message: "Overtime approval recorded",
     persistence: "demo_fallback"
   });
+});
+
+app.get("/api/training/catalog", (_request, response) => {
+  response.json(demoTrainingCatalog);
+});
+
+app.get("/api/training/requests", (_request, response) => {
+  response.json(demoTrainingRequests);
+});
+
+app.get("/api/training/records", (_request, response) => {
+  response.json(demoTrainingRecords);
 });
 
 app.get("/api/employees", asyncHandler(async (_request, response) => {

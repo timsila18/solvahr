@@ -21,6 +21,10 @@ type Offer = {
   status: string;
   offeredSalary: number | null;
   proposedStartDate: string | null;
+  workflow?: {
+    currentStepLabel?: string;
+    currentOwnerRole?: string;
+  } | null;
 };
 
 function money(value: number | null | undefined) {
@@ -76,18 +80,18 @@ export function RecruitmentOffersWorkspace() {
     });
   }, [apiBaseUrl, session.headers]);
 
-  async function approveOffer(id: string) {
+  async function decideOffer(id: string, decision: "approve" | "reject") {
     setStatus("approving");
-    setMessage("Approving offer");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} offer`);
 
-    const response = await fetch(`${apiBaseUrl}/api/recruitment/offers/${id}/approve`, {
+    const response = await fetch(`${apiBaseUrl}/api/recruitment/offers/${id}/${decision}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         ...session.headers
       },
       body: JSON.stringify({
-        comments: "Approved from recruitment offers workspace"
+        comments: `${decision === "approve" ? "Approved" : "Rejected"} from recruitment offers workspace`
       })
     });
 
@@ -99,7 +103,7 @@ export function RecruitmentOffersWorkspace() {
     }
 
     await loadData();
-    setMessage("Offer approved in Supabase");
+    setMessage(`Offer ${decision} step recorded`);
   }
 
   return (
@@ -134,15 +138,30 @@ export function RecruitmentOffersWorkspace() {
                 <span>
                   {offer.vacancyTitle} - {money(offer.offeredSalary)} - {offer.status}
                 </span>
+                {offer.workflow?.currentStepLabel ? (
+                  <span>
+                    {offer.workflow.currentStepLabel} - {offer.workflow.currentOwnerRole ?? "pending owner"}
+                  </span>
+                ) : null}
               </div>
-              <button
-                className="secondaryButton"
-                disabled={status === "approving" || offer.status !== "pending_approval"}
-                onClick={() => approveOffer(offer.id)}
-                type="button"
-              >
-                Approve Offer
-              </button>
+              <div className="decisionActions workflowActionStack">
+                <button
+                  className="secondaryButton"
+                  disabled={status === "approving" || offer.status !== "pending_approval" && offer.status !== "submitted"}
+                  onClick={() => decideOffer(offer.id, "approve")}
+                  type="button"
+                >
+                  Approve Step
+                </button>
+                <button
+                  className="secondaryButton"
+                  disabled={status === "approving" || offer.status !== "pending_approval" && offer.status !== "submitted"}
+                  onClick={() => decideOffer(offer.id, "reject")}
+                  type="button"
+                >
+                  Reject
+                </button>
+              </div>
             </article>
           ))}
         </div>

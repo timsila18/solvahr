@@ -32,6 +32,10 @@ type PayrollRun = {
   status: string;
   version: number;
   employeeCount: number;
+  workflow?: {
+    currentStepLabel?: string;
+    currentOwnerRole?: string;
+  } | null;
   totals: {
     grossPay: number;
     deductions: number;
@@ -55,6 +59,9 @@ export function PayrollWorkspace() {
   const [run, setRun] = useState<PayrollRun | null>(null);
   const [status, setStatus] = useState<"loading" | "idle" | "approving">("loading");
   const [message, setMessage] = useState("Loading payroll run");
+  const canApproveCurrentStep =
+    !!run?.workflow?.currentOwnerRole &&
+    (session.role === run.workflow.currentOwnerRole || session.role === "company_admin");
 
   async function loadPayrollRun() {
     setStatus("loading");
@@ -104,6 +111,35 @@ export function PayrollWorkspace() {
     setMessage("Payroll approval workflow started");
   }
 
+  async function decidePayroll(decision: "approve" | "reject") {
+    setStatus("approving");
+    setMessage(`${decision === "approve" ? "Approving" : "Rejecting"} payroll step`);
+
+    const response = await fetch(
+      `${apiBaseUrl}/api/payroll/runs/current/${decision === "approve" ? "approve-step" : "reject-step"}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...session.headers
+        },
+        body: JSON.stringify({
+          comments: `${decision === "approve" ? "Approved" : "Rejected"} from payroll workspace`
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      setStatus("idle");
+      setMessage(errorBody?.error?.message ?? "Payroll decision could not be recorded");
+      return;
+    }
+
+    await loadPayrollRun();
+    setMessage(`Payroll ${decision} step recorded`);
+  }
+
   const statutoryLines = run?.results
     .flatMap((result) => [...result.deductions, ...result.employerCosts])
     .filter((line) => ["PAYE", "SHIF", "NSSF_EE", "NSSF_ER", "AHL_EE", "AHL_ER"].includes(line.code))
@@ -146,14 +182,40 @@ export function PayrollWorkspace() {
         </div>
 
         <div className="payrollActions">
-          <button
-            className="primaryButton"
-            disabled={status === "approving" || !run || run.status === "pending_approval"}
-            onClick={requestApproval}
-            type="button"
-          >
-            {status === "approving" ? "Requesting..." : "Request Approval"}
-          </button>
+          {run && ["pending_approval", "submitted"].includes(run.status) ? (
+            <div className="decisionActions workflowActionStack">
+              <button
+                className="primaryButton"
+                disabled={status === "approving" || !canApproveCurrentStep}
+                onClick={() => decidePayroll("approve")}
+                type="button"
+              >
+                {status === "approving" ? "Working..." : "Approve Step"}
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={status === "approving" || !canApproveCurrentStep}
+                onClick={() => decidePayroll("reject")}
+                type="button"
+              >
+                Reject
+              </button>
+            </div>
+          ) : (
+            <button
+              className="primaryButton"
+              disabled={status === "approving" || !run || ["pending_approval", "submitted"].includes(run.status)}
+              onClick={requestApproval}
+              type="button"
+            >
+              {status === "approving" ? "Requesting..." : "Request Approval"}
+            </button>
+          )}
+          {run?.workflow?.currentStepLabel ? (
+            <p>
+              {run.workflow.currentStepLabel} - {run.workflow.currentOwnerRole ?? "pending owner"}
+            </p>
+          ) : null}
           <p>{message}</p>
         </div>
       </div>

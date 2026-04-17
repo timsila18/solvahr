@@ -115,6 +115,7 @@ export const rolePermissionMatrix: Record<string, Permission[]> = {
     "companies.view",
     "employees.view",
     "payroll.review",
+    "payroll.approve",
     "payroll.export_bank",
     "recruitment.approve_requisitions",
     "reports.export"

@@ -47,13 +47,14 @@ import {
   listEmployeeApprovalRequests as listRuntimeEmployeeApprovalRequests
 } from "./runtime-store.js";
 import {
-  approveOffer,
   createCandidate,
   createEmployee,
   createEmployeeApprovalRequestRecord,
   createLeaveRequest,
+  decideOfferApproval,
   decideEmployeeApprovalRequestRecord,
   decideLeaveRequest,
+  decidePayrollApproval,
   findEmployeeApprovalRequestById,
   getCurrentPayrollRun,
   getCurrentPayrollReports,
@@ -575,12 +576,15 @@ app.post(
     }
 
     const input = approvalDecisionSchema.parse(request.body);
-    const offer = await approveOffer(offerId, input.comments);
+    const offer = await decideOfferApproval(offerId, "approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
 
     if (!offer) {
       response.status(202).json({
         id: offerId,
-        status: "pending_next_approval",
+        status: "pending_approval",
         message: "Offer approval step recorded",
         auditAction: "recruitment.offer.approval.step",
         persistence: "demo_fallback"
@@ -591,6 +595,45 @@ app.post(
     await writeAuditLog({
       request,
       action: "recruitment.offer.approve",
+      entityType: "job_offer",
+      entityId: offer.id,
+      after: offer
+    });
+
+    response.status(202).json(offer);
+  })
+);
+
+app.post(
+  "/api/recruitment/offers/:id/reject",
+  requirePermission("recruitment.approve_offers"),
+  asyncHandler(async (request, response) => {
+    const offerId = request.params.id;
+    if (!offerId) {
+      sendError(response, 400, "Offer id is required", { code: "missing_offer_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const offer = await decideOfferApproval(offerId, "reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!offer) {
+      response.status(202).json({
+        id: offerId,
+        status: "rejected",
+        message: "Offer rejection step recorded",
+        auditAction: "recruitment.offer.rejection.step",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "recruitment.offer.reject",
       entityType: "job_offer",
       entityId: offer.id,
       after: offer
@@ -650,7 +693,12 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
     () =>
       listWorkflowStatesForEntities([
         ...employeeRequests.map((item) => ({ entityType: "employee_request", entityId: item.id })),
-        ...((leaveRequests as typeof demoLeaveRequests).map((item) => ({ entityType: "leave_request", entityId: item.id })))
+        ...((leaveRequests as typeof demoLeaveRequests).map((item) => ({ entityType: "leave_request", entityId: item.id }))),
+        ...((offers as typeof demoOffers).map((item) => ({ entityType: "job_offer", entityId: item.id }))),
+        {
+          entityType: "payroll_run",
+          entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id
+        }
       ]),
     []
   )) as Array<{
@@ -716,22 +764,28 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         };
       })),
     ...((offers as typeof demoOffers)
-      .filter((item) => item.status === "pending_approval")
-      .map((item) => ({
-        id: `offer-${item.id}`,
-        module: "recruitment",
-        entityId: item.id,
-        subject: item.candidateName,
-        title: item.vacancyTitle,
-        status: item.status,
-        currentStep: offerDefinition?.steps[0]?.label ?? "HR offer review",
-        ownerRole: offerDefinition?.steps[0]?.approverRole ?? "hr_admin",
-        dueAt: item.proposedStartDate,
-        summary: `Offer at KES ${item.offeredSalary?.toLocaleString("en-KE") ?? "pending"} starting ${item.proposedStartDate ?? "TBC"}`,
-        availableActions: canActAsWorkflowOwner(_request.user.roles, offerDefinition?.steps[0]?.approverRole ?? "hr_admin")
-          ? ["approve"]
-          : []
-      }))),
+      .filter((item) => item.status === "pending_approval" || item.status === "submitted")
+      .map((item) => {
+        const workflowState = workflowStateMap.get(`job_offer:${item.id}`);
+        return {
+          id: `offer-${item.id}`,
+          module: "recruitment",
+          entityId: item.id,
+          subject: item.candidateName,
+          title: item.vacancyTitle,
+          status: workflowState?.status ?? item.status,
+          currentStep: workflowState?.currentStepLabel ?? offerDefinition?.steps[0]?.label ?? "HR offer review",
+          ownerRole: workflowState?.currentOwnerRole ?? offerDefinition?.steps[0]?.approverRole ?? "hr_admin",
+          dueAt: item.proposedStartDate,
+          summary: `Offer at KES ${item.offeredSalary?.toLocaleString("en-KE") ?? "pending"} starting ${item.proposedStartDate ?? "TBC"}`,
+          availableActions: canActAsWorkflowOwner(
+            _request.user.roles,
+            workflowState?.currentOwnerRole ?? offerDefinition?.steps[0]?.approverRole ?? "hr_admin"
+          )
+            ? ["approve", "reject"]
+            : []
+        };
+      })),
     ...((probationReviews as typeof demoProbationReviews)
       .filter((item) => item.status !== "approved")
       .map((item) => ({
@@ -747,25 +801,36 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         summary: `Score ${item.score ?? 0} with recommendation ${item.recommendation}`,
         availableActions: [] as string[]
       }))),
-    {
-      id: `payroll-${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).id}`,
-      module: "payroll",
-      entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id,
-      subject: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).period,
-      title: "Current payroll run",
-      status: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status,
-      currentStep: payrollDefinition?.steps[0]?.label ?? "Payroll admin review",
-      ownerRole: payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin",
-      dueAt: "2026-04-30",
-      summary: `${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).employeeCount} employees, net ${(
-        payrollRun as ReturnType<typeof buildDemoPayrollRun>
-      ).totals.netPay.toLocaleString("en-KE")}`,
-      availableActions:
-        (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status === "pending_approval" ||
-        !canActAsWorkflowOwner(_request.user.roles, payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin")
-          ? []
-          : ["request_approval"]
-    }
+    (() => {
+      const workflowState = workflowStateMap.get(`payroll_run:${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).id}`);
+      return {
+        id: `payroll-${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).id}`,
+        module: "payroll",
+        entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id,
+        subject: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).period,
+        title: "Current payroll run",
+        status: workflowState?.status ?? (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status,
+        currentStep: workflowState?.currentStepLabel ?? payrollDefinition?.steps[0]?.label ?? "Payroll admin review",
+        ownerRole: workflowState?.currentOwnerRole ?? payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin",
+        dueAt: "2026-04-30",
+        summary: `${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).employeeCount} employees, net ${(
+          payrollRun as ReturnType<typeof buildDemoPayrollRun>
+        ).totals.netPay.toLocaleString("en-KE")}`,
+        availableActions:
+          ["pending_approval", "submitted"].includes(
+            workflowState?.status ?? (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status
+          )
+            ? canActAsWorkflowOwner(
+                _request.user.roles,
+                workflowState?.currentOwnerRole ?? payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin"
+              )
+              ? ["approve", "reject"]
+              : []
+            : canActAsWorkflowOwner(_request.user.roles, payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin")
+              ? ["request_approval"]
+              : []
+      };
+    })()
   ];
 
   const escalations = queue.filter((item) => {
@@ -885,6 +950,68 @@ app.post(
     await writeAuditLog({
       request,
       action: "payroll.approval.requested",
+      entityType: "payroll_run",
+      entityId: payrollRun.id,
+      after: payrollRun
+    });
+
+    response.status(202).json(payrollRun);
+  })
+);
+
+app.post(
+  "/api/payroll/runs/current/approve-step",
+  requirePermission("payroll.approve"),
+  asyncHandler(async (request, response) => {
+    const input = approvalDecisionSchema.parse(request.body);
+    const payrollRun = await decidePayrollApproval("approve", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!payrollRun) {
+      response.status(202).json({
+        status: "pending_approval",
+        message: "Payroll approval step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "payroll.approval.step.approve",
+      entityType: "payroll_run",
+      entityId: payrollRun.id,
+      after: payrollRun
+    });
+
+    response.status(202).json(payrollRun);
+  })
+);
+
+app.post(
+  "/api/payroll/runs/current/reject-step",
+  requirePermission("payroll.approve"),
+  asyncHandler(async (request, response) => {
+    const input = approvalDecisionSchema.parse(request.body);
+    const payrollRun = await decidePayrollApproval("reject", {
+      approverUserId: request.user.id,
+      comments: input.comments
+    });
+
+    if (!payrollRun) {
+      response.status(202).json({
+        status: "ready_for_review",
+        message: "Payroll rejection step recorded",
+        persistence: "demo_fallback"
+      });
+      return;
+    }
+
+    await writeAuditLog({
+      request,
+      action: "payroll.approval.step.reject",
       entityType: "payroll_run",
       entityId: payrollRun.id,
       after: payrollRun

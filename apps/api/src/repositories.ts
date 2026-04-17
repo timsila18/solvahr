@@ -244,6 +244,37 @@ async function createWorkflowInstanceForEntity(
   return mapWorkflowState(instance);
 }
 
+async function ensureWorkflowInstanceForEntity(
+  transaction: Prisma.TransactionClient,
+  input: {
+    tenantId: string;
+    definitionCode: string;
+    entityType: string;
+    entityId: string;
+  }
+) {
+  const existing = await transaction.workflowInstance.findFirst({
+    where: {
+      tenantId: input.tenantId,
+      entityType: input.entityType,
+      entityId: input.entityId
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      definition: true,
+      steps: {
+        orderBy: { step: "asc" }
+      }
+    }
+  });
+
+  if (existing) {
+    return mapWorkflowState(existing);
+  }
+
+  return createWorkflowInstanceForEntity(transaction, input);
+}
+
 async function decideWorkflowInstanceForEntity(
   transaction: Prisma.TransactionClient,
   input: {
@@ -856,35 +887,26 @@ export async function listOffers() {
       orderBy: { createdAt: "desc" },
       include: {
         candidate: true,
-        vacancy: true,
-        workflowInstance: {
-          include: { steps: { orderBy: { step: "asc" } } }
-        }
+        vacancy: true
       }
     });
+
+    const workflowStates = await listWorkflowStatesForEntities(
+      offers.map((offer) => ({
+        entityType: "job_offer",
+        entityId: offer.id
+      }))
+    );
+    const workflowStateMap = new Map((workflowStates ?? []).map((item) => [`job_offer:${item.entityId}`, item]));
 
     return offers.map((offer) => ({
       id: offer.id,
       candidateName: offer.candidate.fullName,
       vacancyTitle: offer.vacancy.title,
-      status: offer.status.toLowerCase(),
+      status: workflowStateMap.get(`job_offer:${offer.id}`)?.status ?? offer.status.toLowerCase(),
       offeredSalary: decimalToNumber(offer.offeredSalary),
       proposedStartDate: isoDate(offer.proposedStartDate),
-      workflow: offer.workflowInstance
-        ? {
-            entityType: offer.workflowInstance.entityType,
-            entityId: offer.workflowInstance.entityId,
-            status: offer.workflowInstance.status.toLowerCase(),
-            currentStep: offer.workflowInstance.currentStep,
-            steps: offer.workflowInstance.steps.map((step) => ({
-              step: step.step,
-              approverRole: step.approverRole,
-              status: step.status.toLowerCase(),
-              comments: step.comments,
-              decidedAt: step.decidedAt?.toISOString()
-            }))
-          }
-        : null
+      workflow: workflowStateMap.get(`job_offer:${offer.id}`) ?? null
     }));
   });
 }
@@ -1020,6 +1042,14 @@ export async function getCurrentPayrollRun() {
       return null;
     }
 
+    const workflowStates = await listWorkflowStatesForEntities([
+      {
+        entityType: "payroll_run",
+        entityId: run.id
+      }
+    ]);
+    const workflow = workflowStates?.[0] ?? null;
+
     const results = run.employees.map((runEmployee) => {
       const lines = runEmployee.lines.map((line) => ({
         code: line.code,
@@ -1063,9 +1093,10 @@ export async function getCurrentPayrollRun() {
       id: run.id,
       period: `${run.period.code} (${isoDate(run.period.startDate)} to ${isoDate(run.period.endDate)})`,
       cycle: run.cycle.toLowerCase(),
-      status: run.status.toLowerCase(),
+      status: workflow?.status ?? run.status.toLowerCase(),
       version: run.version,
       employeeCount: results.length,
+      workflow,
       totals,
       results
     };
@@ -1475,31 +1506,74 @@ export async function decideLeaveRequest(
   );
 }
 
-export async function approveOffer(id: string, comments?: string | undefined) {
+export async function decideOfferApproval(
+  id: string,
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
   if (!isDatabaseConfigured()) {
     return null;
   }
 
-  const offer = await prisma.jobOffer.update({
-    where: { id },
-    data: {
-      status: "APPROVED"
-    }
-  });
+  return prisma.$transaction(
+    async (transaction) => {
+      const offer = await transaction.jobOffer.findUnique({
+        where: { id },
+        include: {
+          candidate: true,
+          vacancy: true
+        }
+      });
 
-  if (comments) {
-    await prisma.auditLog.create({
-      data: {
-        tenantId: offer.tenantId,
-        action: "recruitment.offer.comment",
-        entityType: "job_offer",
-        entityId: offer.id,
-        after: { comments }
+      if (!offer) {
+        return null;
       }
-    });
-  }
 
-  return offer;
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: offer.tenantId,
+        definitionCode: "offer-approval",
+        entityType: "job_offer",
+        entityId: offer.id
+      });
+
+      const nextWorkflowState = workflowState
+        ? await decideWorkflowInstanceForEntity(transaction, {
+            tenantId: offer.tenantId,
+            entityType: "job_offer",
+            entityId: offer.id,
+            decision,
+            approverUserId: input.approverUserId,
+            comments: input.comments
+          })
+        : null;
+
+      const updatedOffer = await transaction.jobOffer.update({
+        where: { id },
+        data: {
+          status:
+            nextWorkflowState?.status === "approved"
+              ? "APPROVED"
+              : nextWorkflowState?.status === "rejected"
+                ? "WITHDRAWN"
+                : "PENDING_APPROVAL"
+        }
+      });
+
+      return {
+        id: updatedOffer.id,
+        candidateName: offer.candidate.fullName,
+        vacancyTitle: offer.vacancy.title,
+        status: nextWorkflowState?.status ?? updatedOffer.status.toLowerCase(),
+        offeredSalary: decimalToNumber(updatedOffer.offeredSalary),
+        proposedStartDate: isoDate(updatedOffer.proposedStartDate),
+        workflow: nextWorkflowState ?? workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
 }
 
 export async function requestPayrollApproval() {
@@ -1520,10 +1594,89 @@ export async function requestPayrollApproval() {
     return null;
   }
 
-  return prisma.payrollRun.update({
-    where: { id: currentRun.id },
-    data: {
+  return prisma.$transaction(
+    async (transaction) => {
+      const workflowState = await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: currentRun.tenantId,
+        definitionCode: "payroll-approval",
+        entityType: "payroll_run",
+        entityId: currentRun.id
+      });
+
+      const updatedRun = await transaction.payrollRun.update({
+        where: { id: currentRun.id },
+        data: {
+          status: "PENDING_APPROVAL"
+        }
+        });
+
+      return {
+        ...updatedRun,
+        workflow: workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+}
+
+export async function decidePayrollApproval(
+  decision: "approve" | "reject",
+  input: {
+    approverUserId: string;
+    comments?: string | undefined;
+  }
+) {
+  if (!isDatabaseConfigured()) {
+    return null;
+  }
+
+  const currentRun = await prisma.payrollRun.findFirst({
+    orderBy: { createdAt: "desc" },
+    where: {
       status: "PENDING_APPROVAL"
     }
   });
+
+  if (!currentRun) {
+    return null;
+  }
+
+  return prisma.$transaction(
+    async (transaction) => {
+      await ensureWorkflowInstanceForEntity(transaction, {
+        tenantId: currentRun.tenantId,
+        definitionCode: "payroll-approval",
+        entityType: "payroll_run",
+        entityId: currentRun.id
+      });
+
+      const workflowState = await decideWorkflowInstanceForEntity(transaction, {
+        tenantId: currentRun.tenantId,
+        entityType: "payroll_run",
+        entityId: currentRun.id,
+        decision,
+        approverUserId: input.approverUserId,
+        comments: input.comments
+      });
+
+      const updatedRun = await transaction.payrollRun.update({
+        where: { id: currentRun.id },
+        data: {
+          status:
+            workflowState?.status === "approved"
+              ? "APPROVED"
+              : workflowState?.status === "rejected"
+                ? "READY_FOR_REVIEW"
+                : "PENDING_APPROVAL"
+        }
+      });
+
+      return {
+        ...updatedRun,
+        status: workflowState?.status ?? updatedRun.status.toLowerCase(),
+        workflow: workflowState
+      };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
 }

@@ -84,14 +84,24 @@ export function WorkflowQueueWorkspace() {
       body = {
         comments: `Employee request ${action} from workflow center`
       };
-    } else if (item.module === "recruitment" && action === "approve") {
-      path = `/api/recruitment/offers/${item.entityId}/approve`;
+    } else if (item.module === "recruitment" && (action === "approve" || action === "reject")) {
+      path = `/api/recruitment/offers/${item.entityId}/${action}`;
       body = {
-        comments: "Approved from workflow center"
+        comments: `${humanize(action)} from workflow center`
       };
     } else if (item.module === "payroll" && action === "request_approval") {
       path = "/api/payroll/runs/current/approve";
       body = {};
+    } else if (item.module === "payroll" && action === "approve") {
+      path = "/api/payroll/runs/current/approve-step";
+      body = {
+        comments: "Approved from workflow center"
+      };
+    } else if (item.module === "payroll" && action === "reject") {
+      path = "/api/payroll/runs/current/reject-step";
+      body = {
+        comments: "Rejected from workflow center"
+      };
     } else {
       setActionState("idle");
       setMessage("This workflow item is view-only for now");

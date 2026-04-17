@@ -161,6 +161,13 @@ async function main() {
       roleCode: "payroll_admin"
     }),
     ensureUser({
+      id: "demo-finance-user",
+      tenantId: tenant.id,
+      email: "finance@solvahr.app",
+      name: "Solva Finance User",
+      roleCode: "finance_user"
+    }),
+    ensureUser({
       id: "demo-manager",
       tenantId: tenant.id,
       email: "manager@solvahr.app",

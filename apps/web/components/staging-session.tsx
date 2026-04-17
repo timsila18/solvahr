@@ -6,6 +6,7 @@ type Role =
   | "company_admin"
   | "hr_admin"
   | "payroll_admin"
+  | "finance_user"
   | "recruiter"
   | "manager"
   | "operator"
@@ -45,6 +46,7 @@ const roleUserIds: Record<Role, string> = {
   company_admin: "demo-company-admin",
   hr_admin: "demo-hr-admin",
   payroll_admin: "demo-payroll-admin",
+  finance_user: "demo-finance-user",
   recruiter: "demo-recruiter",
   manager: "demo-manager",
   operator: "demo-operator",

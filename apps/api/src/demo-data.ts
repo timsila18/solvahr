@@ -669,6 +669,84 @@ export const demoAuditLogs = [
   }
 ];
 
+export const demoAttendanceSummary = {
+  trackedEmployees: 214,
+  presentToday: 198,
+  absentToday: 11,
+  lateToday: 7,
+  overtimeHours: 46.5,
+  openExceptions: 9
+};
+
+export const demoTimesheets = [
+  {
+    id: "time-001",
+    employeeName: "Brian Mwangi",
+    employeeNumber: "E-002",
+    project: "Mombasa Plant Shift A",
+    costCenter: "OPS-014",
+    weekEnding: "2026-04-19",
+    hoursWorked: 46,
+    overtimeHours: 6,
+    status: "submitted"
+  },
+  {
+    id: "time-002",
+    employeeName: "Amina Otieno",
+    employeeNumber: "E-001",
+    project: "Payroll Outsourcing Delivery",
+    costCenter: "HR-001",
+    weekEnding: "2026-04-19",
+    hoursWorked: 42,
+    overtimeHours: 2,
+    status: "approved"
+  },
+  {
+    id: "time-003",
+    employeeName: "Faith Wambui",
+    employeeNumber: "E-004",
+    project: "Recruitment SLA Rollout",
+    costCenter: "HR-001",
+    weekEnding: "2026-04-19",
+    hoursWorked: 39,
+    overtimeHours: 0,
+    status: "draft"
+  }
+];
+
+export const demoOvertimeRequests = [
+  {
+    id: "ot-001",
+    employeeName: "Brian Mwangi",
+    employeeNumber: "E-002",
+    shiftDate: "2026-04-16",
+    hours: 3,
+    reason: "Machine restart and production recovery",
+    approver: "Peter Odhiambo",
+    status: "submitted"
+  },
+  {
+    id: "ot-002",
+    employeeName: "Mary Njeri",
+    employeeNumber: "E-017",
+    shiftDate: "2026-04-15",
+    hours: 2.5,
+    reason: "Month-end stock reconciliation",
+    approver: "Grace Wanjiku",
+    status: "approved"
+  },
+  {
+    id: "ot-003",
+    employeeName: "Daniel Kiptoo",
+    employeeNumber: "E-031",
+    shiftDate: "2026-04-14",
+    hours: 4,
+    reason: "Coverage for absent shift supervisor",
+    approver: "Peter Odhiambo",
+    status: "submitted"
+  }
+];
+
 export function buildDemoPayrollRun() {
   const rules = activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30");
   const results = demoEmployees.map((employee) =>

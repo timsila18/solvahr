@@ -8,6 +8,7 @@ import {
   demoCandidates,
   demoDocumentTemplates,
   demoAuditLogs,
+  demoAttendanceSummary,
   demoEmployeeDocuments,
   demoEmployees,
   demoGeneratedDocuments,
@@ -26,6 +27,8 @@ import {
   demoProbationReviews,
   demoRequisitions,
   demoTenant,
+  demoTimesheets,
+  demoOvertimeRequests,
   demoVacancies,
   demoWelfareCases,
   phaseTwoMetrics
@@ -132,6 +135,27 @@ app.get("/api/companies", asyncHandler(async (_request, response) => {
 app.get("/api/audit/logs", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listAuditLogs, demoAuditLogs));
 }));
+
+app.get("/api/attendance/summary", (_request, response) => {
+  response.json(demoAttendanceSummary);
+});
+
+app.get("/api/attendance/timesheets", (_request, response) => {
+  response.json(demoTimesheets);
+});
+
+app.get("/api/attendance/overtime", (_request, response) => {
+  response.json(demoOvertimeRequests);
+});
+
+app.post("/api/attendance/overtime/:id/approve", (request, response) => {
+  response.status(202).json({
+    id: request.params.id,
+    status: "approved",
+    message: "Overtime approval recorded",
+    persistence: "demo_fallback"
+  });
+});
 
 app.get("/api/employees", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listEmployees, [...demoEmployees]));

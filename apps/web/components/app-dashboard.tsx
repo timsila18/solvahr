@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EmployeeSuite } from "./employee-suite";
 import { EmployeeRelationsSuite } from "./employee-relations-suite";
+import { AttendanceSuite } from "./attendance-suite";
 import { LeaveSuite } from "./leave-suite";
 import { MetricCard } from "./metric-card";
 import { OnboardingSuite } from "./onboarding-suite";
@@ -19,6 +20,7 @@ type ActiveScreen =
   | "home"
   | "employees"
   | "leave"
+  | "attendance"
   | "payroll"
   | "reports"
   | "relations"
@@ -31,6 +33,7 @@ type ActiveScreen =
 const moduleWidgets = [
   { key: "employees", title: "Employees", value: "Live records", hint: "Create and view staff files" },
   { key: "leave", title: "Leave", value: "Requests", hint: "Submit, approve, reject" },
+  { key: "attendance", title: "Attendance", value: "Presence, timesheets, overtime", hint: "Track time and payroll-linked hours" },
   { key: "payroll", title: "Payroll", value: "Run, payslips, reports", hint: "Open the full payroll hub" },
   { key: "reports", title: "Reports", value: "Executive, workforce, compliance", hint: "Open the universal report hub" },
   { key: "relations", title: "Relations", value: "Welfare, grievances, discipline", hint: "Manage employee relations and casework" },
@@ -60,7 +63,8 @@ const buildSlices = [
   ["Slice 16", "Universal reports hub", "Done"],
   ["Slice 17", "Employee relations hub", "Done"],
   ["Slice 18", "Workflow center", "Done"],
-  ["Slice 19", "Audit log center", "Active"]
+  ["Slice 19", "Audit log center", "Done"],
+  ["Slice 20", "Attendance hub", "Active"]
 ] as const;
 
 function money(value: number) {
@@ -176,7 +180,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 19</span>
+                <span className="status">Slice 20</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (
@@ -195,6 +199,7 @@ export function AppDashboard() {
 
         {activeScreen === "employees" ? <EmployeeSuite /> : null}
         {activeScreen === "leave" ? <LeaveSuite /> : null}
+        {activeScreen === "attendance" ? <AttendanceSuite /> : null}
         {activeScreen === "payroll" ? <PayrollSuite /> : null}
         {activeScreen === "reports" ? <ReportsSuite /> : null}
         {activeScreen === "relations" ? <EmployeeRelationsSuite /> : null}

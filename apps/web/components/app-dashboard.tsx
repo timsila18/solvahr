@@ -68,7 +68,8 @@ const buildSlices = [
   ["Slice 18", "Workflow center", "Done"],
   ["Slice 19", "Audit log center", "Done"],
   ["Slice 20", "Attendance hub", "Done"],
-  ["Slice 21", "Training hub", "Active"]
+  ["Slice 21", "Training hub", "Done"],
+  ["Slice 22", "Approval controls and accountability", "Active"]
 ] as const;
 
 function money(value: number) {
@@ -184,7 +185,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 21</span>
+                <span className="status">Slice 22</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (

@@ -5,6 +5,7 @@ export const permissions = [
   "organization.manage",
   "employees.view",
   "employees.create",
+  "employees.approve",
   "employees.edit_bio",
   "employees.edit_bank",
   "employees.edit_statutory",
@@ -87,6 +88,26 @@ export const rolePermissionMatrix: Record<string, Permission[]> = {
     "payroll.export_statutory",
     "recruitment.approve_offers",
     "reports.build",
+    "reports.export",
+    "audit.view"
+  ],
+  operator: [
+    "companies.view",
+    "employees.view",
+    "employees.create",
+    "documents.upload",
+    "leave.apply"
+  ],
+  supervisor: [
+    "companies.view",
+    "employees.view",
+    "employees.approve",
+    "employees.edit_bio",
+    "documents.view",
+    "documents.generate",
+    "leave.approve",
+    "probation.manage",
+    "performance.manage",
     "reports.export",
     "audit.view"
   ],

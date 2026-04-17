@@ -11,7 +11,7 @@ export type WorkflowStepDefinition = {
 export type WorkflowDefinitionConfig = {
   code: string;
   name: string;
-  module: "recruitment" | "onboarding" | "probation" | "payroll" | "leave" | "documents";
+  module: "employees" | "recruitment" | "onboarding" | "probation" | "payroll" | "leave" | "documents";
   trigger: string;
   steps: WorkflowStepDefinition[];
 };
@@ -35,12 +35,19 @@ export type WorkflowInstanceState = {
 
 export const phaseTwoWorkflowDefinitions: WorkflowDefinitionConfig[] = [
   {
+    code: "employee-create-approval",
+    name: "Employee Creation Approval",
+    module: "employees",
+    trigger: "employee.request.submitted",
+    steps: [{ step: 1, label: "Supervisor approval", approverRole: "supervisor", escalationHours: 24 }]
+  },
+  {
     code: "leave-approval",
     name: "Leave Approval",
     module: "leave",
     trigger: "leave.request.submitted",
     steps: [
-      { step: 1, label: "Line manager review", approverRole: "manager", escalationHours: 24 },
+      { step: 1, label: "Supervisor review", approverRole: "supervisor", escalationHours: 24 },
       { step: 2, label: "HR validation", approverRole: "hr_admin", escalationHours: 24 }
     ]
   },

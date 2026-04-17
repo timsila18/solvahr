@@ -2,7 +2,16 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type Role = "company_admin" | "hr_admin" | "payroll_admin" | "recruiter" | "manager";
+type Role =
+  | "company_admin"
+  | "hr_admin"
+  | "payroll_admin"
+  | "recruiter"
+  | "manager"
+  | "operator"
+  | "supervisor"
+  | "employee"
+  | "auditor";
 
 type SessionState = {
   ready: boolean;
@@ -25,7 +34,7 @@ const storageKey = "solva-hr-session";
 const defaultSession: SessionState = {
   ready: false,
   loggedIn: false,
-  role: "company_admin",
+  role: "operator",
   email: "",
   name: "",
   tenantId: "tenant-solva-demo",
@@ -37,7 +46,11 @@ const roleUserIds: Record<Role, string> = {
   hr_admin: "demo-hr-admin",
   payroll_admin: "demo-payroll-admin",
   recruiter: "demo-recruiter",
-  manager: "demo-manager"
+  manager: "demo-manager",
+  operator: "demo-operator",
+  supervisor: "demo-supervisor",
+  employee: "demo-employee",
+  auditor: "demo-auditor"
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);

@@ -61,3 +61,7 @@ export function requirePermission(permission: Permission) {
     next();
   };
 }
+
+export function userHasPermission(user: ApiUser, permission: Permission) {
+  return user.roles.some((role) => roleHasPermission(role, permission));
+}

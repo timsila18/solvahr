@@ -79,6 +79,11 @@ export function WorkflowQueueWorkspace() {
       body = {
         comments: `Decision from workflow center: ${action}`
       };
+    } else if (item.module === "employees" && (action === "approve" || action === "reject")) {
+      path = `/api/employee-requests/${item.entityId}/${action}`;
+      body = {
+        comments: `Employee request ${action} from workflow center`
+      };
     } else if (item.module === "recruitment" && action === "approve") {
       path = `/api/recruitment/offers/${item.entityId}/approve`;
       body = {

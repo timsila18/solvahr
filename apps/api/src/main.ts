@@ -37,9 +37,15 @@ import {
   phaseTwoMetrics
 } from "./demo-data.js";
 import { asyncHandler, sendError } from "./http.js";
-import { attachUserContext, requirePermission } from "./auth.js";
+import { attachUserContext, requirePermission, userHasPermission } from "./auth.js";
 import { writeAuditLog } from "./audit.js";
 import { getDatabaseStatus, prisma } from "./prisma.js";
+import {
+  createEmployeeApprovalRequest,
+  decideEmployeeApprovalRequest,
+  findEmployeeApprovalRequest,
+  listEmployeeApprovalRequests
+} from "./runtime-store.js";
 import {
   approveOffer,
   createCandidate,
@@ -83,6 +89,14 @@ const demoLeaveTypes = [
   { id: "leave-sick", code: "SICK", name: "Sick Leave", requiresAttachment: true, allowHalfDay: true, annualEntitlement: 14, accrualMethod: "annual" },
   { id: "leave-compassionate", code: "COMPASSIONATE", name: "Compassionate Leave", requiresAttachment: false, allowHalfDay: false, annualEntitlement: 5, accrualMethod: "annual" }
 ];
+
+function cloneForAudit<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function canActAsWorkflowOwner(userRoles: string[], ownerRole: string) {
+  return userRoles.includes(ownerRole) || userRoles.includes("company_admin");
+}
 
 app.use(cors());
 app.use(express.json());
@@ -180,11 +194,52 @@ app.get("/api/employees/documents", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listEmployeeDocuments, demoEmployeeDocuments));
 }));
 
+app.get("/api/employee-requests", requirePermission("employees.view"), asyncHandler(async (_request, response) => {
+  response.json(listEmployeeApprovalRequests());
+}));
+
 app.post(
   "/api/employees",
-  requirePermission("employees.create"),
   asyncHandler(async (request, response) => {
+    const canCreate = userHasPermission(request.user, "employees.create");
+    const canApprove = userHasPermission(request.user, "employees.approve");
+
+    if (!canCreate && !canApprove) {
+      sendError(response, 403, "Forbidden", {
+        permission: "employees.create"
+      });
+      return;
+    }
+
     const input = createEmployeeSchema.parse(request.body);
+
+    if (!canApprove) {
+      const approvalRequest = createEmployeeApprovalRequest({
+        tenantId: request.user.tenantId,
+        requestedByUserId: request.user.id,
+        requestedByEmail: request.user.email,
+        requestedByName: request.user.email.split("@")[0] ?? request.user.email,
+        approverRole: "supervisor",
+        payload: input
+      });
+
+      await writeAuditLog({
+        request,
+        action: "employees.create.submitted",
+        entityType: "employee_request",
+        entityId: approvalRequest.id,
+        after: approvalRequest
+      });
+
+      response.status(202).json({
+        id: approvalRequest.id,
+        status: approvalRequest.status,
+        approverRole: approvalRequest.approverRole,
+        message: "Employee creation submitted for supervisor approval"
+      });
+      return;
+    }
+
     const employee = await createEmployee(request.user.tenantId, input);
 
     if (!employee) {
@@ -203,6 +258,124 @@ app.post(
     });
 
     response.status(201).json(employee);
+  })
+);
+
+app.post(
+  "/api/employee-requests/:id/approve",
+  requirePermission("employees.approve"),
+  asyncHandler(async (request, response) => {
+    const employeeRequestId = request.params.id;
+    if (!employeeRequestId) {
+      sendError(response, 400, "Employee request id is required", { code: "missing_employee_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const pendingRequest = findEmployeeApprovalRequest(employeeRequestId);
+
+    if (!pendingRequest) {
+      sendError(response, 404, "Employee approval request not found", { code: "employee_request_not_found" });
+      return;
+    }
+
+    if (!canActAsWorkflowOwner(request.user.roles, pendingRequest.approverRole)) {
+      sendError(response, 403, "Forbidden", {
+        permission: "employees.approve",
+        ownerRole: pendingRequest.approverRole,
+        roles: request.user.roles
+      });
+      return;
+    }
+
+    if (pendingRequest.requestedByUserId === request.user.id) {
+      sendError(response, 409, "Requester cannot approve their own employee request", {
+        code: "self_approval_not_allowed"
+      });
+      return;
+    }
+
+    const before = cloneForAudit(pendingRequest);
+    const employee = await createEmployee(pendingRequest.tenantId, pendingRequest.payload);
+
+    if (!employee) {
+      sendError(response, 503, "Database is not configured for writes", {
+        code: "database_not_configured"
+      });
+      return;
+    }
+
+    const approvalRequest = decideEmployeeApprovalRequest(employeeRequestId, "approved", input.comments);
+
+    await writeAuditLog({
+      request,
+      action: "employees.create.approve",
+      entityType: "employee_request",
+      entityId: employeeRequestId,
+      before,
+      after: approvalRequest
+    });
+
+    response.status(202).json({
+      id: employeeRequestId,
+      status: approvalRequest?.status ?? "approved",
+      employeeId: employee?.id ?? null,
+      message: employee ? "Employee request approved and employee created" : "Employee request approved"
+    });
+  })
+);
+
+app.post(
+  "/api/employee-requests/:id/reject",
+  requirePermission("employees.approve"),
+  asyncHandler(async (request, response) => {
+    const employeeRequestId = request.params.id;
+    if (!employeeRequestId) {
+      sendError(response, 400, "Employee request id is required", { code: "missing_employee_request_id" });
+      return;
+    }
+
+    const input = approvalDecisionSchema.parse(request.body);
+    const pendingRequest = findEmployeeApprovalRequest(employeeRequestId);
+
+    if (!pendingRequest) {
+      sendError(response, 404, "Employee approval request not found", { code: "employee_request_not_found" });
+      return;
+    }
+
+    if (!canActAsWorkflowOwner(request.user.roles, pendingRequest.approverRole)) {
+      sendError(response, 403, "Forbidden", {
+        permission: "employees.approve",
+        ownerRole: pendingRequest.approverRole,
+        roles: request.user.roles
+      });
+      return;
+    }
+
+    if (pendingRequest.requestedByUserId === request.user.id) {
+      sendError(response, 409, "Requester cannot reject their own employee request", {
+        code: "self_approval_not_allowed"
+      });
+      return;
+    }
+
+    const before = cloneForAudit(pendingRequest);
+    const approvalRequest = decideEmployeeApprovalRequest(employeeRequestId, "rejected", input.comments);
+
+    await writeAuditLog({
+      request,
+      action: "employees.create.reject",
+      entityType: "employee_request",
+      entityId: employeeRequestId,
+      before,
+      after: approvalRequest
+    });
+
+    response.status(202).json({
+      id: employeeRequestId,
+      status: approvalRequest?.status ?? "rejected",
+      message: "Employee request rejected"
+    });
   })
 );
 
@@ -431,6 +604,7 @@ app.get("/api/disciplinary/cases", (_request, response) => {
 });
 
 app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
+  const employeeRequests = listEmployeeApprovalRequests();
   const [leaveRequests, offers, probationReviews, payrollRun] = await Promise.all([
     withFallback(listLeaveRequests, demoLeaveRequests),
     withFallback(listOffers, demoOffers),
@@ -445,6 +619,21 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
   const payrollDefinition = definitions.find((item) => item.code === "payroll-approval");
 
   const queue = [
+    ...employeeRequests
+      .filter((item) => item.status === "pending_approval")
+      .map((item) => ({
+        id: `employee-${item.id}`,
+        module: "employees",
+        entityId: item.id,
+        subject: item.payload.legalName,
+        title: "Employee creation request",
+        status: item.status,
+        currentStep: "Supervisor approval",
+        ownerRole: item.approverRole,
+        dueAt: item.payload.hireDate,
+        summary: `${item.payload.employeeNumber} submitted by ${item.requestedByEmail}`,
+        availableActions: canActAsWorkflowOwner(_request.user.roles, item.approverRole) ? ["approve", "reject"] : []
+      })),
     ...((leaveRequests as typeof demoLeaveRequests)
       .filter((item) => item.status === "submitted")
       .map((item) => ({
@@ -454,11 +643,13 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         subject: item.employeeName,
         title: item.type,
         status: item.status,
-        currentStep: leaveDefinition?.steps[0]?.label ?? "Manager review",
-        ownerRole: leaveDefinition?.steps[0]?.approverRole ?? "manager",
+        currentStep: leaveDefinition?.steps[0]?.label ?? "Supervisor review",
+        ownerRole: leaveDefinition?.steps[0]?.approverRole ?? "supervisor",
         dueAt: item.startDate,
         summary: `${item.days} day request from ${item.startDate} to ${item.endDate}`,
-        availableActions: ["approve", "reject"]
+        availableActions: canActAsWorkflowOwner(_request.user.roles, leaveDefinition?.steps[0]?.approverRole ?? "supervisor")
+          ? ["approve", "reject"]
+          : []
       }))),
     ...((offers as typeof demoOffers)
       .filter((item) => item.status === "pending_approval")
@@ -473,7 +664,9 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
         ownerRole: offerDefinition?.steps[0]?.approverRole ?? "hr_admin",
         dueAt: item.proposedStartDate,
         summary: `Offer at KES ${item.offeredSalary?.toLocaleString("en-KE") ?? "pending"} starting ${item.proposedStartDate ?? "TBC"}`,
-        availableActions: ["approve"]
+        availableActions: canActAsWorkflowOwner(_request.user.roles, offerDefinition?.steps[0]?.approverRole ?? "hr_admin")
+          ? ["approve"]
+          : []
       }))),
     ...((probationReviews as typeof demoProbationReviews)
       .filter((item) => item.status !== "approved")
@@ -503,7 +696,11 @@ app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
       summary: `${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).employeeCount} employees, net ${(
         payrollRun as ReturnType<typeof buildDemoPayrollRun>
       ).totals.netPay.toLocaleString("en-KE")}`,
-      availableActions: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status === "pending_approval" ? [] : ["request_approval"]
+      availableActions:
+        (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status === "pending_approval" ||
+        !canActAsWorkflowOwner(_request.user.roles, payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin")
+          ? []
+          : ["request_approval"]
     }
   ];
 

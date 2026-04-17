@@ -176,6 +176,77 @@ export async function listEmployeeDocuments() {
   });
 }
 
+function classifyAuditRisk(action: string) {
+  if (
+    action.includes("terminate") ||
+    action.includes("payroll") ||
+    action.includes("bank") ||
+    action.includes("approve")
+  ) {
+    return "high";
+  }
+
+  if (action.includes("export") || action.includes("create") || action.includes("update")) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function inferAuditModule(entityType: string, action: string) {
+  if (entityType.includes("leave") || action.startsWith("leave.")) {
+    return "leave";
+  }
+
+  if (entityType.includes("payroll") || action.startsWith("payroll.")) {
+    return "payroll";
+  }
+
+  if (entityType.includes("offer") || entityType.includes("candidate") || action.startsWith("recruitment.")) {
+    return "recruitment";
+  }
+
+  if (entityType.includes("welfare") || entityType.includes("disciplinary") || action.startsWith("relations.")) {
+    return "relations";
+  }
+
+  if (entityType.includes("employee") || action.startsWith("employees.")) {
+    return "employees";
+  }
+
+  if (entityType.includes("report") || action.includes(".export")) {
+    return "reports";
+  }
+
+  return "system";
+}
+
+export async function listAuditLogs() {
+  return useDatabase(async () => {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      include: {
+        actor: true
+      }
+    });
+
+    return logs.map((log) => ({
+      id: log.id,
+      actorName: log.actor?.name ?? log.actor?.email ?? "System",
+      actorEmail: log.actor?.email ?? "system@solvahr.app",
+      action: log.action,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      module: inferAuditModule(log.entityType, log.action),
+      riskLevel: classifyAuditRisk(log.action),
+      summary: `${log.action} on ${log.entityType}${log.entityId ? ` ${log.entityId}` : ""}`.trim(),
+      createdAt: log.createdAt.toISOString(),
+      ipAddress: log.ipAddress ?? "unknown"
+    }));
+  });
+}
+
 export async function listLeaveRequests() {
   return useDatabase(async () => {
     const requests = await prisma.leaveRequest.findMany({

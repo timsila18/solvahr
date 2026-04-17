@@ -7,6 +7,7 @@ import {
   demoCatalogues,
   demoCandidates,
   demoDocumentTemplates,
+  demoAuditLogs,
   demoEmployeeDocuments,
   demoEmployees,
   demoGeneratedDocuments,
@@ -44,6 +45,7 @@ import {
   getDashboardPayload,
   listCandidates,
   listCompanies,
+  listAuditLogs,
   listDocumentTemplates,
   listEmployeeDocuments,
   listEmployees,
@@ -125,6 +127,10 @@ app.get("/api/dashboard", asyncHandler(async (_request, response) => {
 
 app.get("/api/companies", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listCompanies, [demoTenant]));
+}));
+
+app.get("/api/audit/logs", asyncHandler(async (_request, response) => {
+  response.json(await withFallback(listAuditLogs, demoAuditLogs));
 }));
 
 app.get("/api/employees", asyncHandler(async (_request, response) => {

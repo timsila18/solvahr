@@ -588,6 +588,87 @@ export const demoDisciplinaryCases = [
   }
 ];
 
+export const demoAuditLogs = [
+  {
+    id: "audit-001",
+    actorName: "Grace Wanjiku",
+    actorEmail: "grace@solvahr.app",
+    action: "employees.create",
+    entityType: "employee",
+    entityId: "emp-005",
+    module: "employees",
+    riskLevel: "medium",
+    summary: "Created employee file for Susan Kemunto and assigned Nairobi HQ.",
+    createdAt: "2026-04-17T08:12:00.000Z",
+    ipAddress: "102.68.14.22"
+  },
+  {
+    id: "audit-002",
+    actorName: "Amina Otieno",
+    actorEmail: "amina@solvahr.app",
+    action: "payroll.approval.requested",
+    entityType: "payroll_run",
+    entityId: "run-2026-04-monthly-v1",
+    module: "payroll",
+    riskLevel: "high",
+    summary: "Requested approval for April 2026 payroll run after review.",
+    createdAt: "2026-04-17T08:40:00.000Z",
+    ipAddress: "102.68.14.30"
+  },
+  {
+    id: "audit-003",
+    actorName: "Peter Odhiambo",
+    actorEmail: "peter@solvahr.app",
+    action: "leave.request.approve",
+    entityType: "leave_request",
+    entityId: "leave-001",
+    module: "leave",
+    riskLevel: "medium",
+    summary: "Approved annual leave request for Amina Otieno.",
+    createdAt: "2026-04-17T09:03:00.000Z",
+    ipAddress: "102.68.14.15"
+  },
+  {
+    id: "audit-004",
+    actorName: "Grace Wanjiku",
+    actorEmail: "grace@solvahr.app",
+    action: "recruitment.offer.approve",
+    entityType: "job_offer",
+    entityId: "offer-001",
+    module: "recruitment",
+    riskLevel: "high",
+    summary: "Approved offer for Faith Wambui at KES 170,000.",
+    createdAt: "2026-04-17T09:26:00.000Z",
+    ipAddress: "102.68.14.22"
+  },
+  {
+    id: "audit-005",
+    actorName: "Mercy Akinyi",
+    actorEmail: "mercy@solvahr.app",
+    action: "welfare.case.update",
+    entityType: "welfare_case",
+    entityId: "wel-001",
+    module: "relations",
+    riskLevel: "high",
+    summary: "Updated medical support case with transport assistance follow-up.",
+    createdAt: "2026-04-17T10:14:00.000Z",
+    ipAddress: "102.68.14.41"
+  },
+  {
+    id: "audit-006",
+    actorName: "System Export",
+    actorEmail: "noreply@solvahr.app",
+    action: "payroll.report.export",
+    entityType: "report_export",
+    entityId: "payroll-register-april-2026",
+    module: "reports",
+    riskLevel: "low",
+    summary: "Generated Payroll Register CSV for April 2026.",
+    createdAt: "2026-04-17T10:45:00.000Z",
+    ipAddress: "system"
+  }
+];
+
 export function buildDemoPayrollRun() {
   const rules = activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30");
   const results = demoEmployees.map((employee) =>

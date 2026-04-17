@@ -10,12 +10,14 @@ import {
   demoEmployeeDocuments,
   demoEmployees,
   demoGeneratedDocuments,
+  demoGrievances,
   demoLeaveBalances,
   demoInterviews,
   demoLeaveRequests,
   demoOffers,
   demoOnboardingTasks,
   buildDemoPayslips,
+  demoDisciplinaryCases,
   demoPerformanceCycles,
   demoPerformanceGoals,
   demoPerformancePlans,
@@ -24,6 +26,7 @@ import {
   demoRequisitions,
   demoTenant,
   demoVacancies,
+  demoWelfareCases,
   phaseTwoMetrics
 } from "./demo-data.js";
 import { asyncHandler, sendError } from "./http.js";
@@ -369,6 +372,18 @@ app.get("/api/documents/templates", asyncHandler(async (_request, response) => {
 app.get("/api/documents/generated", asyncHandler(async (_request, response) => {
   response.json(await withFallback(listGeneratedDocuments, demoGeneratedDocuments));
 }));
+
+app.get("/api/welfare/cases", (_request, response) => {
+  response.json(demoWelfareCases);
+});
+
+app.get("/api/welfare/grievances", (_request, response) => {
+  response.json(demoGrievances);
+});
+
+app.get("/api/disciplinary/cases", (_request, response) => {
+  response.json(demoDisciplinaryCases);
+});
 
 app.get("/api/performance/cycles", (_request, response) => {
   response.json(demoPerformanceCycles);

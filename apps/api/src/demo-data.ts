@@ -474,6 +474,120 @@ export const demoPerformancePlans = [
   }
 ];
 
+export const demoWelfareCases = [
+  {
+    id: "wel-001",
+    employeeName: "Jane Atieno",
+    category: "medical_support",
+    location: "Mombasa Plant",
+    severity: "high",
+    status: "active",
+    caseOwner: "Mercy Akinyi",
+    openedAt: "2026-04-12",
+    nextActionDue: "2026-04-18",
+    notes: "Employee recovering after workplace injury and requires transport support."
+  },
+  {
+    id: "wel-002",
+    employeeName: "Daniel Kiptoo",
+    category: "bereavement",
+    location: "Nairobi HQ",
+    severity: "medium",
+    status: "follow_up",
+    caseOwner: "Grace Wanjiku",
+    openedAt: "2026-04-09",
+    nextActionDue: "2026-04-20",
+    notes: "Bereavement assistance approved and counseling follow-up scheduled."
+  },
+  {
+    id: "wel-003",
+    employeeName: "Amina Otieno",
+    category: "counselling_referral",
+    location: "Nairobi HQ",
+    severity: "low",
+    status: "closed",
+    caseOwner: "Mercy Akinyi",
+    openedAt: "2026-03-28",
+    nextActionDue: "2026-04-08",
+    notes: "Support intervention completed with no further escalation."
+  }
+];
+
+export const demoGrievances = [
+  {
+    id: "grv-001",
+    employeeName: "Brian Mwangi",
+    category: "supervisor_conduct",
+    channel: "manager_escalation",
+    priority: "high",
+    status: "investigation",
+    assignedTo: "Peter Odhiambo",
+    filedAt: "2026-04-11",
+    lastUpdatedAt: "2026-04-15",
+    summary: "Employee raised concern about repeated shift allocation without notice."
+  },
+  {
+    id: "grv-002",
+    employeeName: "Faith Wambui",
+    category: "harassment",
+    channel: "confidential_form",
+    priority: "critical",
+    status: "hearing_preparation",
+    assignedTo: "Grace Wanjiku",
+    filedAt: "2026-04-13",
+    lastUpdatedAt: "2026-04-16",
+    summary: "Confidential complaint escalated for formal hearing preparation."
+  },
+  {
+    id: "grv-003",
+    employeeName: "Joseph Ouma",
+    category: "pay_query",
+    channel: "self_service",
+    priority: "medium",
+    status: "resolved",
+    assignedTo: "Amina Otieno",
+    filedAt: "2026-04-07",
+    lastUpdatedAt: "2026-04-10",
+    summary: "Overtime query resolved after payroll review and communication."
+  }
+];
+
+export const demoDisciplinaryCases = [
+  {
+    id: "disc-001",
+    employeeName: "Kevin Mutua",
+    allegation: "Persistent lateness and roster breach",
+    stage: "show_cause",
+    owner: "Grace Wanjiku",
+    hearingDate: "2026-04-22",
+    status: "active",
+    outcome: "pending",
+    evidenceCount: 4
+  },
+  {
+    id: "disc-002",
+    employeeName: "Mary Njeri",
+    allegation: "Safety procedure non-compliance",
+    stage: "hearing",
+    owner: "Peter Odhiambo",
+    hearingDate: "2026-04-19",
+    status: "active",
+    outcome: "pending",
+    evidenceCount: 6
+  },
+  {
+    id: "disc-003",
+    employeeName: "John Odhiambo",
+    allegation: "Unauthorized absence",
+    stage: "outcome_recorded",
+    owner: "Grace Wanjiku",
+    hearingDate: "2026-04-05",
+    status: "closed",
+    outcome: "final_warning",
+    evidenceCount: 3
+  }
+];
+
 export function buildDemoPayrollRun() {
   const rules = activeRulesForDate(kenyaStatutoryRules2026, "2026-04-30");
   const results = demoEmployees.map((employee) =>

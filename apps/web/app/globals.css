@@ -989,6 +989,19 @@ h2 {
   margin: 0;
 }
 
+.tableBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 86px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #ebf4ff;
+  color: #2157a5;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .payslipGrid {
   display: grid;
   grid-template-columns: minmax(260px, 0.42fr) minmax(320px, 1fr);

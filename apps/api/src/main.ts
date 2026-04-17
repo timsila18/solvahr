@@ -385,6 +385,98 @@ app.get("/api/disciplinary/cases", (_request, response) => {
   response.json(demoDisciplinaryCases);
 });
 
+app.get("/api/workflows/overview", asyncHandler(async (_request, response) => {
+  const [leaveRequests, offers, probationReviews, payrollRun] = await Promise.all([
+    withFallback(listLeaveRequests, demoLeaveRequests),
+    withFallback(listOffers, demoOffers),
+    withFallback(listProbationReviews, demoProbationReviews),
+    withFallback(getCurrentPayrollRun, buildDemoPayrollRun())
+  ]);
+
+  const definitions = demoCatalogues.workflowDefinitions;
+  const leaveDefinition = definitions.find((item) => item.code === "leave-approval");
+  const offerDefinition = definitions.find((item) => item.code === "offer-approval");
+  const probationDefinition = definitions.find((item) => item.code === "probation-confirmation");
+  const payrollDefinition = definitions.find((item) => item.code === "payroll-approval");
+
+  const queue = [
+    ...((leaveRequests as typeof demoLeaveRequests)
+      .filter((item) => item.status === "submitted")
+      .map((item) => ({
+        id: `leave-${item.id}`,
+        module: "leave",
+        entityId: item.id,
+        subject: item.employeeName,
+        title: item.type,
+        status: item.status,
+        currentStep: leaveDefinition?.steps[0]?.label ?? "Manager review",
+        ownerRole: leaveDefinition?.steps[0]?.approverRole ?? "manager",
+        dueAt: item.startDate,
+        summary: `${item.days} day request from ${item.startDate} to ${item.endDate}`,
+        availableActions: ["approve", "reject"]
+      }))),
+    ...((offers as typeof demoOffers)
+      .filter((item) => item.status === "pending_approval")
+      .map((item) => ({
+        id: `offer-${item.id}`,
+        module: "recruitment",
+        entityId: item.id,
+        subject: item.candidateName,
+        title: item.vacancyTitle,
+        status: item.status,
+        currentStep: offerDefinition?.steps[0]?.label ?? "HR offer review",
+        ownerRole: offerDefinition?.steps[0]?.approverRole ?? "hr_admin",
+        dueAt: item.proposedStartDate,
+        summary: `Offer at KES ${item.offeredSalary?.toLocaleString("en-KE") ?? "pending"} starting ${item.proposedStartDate ?? "TBC"}`,
+        availableActions: ["approve"]
+      }))),
+    ...((probationReviews as typeof demoProbationReviews)
+      .filter((item) => item.status !== "approved")
+      .map((item) => ({
+        id: `probation-${item.id}`,
+        module: "probation",
+        entityId: item.id,
+        subject: item.employeeName,
+        title: "Probation confirmation",
+        status: item.status,
+        currentStep: probationDefinition?.steps[0]?.label ?? "Manager recommendation",
+        ownerRole: probationDefinition?.steps[0]?.approverRole ?? "manager",
+        dueAt: item.reviewDate,
+        summary: `Score ${item.score ?? 0} with recommendation ${item.recommendation}`,
+        availableActions: [] as string[]
+      }))),
+    {
+      id: `payroll-${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).id}`,
+      module: "payroll",
+      entityId: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).id,
+      subject: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).period,
+      title: "Current payroll run",
+      status: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status,
+      currentStep: payrollDefinition?.steps[0]?.label ?? "Payroll admin review",
+      ownerRole: payrollDefinition?.steps[0]?.approverRole ?? "payroll_admin",
+      dueAt: "2026-04-30",
+      summary: `${(payrollRun as ReturnType<typeof buildDemoPayrollRun>).employeeCount} employees, net ${(
+        payrollRun as ReturnType<typeof buildDemoPayrollRun>
+      ).totals.netPay.toLocaleString("en-KE")}`,
+      availableActions: (payrollRun as ReturnType<typeof buildDemoPayrollRun>).status === "pending_approval" ? [] : ["request_approval"]
+    }
+  ];
+
+  const escalations = queue.filter((item) => {
+    if (!item.dueAt) {
+      return false;
+    }
+
+    return new Date(item.dueAt).getTime() <= new Date("2026-04-20T00:00:00.000Z").getTime();
+  });
+
+  response.json({
+    queue,
+    escalations,
+    definitions
+  });
+}));
+
 app.get("/api/performance/cycles", (_request, response) => {
   response.json(demoPerformanceCycles);
 });

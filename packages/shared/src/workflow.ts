@@ -35,6 +35,16 @@ export type WorkflowInstanceState = {
 
 export const phaseTwoWorkflowDefinitions: WorkflowDefinitionConfig[] = [
   {
+    code: "leave-approval",
+    name: "Leave Approval",
+    module: "leave",
+    trigger: "leave.request.submitted",
+    steps: [
+      { step: 1, label: "Line manager review", approverRole: "manager", escalationHours: 24 },
+      { step: 2, label: "HR validation", approverRole: "hr_admin", escalationHours: 24 }
+    ]
+  },
+  {
     code: "manpower-requisition-approval",
     name: "Manpower Requisition Approval",
     module: "recruitment",
@@ -64,6 +74,17 @@ export const phaseTwoWorkflowDefinitions: WorkflowDefinitionConfig[] = [
     steps: [
       { step: 1, label: "Manager recommendation", approverRole: "manager", escalationHours: 24 },
       { step: 2, label: "HR confirmation", approverRole: "hr_admin", escalationHours: 24 }
+    ]
+  },
+  {
+    code: "payroll-approval",
+    name: "Payroll Approval",
+    module: "payroll",
+    trigger: "payroll.run.ready_for_review",
+    steps: [
+      { step: 1, label: "Payroll admin review", approverRole: "payroll_admin", escalationHours: 12 },
+      { step: 2, label: "Finance review", approverRole: "finance_user", escalationHours: 24 },
+      { step: 3, label: "Company admin sign-off", approverRole: "company_admin", escalationHours: 24 }
     ]
   }
 ];

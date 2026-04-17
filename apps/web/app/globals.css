@@ -1002,6 +1002,16 @@ h2 {
   font-weight: 700;
 }
 
+.workflowActionStack {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.workflowStepsCompact article {
+  min-height: 64px;
+}
+
 .payslipGrid {
   display: grid;
   grid-template-columns: minmax(260px, 0.42fr) minmax(320px, 1fr);

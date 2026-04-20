@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Solva HR",
-  description: "Multi-tenant HR and payroll operating system for Kenyan employers",
+  description: "Premium Kenyan cloud HR and payroll operating system for multi-company teams",
   icons: {
     icon: "/brand/solva-hr-app-icon.svg",
     shortcut: "/brand/solva-hr-app-icon.svg",

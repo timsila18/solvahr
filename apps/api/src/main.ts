@@ -40,6 +40,7 @@ import { asyncHandler, sendError } from "./http.js";
 import { attachUserContext, requirePermission, userHasPermission } from "./auth.js";
 import { writeAuditLog } from "./audit.js";
 import { getDatabaseStatus, prisma } from "./prisma.js";
+import { buildPayrollModulePayload } from "./payroll-module-data.js";
 import {
   createEmployeeApprovalRequest,
   decideEmployeeApprovalRequest,
@@ -1280,6 +1281,10 @@ app.get("/api/performance/plans", (_request, response) => {
 app.get("/api/payroll/runs/current", asyncHandler(async (_request, response) => {
   response.json(await withFallback(getCurrentPayrollRun, buildDemoPayrollRun()));
 }));
+
+app.get("/api/payroll/module", (_request, response) => {
+  response.json(buildPayrollModulePayload());
+});
 
 app.get(
   "/api/payroll/payslips/current",

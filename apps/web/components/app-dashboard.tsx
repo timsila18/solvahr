@@ -73,7 +73,8 @@ const buildSlices = [
   ["Slice 23", "Persistent approval queue", "Done"],
   ["Slice 24", "Persistent workflow instances", "Done"],
   ["Slice 25", "Offer and payroll approval chains", "Done"],
-  ["Slice 26", "Unified approvals across operations", "Active"]
+  ["Slice 26", "Unified approvals across operations", "Done"],
+  ["Slice 27", "Enterprise payroll module", "Active"]
 ] as const;
 
 function money(value: number) {
@@ -189,7 +190,7 @@ export function AppDashboard() {
                   <p className="eyebrow">Build Progress</p>
                   <h2>Small slices, visible checkpoints.</h2>
                 </div>
-                <span className="status">Slice 26</span>
+                <span className="status">Slice 27</span>
               </div>
               <div className="sliceGrid">
                 {buildSlices.map(([label, title, status]) => (

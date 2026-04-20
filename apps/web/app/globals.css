@@ -1354,6 +1354,501 @@ h2 {
   font-weight: 800;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.payrollModuleShell {
+  --payroll-bg: #f7f9fc;
+  --payroll-surface: #ffffff;
+  --payroll-panel: #f8fbff;
+  --payroll-ink: #0f172a;
+  --payroll-muted: #64748b;
+  --payroll-line: #dbe4ef;
+  --payroll-accent: #0f4fd9;
+  --payroll-accent-soft: #e8f0ff;
+  --payroll-accent-alt: #14b8a6;
+  --payroll-danger: #dc2626;
+  --payroll-warning: #d97706;
+  display: grid;
+  gap: 18px;
+  color: var(--payroll-ink);
+  background: var(--payroll-bg);
+}
+
+.payrollModuleShell[data-payroll-theme="dark"] {
+  --payroll-bg: #09111f;
+  --payroll-surface: #111c2f;
+  --payroll-panel: #15233b;
+  --payroll-ink: #f8fafc;
+  --payroll-muted: #94a3b8;
+  --payroll-line: #23314d;
+  --payroll-accent: #60a5fa;
+  --payroll-accent-soft: #10213f;
+  --payroll-accent-alt: #22d3ee;
+  --payroll-danger: #f87171;
+  --payroll-warning: #fbbf24;
+}
+
+.payrollModuleTopbar,
+.payrollModuleSidebar,
+.payrollCommandBand,
+.payrollHeroBand,
+.payrollChartCard,
+.payrollDataPanel,
+.payrollTrackerPanel,
+.payrollApprovalCard,
+.payrollSettingsCard,
+.payrollValidationCard {
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  background: var(--payroll-surface);
+}
+
+.payrollModuleTopbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.55fr) minmax(320px, 1fr);
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.payrollModuleTopbar span,
+.payrollModuleSidebar small,
+.payrollCommandBand span,
+.payrollHeroBand span,
+.payrollChartCard span,
+.payrollDataPanel span,
+.payrollValidationCard small,
+.payrollApprovalCard span,
+.payrollApprovalCard p,
+.payrollSettingsCard span,
+.payrollBuilderGroup span,
+.payrollEmptyState,
+.payrollPager span,
+.payrollBulkBar span {
+  color: var(--payroll-muted);
+}
+
+.payrollUtilityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.payrollGlobalSearch {
+  flex: 1 1 320px;
+  min-width: 220px;
+}
+
+.payrollGlobalSearch input,
+.payrollSearch input,
+.payrollSelect select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--payroll-panel);
+  color: var(--payroll-ink);
+  font: inherit;
+}
+
+.payrollUtilityButton {
+  border-color: var(--payroll-line);
+  background: var(--payroll-panel);
+  color: var(--payroll-ink);
+}
+
+.payrollProfileChip {
+  font-weight: 700;
+}
+
+.payrollModuleLayout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.payrollModuleSidebar {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  align-content: start;
+}
+
+.payrollModuleSidebar button {
+  display: grid;
+  gap: 4px;
+  min-height: 66px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--payroll-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.payrollModuleSidebar .activePayrollModuleNav,
+.payrollModuleSidebar button:hover {
+  border-color: var(--payroll-accent);
+  background: var(--payroll-accent-soft);
+}
+
+.payrollModuleContent {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.payrollCommandBand {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.payrollCommandBand strong,
+.payrollCommandBand span,
+.payrollSectionHeader strong,
+.payrollValidationCard strong,
+.payrollSettingsCard strong,
+.payrollBuilderGroup strong,
+.payrollLegendRow strong,
+.payrollLegendRow b {
+  display: block;
+}
+
+.payrollHeroBand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.6fr);
+  gap: 16px;
+  padding: 20px;
+}
+
+.payrollQuickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.payrollQuickActionsStack {
+  justify-content: flex-start;
+}
+
+.payrollContentGrid,
+.payrollApprovalGrid,
+.payrollValidationGrid,
+.payrollSettingsGrid,
+.payrollMiniMetricGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.payrollContentGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payrollApprovalGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payrollValidationGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.payrollSettingsGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.payrollMiniMetricGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payrollChartCard,
+.payrollDataPanel,
+.payrollTrackerPanel,
+.payrollApprovalCard,
+.payrollSettingsCard,
+.payrollValidationCard,
+.payrollMiniMetric {
+  padding: 18px;
+}
+
+.payrollSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.payrollSectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.payrollBars {
+  display: grid;
+  gap: 14px;
+}
+
+.payrollBarRow {
+  display: grid;
+  gap: 8px;
+}
+
+.payrollBarTrack {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--payroll-accent-soft);
+}
+
+.payrollBarFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.payrollDonutShell {
+  margin: 12px 0 18px;
+}
+
+.payrollDonutTrack {
+  display: flex;
+  overflow: hidden;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--payroll-accent-soft);
+}
+
+.payrollDonutSegment {
+  display: block;
+  min-width: 8px;
+  height: 100%;
+}
+
+.payrollLegend {
+  display: grid;
+  gap: 10px;
+}
+
+.payrollLegendRow {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.payrollLegendSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.payrollMiniMetric,
+.payrollSettingsCard {
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  background: var(--payroll-panel);
+}
+
+.payrollMiniMetric strong,
+.payrollSettingsCard strong {
+  margin-top: 8px;
+  font-size: 1.05rem;
+}
+
+.payrollTableToolbar,
+.payrollBulkBar,
+.payrollPager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.payrollTableToolbar {
+  margin-bottom: 14px;
+}
+
+.payrollFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.payrollSelect {
+  display: grid;
+  gap: 6px;
+  min-width: 170px;
+  color: var(--payroll-muted);
+  font-weight: 700;
+}
+
+.payrollBulkBar {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  background: var(--payroll-panel);
+}
+
+.payrollPager {
+  margin-top: 14px;
+}
+
+.payrollEmptyState {
+  padding: 18px;
+}
+
+.payrollTracker {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payrollTrackerStep {
+  display: grid;
+  gap: 6px;
+  min-height: 84px;
+  padding: 14px;
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  background: var(--payroll-panel);
+}
+
+.payrollTrackerDone {
+  border-color: rgba(20, 184, 166, 0.32);
+}
+
+.payrollTrackerCurrent {
+  border-color: rgba(15, 79, 217, 0.34);
+  background: var(--payroll-accent-soft);
+}
+
+.payrollTrackerPending {
+  opacity: 0.8;
+}
+
+.payrollValidationCard {
+  display: grid;
+  gap: 8px;
+  min-height: 142px;
+}
+
+.payrollValidationWarning {
+  border-color: rgba(217, 119, 6, 0.26);
+}
+
+.payrollValidationHigh,
+.payrollValidationDanger {
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+.payrollValidationClear,
+.payrollBadgeSuccess {
+  border-color: rgba(20, 184, 166, 0.24);
+}
+
+.payrollBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 7px 10px;
+  border: 1px solid var(--payroll-line);
+  border-radius: 999px;
+  background: var(--payroll-panel);
+  color: var(--payroll-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.payrollBadgeSuccess {
+  color: var(--payroll-accent-alt);
+}
+
+.payrollBadgeWarning {
+  color: var(--payroll-warning);
+}
+
+.payrollBadgeDanger {
+  color: var(--payroll-danger);
+}
+
+.payrollBadgeNeutral {
+  color: var(--payroll-muted);
+}
+
+.payrollApprovalCard {
+  display: grid;
+  gap: 14px;
+}
+
+.payrollApprovalChain {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.payrollApprovalChain div,
+.payrollBuilderGroup {
+  padding: 14px;
+  border: 1px solid var(--payroll-line);
+  border-radius: 8px;
+  background: var(--payroll-panel);
+}
+
+.payrollBuilderFilters {
+  display: grid;
+  gap: 10px;
+}
+
+.payrollModuleShell .metricCard {
+  border-color: var(--payroll-line);
+  background: var(--payroll-surface);
+  color: var(--payroll-ink);
+}
+
+.payrollModuleShell .metricCard span,
+.payrollModuleShell .metricCard small,
+.payrollModuleShell .reportTable td,
+.payrollModuleShell .reportTable th,
+.payrollModuleShell .reportTable input {
+  color: inherit;
+}
+
+.payrollModuleShell .reportTableWrap,
+.payrollModuleShell .reportTable {
+  border-color: var(--payroll-line);
+  background: var(--payroll-surface);
+}
+
+.payrollModuleShell .reportTable td,
+.payrollModuleShell .reportTable th {
+  border-bottom-color: var(--payroll-line);
+}
+
+.payrollModuleShell .reportTable input {
+  accent-color: var(--payroll-accent);
+}
+
 @media (max-width: 1020px) {
   .shell {
     grid-template-columns: 1fr;
@@ -1391,11 +1886,24 @@ h2 {
   .payrollRunGrid,
   .payrollDetailGrid,
   .recruitmentGrid,
-  .offerList article {
+  .offerList article,
+  .payrollModuleTopbar,
+  .payrollModuleLayout,
+  .payrollHeroBand,
+  .payrollContentGrid,
+  .payrollApprovalGrid,
+  .payrollSettingsGrid {
     grid-template-columns: 1fr;
   }
 
   .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .payrollValidationGrid,
+  .payrollMiniMetricGrid,
+  .payrollCommandBand,
+  .payrollTracker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1436,7 +1944,12 @@ h2 {
   .pipeline,
   .formSplit,
   .payrollSummary,
-  .stageGrid {
+  .stageGrid,
+  .payrollValidationGrid,
+  .payrollMiniMetricGrid,
+  .payrollCommandBand,
+  .payrollTracker,
+  .payrollApprovalChain {
     grid-template-columns: 1fr;
   }
 

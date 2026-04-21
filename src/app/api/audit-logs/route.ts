@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { listAuditEvents } from "@/lib/mock-platform-store";
+import { listAuditEvents } from "@/lib/database";
 
 export async function GET() {
-  return NextResponse.json({ events: listAuditEvents() });
+  try {
+    return NextResponse.json({ events: await listAuditEvents() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

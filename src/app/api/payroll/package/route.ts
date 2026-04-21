@@ -1,23 +1,31 @@
 import { NextResponse } from "next/server";
-import { getPayrollPackage, recordPayrollExport } from "@/lib/mock-platform-store";
+import { getPayrollPackage, recordPayrollExport } from "@/lib/database";
 
 export async function GET() {
-  return NextResponse.json({ payroll: getPayrollPackage() });
+  try {
+    return NextResponse.json({ payroll: await getPayrollPackage() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
-    actorEmail: string;
-    actorRole: string;
-  };
+  try {
+    const body = (await request.json()) as {
+      exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
+    };
 
-  return NextResponse.json(
-    recordPayrollExport({
-      exportType: body.exportType,
-      actorEmail: body.actorEmail,
-      actorRole: body.actorRole,
-    }),
-    { status: 201 }
-  );
+    return NextResponse.json(
+      await recordPayrollExport({
+        exportType: body.exportType,
+      }),
+      { status: 201 }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

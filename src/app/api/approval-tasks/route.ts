@@ -8,14 +8,21 @@ import {
   createRequisitionApprovalRequest,
   createTrainingRequest,
   listApprovalTasks,
-} from "@/lib/mock-platform-store";
+} from "@/lib/database";
 
 export async function GET() {
-  return NextResponse.json({ tasks: listApprovalTasks() });
+  try {
+    return NextResponse.json({ tasks: await listApprovalTasks() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as
+  try {
+    const body = (await request.json()) as
     | {
         kind: "employee_activation";
         employeeName: string;
@@ -79,98 +86,87 @@ export async function POST(request: Request) {
         actorRole: string;
       };
 
-  if (body.kind === "employee_activation") {
+    if (body.kind === "employee_activation") {
+      return NextResponse.json(
+        await createEmployeeActivationRequest({
+          employeeName: body.employeeName,
+          department: body.department,
+          branch: body.branch,
+          employmentType: body.employmentType,
+        }),
+        { status: 201 }
+      );
+    }
+
+    if (body.kind === "leave_request") {
+      return NextResponse.json(
+        await createLeaveRequest({
+          employeeName: body.employeeName,
+          leaveType: body.leaveType,
+          days: body.days,
+          startDate: body.startDate,
+        }),
+        { status: 201 }
+      );
+    }
+
+    if (body.kind === "requisition_approval") {
+      return NextResponse.json(
+        await createRequisitionApprovalRequest({
+          roleTitle: body.roleTitle,
+          headcount: body.headcount,
+        }),
+        { status: 201 }
+      );
+    }
+
+    if (body.kind === "profile_update") {
+      return NextResponse.json(
+        await createProfileUpdateRequest({
+          employeeName: body.employeeName,
+          fieldName: body.fieldName,
+          newValue: body.newValue,
+        }),
+        { status: 201 }
+      );
+    }
+
+    if (body.kind === "training_request") {
+      return NextResponse.json(
+        await createTrainingRequest({
+          employeeName: body.employeeName,
+          programName: body.programName,
+          schedule: body.schedule,
+          budget: body.budget,
+        }),
+        { status: 201 }
+      );
+    }
+
+    if (body.kind === "asset_request") {
+      return NextResponse.json(
+        await createAssetRequest({
+          employeeName: body.employeeName,
+          assetName: body.assetName,
+          requestType: body.requestType,
+          branch: body.branch,
+        }),
+        { status: 201 }
+      );
+    }
+
     return NextResponse.json(
-      createEmployeeActivationRequest({
-        employeeName: body.employeeName,
-        department: body.department,
-        branch: body.branch,
-        employmentType: body.employmentType,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
+      await createPayrollApprovalRequest({
+        period: body.period,
+        grossPay: body.grossPay,
+        netPay: body.netPay,
+        employeeCount: body.employeeCount,
       }),
       { status: 201 }
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
-
-  if (body.kind === "leave_request") {
-    return NextResponse.json(
-      createLeaveRequest({
-        employeeName: body.employeeName,
-        leaveType: body.leaveType,
-        days: body.days,
-        startDate: body.startDate,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
-      }),
-      { status: 201 }
-    );
-  }
-
-  if (body.kind === "requisition_approval") {
-    return NextResponse.json(
-      createRequisitionApprovalRequest({
-        roleTitle: body.roleTitle,
-        department: body.department,
-        branch: body.branch,
-        headcount: body.headcount,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
-      }),
-      { status: 201 }
-    );
-  }
-
-  if (body.kind === "profile_update") {
-    return NextResponse.json(
-      createProfileUpdateRequest({
-        employeeName: body.employeeName,
-        fieldName: body.fieldName,
-        newValue: body.newValue,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
-      }),
-      { status: 201 }
-    );
-  }
-
-  if (body.kind === "training_request") {
-    return NextResponse.json(
-      createTrainingRequest({
-        employeeName: body.employeeName,
-        programName: body.programName,
-        schedule: body.schedule,
-        budget: body.budget,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
-      }),
-      { status: 201 }
-    );
-  }
-
-  if (body.kind === "asset_request") {
-    return NextResponse.json(
-      createAssetRequest({
-        employeeName: body.employeeName,
-        assetName: body.assetName,
-        requestType: body.requestType,
-        branch: body.branch,
-        actorEmail: body.actorEmail,
-        actorRole: body.actorRole,
-      }),
-      { status: 201 }
-    );
-  }
-
-  return NextResponse.json(
-    createPayrollApprovalRequest({
-      period: body.period,
-      grossPay: body.grossPay,
-      netPay: body.netPay,
-      employeeCount: body.employeeCount,
-      actorEmail: body.actorEmail,
-      actorRole: body.actorRole,
-    }),
-    { status: 201 }
-  );
 }

@@ -1,0 +1,73 @@
+export const APP_ROLES = [
+  "Super Admin",
+  "HR Admin",
+  "Payroll Admin",
+  "Finance Officer",
+  "Manager",
+  "Recruiter",
+  "Employee",
+  "Auditor",
+  "Operator",
+  "Supervisor",
+] as const;
+
+export type AppRole = (typeof APP_ROLES)[number];
+
+export type AuthUserProfile = {
+  id: string;
+  company_id: string | null;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  role: AppRole;
+  employee_id: string | null;
+  branch_id: string | null;
+  department_id: string | null;
+  last_login: string | null;
+  status: string;
+};
+
+const roleWeights: Record<AppRole, number> = {
+  "Employee": 1,
+  "Operator": 2,
+  "Supervisor": 3,
+  "Manager": 4,
+  "Recruiter": 4,
+  "Finance Officer": 5,
+  "Payroll Admin": 6,
+  "HR Admin": 7,
+  "Auditor": 7,
+  "Super Admin": 9,
+};
+
+export function isAppRole(value: string): value is AppRole {
+  return APP_ROLES.includes(value as AppRole);
+}
+
+export function canAccessRole(currentRole: AppRole, minimumRole: AppRole) {
+  return roleWeights[currentRole] >= roleWeights[minimumRole];
+}
+
+export function normalizeRole(value: string | null | undefined): AppRole {
+  if (value && isAppRole(value)) {
+    return value;
+  }
+
+  return "Employee";
+}
+
+export function roleCanAccessPeople(role: AppRole) {
+  return ["Super Admin", "HR Admin", "Supervisor", "Manager", "Operator", "Auditor"].includes(role);
+}
+
+export function roleCanAccessPayroll(role: AppRole) {
+  return ["Super Admin", "Payroll Admin", "Finance Officer", "Auditor"].includes(role);
+}
+
+export function roleCanAccessRecruitment(role: AppRole) {
+  return ["Super Admin", "HR Admin", "Recruiter", "Manager", "Auditor"].includes(role);
+}
+
+export function roleCanApproveFinance(role: AppRole) {
+  return ["Super Admin", "Finance Officer", "Payroll Admin"].includes(role);
+}

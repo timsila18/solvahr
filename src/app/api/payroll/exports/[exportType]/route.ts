@@ -1,4 +1,4 @@
-import { getPayrollExportFile } from "@/lib/mock-platform-store";
+import { getPayrollExportFile } from "@/lib/database";
 
 export async function GET(
   request: Request,
@@ -14,18 +14,20 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const actorEmail = url.searchParams.get("actorEmail") ?? "unknown@solvahr.app";
-  const actorRole = url.searchParams.get("actorRole") ?? "Unknown";
-  const file = getPayrollExportFile(
-    exportType as (typeof allowed)[number],
-    actorEmail,
-    actorRole
-  );
+  void url;
 
-  return new Response(file.body, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${file.filename}"`,
-    },
-  });
+  try {
+    const file = await getPayrollExportFile(exportType as (typeof allowed)[number]);
+
+    return new Response(file.body, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${file.filename}"`,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return new Response(message, { status });
+  }
 }

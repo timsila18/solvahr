@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getModuleByKey, getPage } from "@/lib/solva-data";
+import { buildPageFromDatabase } from "@/lib/database";
+import { getModuleByKey } from "@/lib/solva-data";
 
 export async function GET(
   _request: Request,
@@ -20,5 +21,11 @@ export async function GET(
     return NextResponse.json({ error: "page_not_found" }, { status: 404 });
   }
 
-  return NextResponse.json(getPage(module, item));
+  try {
+    return NextResponse.json(await buildPageFromDatabase(module, item));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

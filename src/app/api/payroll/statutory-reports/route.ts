@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { getPayrollPackage, getPayrollVariance } from "@/lib/database";
+import { getStatutorySummary } from "@/lib/database";
 
 export async function GET() {
   try {
-    return NextResponse.json({
-      payroll: await getPayrollPackage(),
-      variance: await getPayrollVariance(),
-    });
+    return NextResponse.json({ reports: await getStatutorySummary() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateApprovalTask } from "@/lib/mock-platform-store";
+import { updateApprovalTask } from "@/lib/database";
 
 export async function PATCH(
   request: Request,
@@ -13,7 +13,7 @@ export async function PATCH(
   };
 
   try {
-    const task = updateApprovalTask(taskId, body.action, body.actorEmail, body.actorRole);
+    const task = await updateApprovalTask(taskId, body.action);
     return NextResponse.json(task);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";

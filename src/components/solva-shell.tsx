@@ -1024,7 +1024,7 @@ export function SolvaShell() {
   const [dataMode, setDataMode] = useState<"loading" | "live" | "fallback">("loading");
   const [moduleKey, setModuleKey] = useState(fallbackModules[0]?.key ?? "dashboard");
   const [search, setSearch] = useState("");
-  const [selectedRoleEmail, setSelectedRoleEmail] = useState(loginProfiles[0]?.email ?? "");
+  const [selectedRoleEmail, setSelectedRoleEmail] = useState("");
   const [activeItems, setActiveItems] = useState<Record<string, string>>(
     Object.fromEntries(fallbackModules.map((module) => [module.key, module.items[0] ?? ""]))
   );
@@ -1094,16 +1094,20 @@ export function SolvaShell() {
   }, [employees, selectedEmployee]);
 
   const liveModules = snapshot?.modules ?? fallbackModules;
+  const availableProfiles = snapshot?.loginProfiles?.length ? snapshot.loginProfiles : loginProfiles;
 
   const activeModule = useMemo(
     () => liveModules.find((module) => module.key === moduleKey) ?? liveModules[0],
     [liveModules, moduleKey]
   );
 
-  const selectedRole =
-    snapshot?.loginProfiles.find((profile) => profile.email === selectedRoleEmail) ??
-    loginProfiles.find((profile) => profile.email === selectedRoleEmail) ??
-    loginProfiles[0];
+  const selectedRole = availableProfiles.find((profile) => profile.email === selectedRoleEmail) ?? availableProfiles[0];
+
+  useEffect(() => {
+    if (!selectedRoleEmail && availableProfiles[0]?.email) {
+      setSelectedRoleEmail(availableProfiles[0].email);
+    }
+  }, [availableProfiles, selectedRoleEmail]);
 
   const filteredModules = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1420,9 +1424,9 @@ export function SolvaShell() {
         </nav>
 
         <div className="sidebar-footer">
-          <p className="section-eyebrow">Demo Logins</p>
+          <p className="section-eyebrow">Current Access</p>
           <div className="login-grid">
-            {(snapshot?.loginProfiles ?? loginProfiles).map((profile) => (
+            {availableProfiles.map((profile) => (
               <button
                 className={`login-card ${profile.email === selectedRole.email ? "is-active" : ""}`}
                 key={profile.email}

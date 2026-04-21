@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
-import { getPayrollProcessData } from "@/lib/mock-platform-store";
+import { getPayrollProcessData } from "@/lib/database";
 
 export async function GET() {
-  return NextResponse.json({
-    process: getPayrollProcessData(),
-  });
+  try {
+    return NextResponse.json({
+      process: await getPayrollProcessData(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
 }

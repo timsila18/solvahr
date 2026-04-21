@@ -6,6 +6,7 @@ import type {
   ModuleSpec,
   PageSpec,
   PayrollPackage,
+  PayrollProcessData,
   PayrollVarianceItem,
   PlatformSnapshot,
 } from "@/lib/solva-data";
@@ -233,6 +234,12 @@ export function fetchPayrollReview() {
       cache: "no-store",
     }
   );
+}
+
+export function fetchPayrollProcess() {
+  return readJson<{ process: PayrollProcessData }>("/api/payroll/process", {
+    cache: "no-store",
+  });
 }
 
 export function getPayrollExportUrl(

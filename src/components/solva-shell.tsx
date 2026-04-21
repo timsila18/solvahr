@@ -17,6 +17,7 @@ import {
   fetchEmployeeProfile,
   fetchPage,
   fetchPayrollPackage,
+  fetchPayrollProcess,
   fetchPayrollReview,
   fetchPlatformSnapshot,
   getPayrollExportUrl,
@@ -34,6 +35,7 @@ import {
   type ModuleSpec,
   type PageSpec,
   type PayrollPackage,
+  type PayrollProcessData,
   type PayrollVarianceItem,
   type PlatformSnapshot,
   type ThemeMode,
@@ -370,34 +372,65 @@ function PeopleWorkbench({
         <section className="mini-panel">
           <h4>Employee detail</h4>
           {selectedEmployee ? (
-            <div className="mini-list queue-list">
-              <article>
-                <strong>{selectedEmployee.fullName}</strong>
-                <span>
-                  {selectedEmployee.employeeNumber} | {selectedEmployee.status}
-                </span>
-                <small>
-                  {selectedEmployee.department} | {selectedEmployee.branch} | {selectedEmployee.employmentType}
-                </small>
+            <div className="profile-detail-stack">
+              <article className="mini-list queue-list">
+                <article>
+                  <strong>{selectedEmployee.fullName}</strong>
+                  <span>
+                    {selectedEmployee.employeeNumber} | {selectedEmployee.status}
+                  </span>
+                  <small>
+                    {selectedEmployee.department} | {selectedEmployee.branch} |{" "}
+                    {selectedEmployee.employmentType}
+                  </small>
+                </article>
               </article>
-              <article>
-                <strong>Contacts and reporting</strong>
-                <span>
-                  {selectedEmployee.phoneNumber} | {selectedEmployee.companyEmail}
-                </span>
-                <small>
-                  Supervisor {selectedEmployee.supervisor} | Cost center {selectedEmployee.costCenter}
-                </small>
-              </article>
-              <article>
-                <strong>Statutory and banking</strong>
-                <span>
-                  KRA {selectedEmployee.kraPin} | SHIF {selectedEmployee.shifNumber}
-                </span>
-                <small>
-                  NSSF {selectedEmployee.nssfNumber} | {selectedEmployee.bankName} {selectedEmployee.bankAccount}
-                </small>
-              </article>
+
+              <div className="detail-section-grid">
+                {selectedEmployee.profileSections.map((section) => (
+                  <section className="detail-section-card" key={section.title}>
+                    <h5>{section.title}</h5>
+                    <div className="detail-kv-list">
+                      {section.items.map((item) => (
+                        <article key={`${section.title}-${item.label}`}>
+                          <span>{item.label}</span>
+                          <strong>{item.value}</strong>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+
+              <div className="detail-section-grid">
+                <section className="detail-section-card">
+                  <h5>Documents</h5>
+                  <div className="mini-list queue-list">
+                    {selectedEmployee.documentSummary.map((document) => (
+                      <article key={document.name}>
+                        <strong>{document.name}</strong>
+                        <span>
+                          {document.category} | {document.status}
+                        </span>
+                        <small>Expiry {document.expiry}</small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="detail-section-card">
+                  <h5>Movement history</h5>
+                  <div className="mini-list queue-list">
+                    {selectedEmployee.movementHistory.map((movement) => (
+                      <article key={`${movement.title}-${movement.date}`}>
+                        <strong>{movement.title}</strong>
+                        <span>{movement.detail}</span>
+                        <small>{movement.date}</small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </div>
             </div>
           ) : (
             <p className="section-description">Select an employee to inspect their profile detail.</p>
@@ -441,12 +474,14 @@ function PeopleWorkbench({
 function PayrollWorkbench({
   payroll,
   variance,
+  process,
   selectedRole,
   onExport,
   exportBusy,
 }: {
   payroll: PayrollPackage | null;
   variance: PayrollVarianceItem[];
+  process: PayrollProcessData | null;
   selectedRole: (typeof loginProfiles)[number];
   onExport: (exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms") => void;
   exportBusy: string | null;
@@ -462,7 +497,7 @@ function PayrollWorkbench({
         </div>
         <TonePill tone="warning">export ready</TonePill>
       </div>
-      <div className="workbench-grid">
+      <div className="workbench-grid payroll-workbench-grid">
         <section className="mini-panel">
           <h4>Current payroll package</h4>
           {payroll ? (
@@ -504,6 +539,45 @@ function PayrollWorkbench({
               </article>
             ))}
           </div>
+        </section>
+        <section className="mini-panel">
+          <h4>Validation checks</h4>
+          {process ? (
+            <div className="mini-list queue-list">
+              {process.validations.map((item) => (
+                <article key={item.id}>
+                  <strong>{item.title}</strong>
+                  <span>
+                    {item.owner} | {item.status}
+                  </span>
+                  <small>{item.detail}</small>
+                  <TonePill tone={item.severity}>{item.severity}</TonePill>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="section-description">Validation checks are loading.</p>
+          )}
+        </section>
+        <section className="mini-panel">
+          <h4>Approval chain</h4>
+          {process ? (
+            <div className="mini-list queue-list">
+              {process.approvals.map((item) => (
+                <article key={item.id}>
+                  <strong>{item.label}</strong>
+                  <span>
+                    {item.owner} | {item.status}
+                  </span>
+                  <small>
+                    {item.comment} | {item.date}
+                  </small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="section-description">Approval trail is loading.</p>
+          )}
         </section>
         <section className="mini-panel">
           <h4>Export center</h4>
@@ -549,6 +623,46 @@ function PayrollWorkbench({
             <p className="section-description">
               Switch to Payroll Admin, Finance Officer, or Super Admin to generate payroll exports.
             </p>
+          )}
+        </section>
+        <section className="mini-panel">
+          <h4>Recent payroll runs</h4>
+          {process ? (
+            <div className="mini-list queue-list">
+              {process.history.map((item) => (
+                <article key={`${item.period}-${item.payrollType}`}>
+                  <strong>
+                    {item.period} | {item.payrollType}
+                  </strong>
+                  <span>
+                    {item.status} | Gross {item.grossPay}
+                  </span>
+                  <small>
+                    Net {item.netPay} | Processed {item.processedAt}
+                  </small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="section-description">Payroll history is loading.</p>
+          )}
+        </section>
+        <section className="mini-panel">
+          <h4>Export history</h4>
+          {process ? (
+            <div className="mini-list queue-list">
+              {process.exports.map((item) => (
+                <article key={item.id}>
+                  <strong>{item.label}</strong>
+                  <span>
+                    {item.actor} | {item.status}
+                  </span>
+                  <small>{item.generatedAt}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="section-description">Export history is loading.</p>
           )}
         </section>
       </div>
@@ -922,6 +1036,7 @@ export function SolvaShell() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [payrollPackage, setPayrollPackage] = useState<PayrollPackage | null>(null);
   const [payrollVariance, setPayrollVariance] = useState<PayrollVarianceItem[]>([]);
+  const [payrollProcess, setPayrollProcess] = useState<PayrollProcessData | null>(null);
   const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [exportBusy, setExportBusy] = useState<string | null>(null);
@@ -929,14 +1044,22 @@ export function SolvaShell() {
 
   const refreshRuntime = async () => {
     try {
-      const [platformPayload, taskPayload, auditPayload, employeePayload, payrollPayload, payrollReviewPayload] =
-        await Promise.all([
+      const [
+        platformPayload,
+        taskPayload,
+        auditPayload,
+        employeePayload,
+        payrollPayload,
+        payrollReviewPayload,
+        payrollProcessPayload,
+      ] = await Promise.all([
         fetchPlatformSnapshot(),
         fetchApprovalTasks(),
         fetchAuditLogs(),
         fetchEmployeeRecords(),
         fetchPayrollPackage(),
         fetchPayrollReview(),
+        fetchPayrollProcess(),
       ]);
       setSnapshot(platformPayload);
       setTasks(taskPayload.tasks);
@@ -944,6 +1067,7 @@ export function SolvaShell() {
       setEmployees(employeePayload.employees);
       setPayrollPackage(payrollPayload.payroll);
       setPayrollVariance(payrollReviewPayload.variance);
+      setPayrollProcess(payrollProcessPayload.process);
       setDataMode("live");
     } catch {
       setSnapshot(null);
@@ -952,6 +1076,7 @@ export function SolvaShell() {
       setEmployees([]);
       setPayrollPackage(null);
       setPayrollVariance([]);
+      setPayrollProcess(null);
       setDataMode("fallback");
     }
   };
@@ -959,6 +1084,14 @@ export function SolvaShell() {
   useEffect(() => {
     void refreshRuntime();
   }, []);
+
+  useEffect(() => {
+    if (selectedEmployee || employees.length === 0) {
+      return;
+    }
+
+    void handleEmployeeSelect(employees[0].id);
+  }, [employees, selectedEmployee]);
 
   const liveModules = snapshot?.modules ?? fallbackModules;
 
@@ -1434,7 +1567,8 @@ export function SolvaShell() {
 
               <ControlCenter selectedRole={selectedRole} snapshot={snapshot} />
 
-              {activeModule.key === "people" && activeItem === "Employee Directory" ? (
+              {activeModule.key === "people" &&
+              (activeItem === "Employee Directory" || activeItem === "Employee Profiles") ? (
                 <PeopleWorkbench
                   employees={employees}
                   onCreateRecord={(event) => void handleEmployeeRecordCreate(event)}
@@ -1446,13 +1580,17 @@ export function SolvaShell() {
 
               {activeModule.key === "payroll" &&
               (activeItem === "Payroll Dashboard" ||
+                activeItem === "Process Payroll" ||
+                activeItem === "Review & Approval" ||
                 activeItem === "Payroll Reports" ||
                 activeItem === "Net to Bank" ||
-                activeItem === "P9 Forms") ? (
+                activeItem === "P9 Forms" ||
+                activeItem === "Payroll Audit Trail") ? (
                 <PayrollWorkbench
                   exportBusy={exportBusy}
                   onExport={(exportType) => void handlePayrollExport(exportType)}
                   payroll={payrollPackage}
+                  process={payrollProcess}
                   variance={payrollVariance}
                   selectedRole={selectedRole}
                 />

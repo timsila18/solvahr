@@ -122,6 +122,21 @@ export type EmployeeProfile = EmployeeRecord & {
   bankName: string;
   bankAccount: string;
   hireDate: string;
+  profileSections: Array<{
+    title: string;
+    items: Array<{ label: string; value: string }>;
+  }>;
+  documentSummary: Array<{
+    name: string;
+    category: string;
+    status: string;
+    expiry: string;
+  }>;
+  movementHistory: Array<{
+    title: string;
+    detail: string;
+    date: string;
+  }>;
 };
 
 export type PayrollVarianceItem = {
@@ -130,6 +145,48 @@ export type PayrollVarianceItem = {
   previous: string;
   movement: string;
   tone: "default" | "positive" | "warning" | "critical";
+};
+
+export type PayrollValidationIssue = {
+  id: string;
+  title: string;
+  detail: string;
+  severity: "positive" | "warning" | "critical";
+  owner: string;
+  status: string;
+};
+
+export type PayrollApprovalStage = {
+  id: string;
+  label: string;
+  owner: string;
+  status: string;
+  comment: string;
+  date: string;
+};
+
+export type PayrollRunHistoryItem = {
+  period: string;
+  payrollType: string;
+  status: string;
+  grossPay: string;
+  netPay: string;
+  processedAt: string;
+};
+
+export type PayrollExportHistoryItem = {
+  id: string;
+  label: string;
+  actor: string;
+  status: string;
+  generatedAt: string;
+};
+
+export type PayrollProcessData = {
+  validations: PayrollValidationIssue[];
+  approvals: PayrollApprovalStage[];
+  history: PayrollRunHistoryItem[];
+  exports: PayrollExportHistoryItem[];
 };
 
 export type PlatformSnapshot = {

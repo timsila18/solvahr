@@ -5,6 +5,11 @@ import {
   type EmployeeRecord,
   type EmployeeProfile,
   type PayrollPackage,
+  type PayrollProcessData,
+  type PayrollApprovalStage,
+  type PayrollExportHistoryItem,
+  type PayrollRunHistoryItem,
+  type PayrollValidationIssue,
   type PayrollVarianceItem,
   type PlatformSnapshot,
 } from "@/lib/solva-data";
@@ -284,6 +289,45 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     bankName: "KCB Bank",
     bankAccount: "1122334455",
     hireDate: "2023-03-14",
+    profileSections: [
+      {
+        title: "Personal and contact",
+        items: [
+          { label: "Phone", value: "0712 340 221" },
+          { label: "Company email", value: "amina.otieno@solvahr.app" },
+          { label: "Branch", value: "Nairobi HQ" },
+          { label: "Department", value: "People Operations" },
+        ],
+      },
+      {
+        title: "Employment and reporting",
+        items: [
+          { label: "Hire date", value: "2023-03-14" },
+          { label: "Supervisor", value: "Grace Wambui" },
+          { label: "Cost center", value: "HR-NAI-01" },
+          { label: "Employment type", value: "Permanent" },
+        ],
+      },
+      {
+        title: "Statutory and bank",
+        items: [
+          { label: "KRA PIN", value: "A012345678X" },
+          { label: "SHIF", value: "SHIF-991204" },
+          { label: "NSSF", value: "NSSF-192022" },
+          { label: "Bank", value: "KCB Bank 1122334455" },
+        ],
+      },
+    ],
+    documentSummary: [
+      { name: "National ID copy", category: "Identity", status: "Current", expiry: "N/A" },
+      { name: "Signed employment contract", category: "Contract", status: "Current", expiry: "2027-03-13" },
+      { name: "SHIF registration", category: "Statutory", status: "Current", expiry: "N/A" },
+    ],
+    movementHistory: [
+      { title: "Confirmed in role", detail: "Probation cleared and status updated to confirmed.", date: "2023-09-18" },
+      { title: "Salary review", detail: "Annual merit adjustment approved by HR and Finance.", date: "2025-07-01" },
+      { title: "Document refresh", detail: "Updated statutory and bank records uploaded.", date: "2026-02-11" },
+    ],
   },
   "emp-018": {
     id: "emp-018",
@@ -303,6 +347,44 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     bankName: "Equity Bank",
     bankAccount: "9988776655",
     hireDate: "2026-01-10",
+    profileSections: [
+      {
+        title: "Personal and contact",
+        items: [
+          { label: "Phone", value: "0708 118 765" },
+          { label: "Company email", value: "brian.mwangi@solvahr.app" },
+          { label: "Branch", value: "Mombasa" },
+          { label: "Department", value: "Distribution" },
+        ],
+      },
+      {
+        title: "Employment and reporting",
+        items: [
+          { label: "Hire date", value: "2026-01-10" },
+          { label: "Supervisor", value: "Kevin Ochieng" },
+          { label: "Cost center", value: "OPS-MSA-04" },
+          { label: "Employment type", value: "Probation" },
+        ],
+      },
+      {
+        title: "Statutory and bank",
+        items: [
+          { label: "KRA PIN", value: "A112233445P" },
+          { label: "SHIF", value: "SHIF-822104" },
+          { label: "NSSF", value: "NSSF-620911" },
+          { label: "Bank", value: "Equity Bank 9988776655" },
+        ],
+      },
+    ],
+    documentSummary: [
+      { name: "Offer letter", category: "Recruitment", status: "Current", expiry: "N/A" },
+      { name: "Probation review form", category: "Performance", status: "Due soon", expiry: "2026-05-10" },
+      { name: "NSSF card copy", category: "Statutory", status: "Current", expiry: "N/A" },
+    ],
+    movementHistory: [
+      { title: "Joined company", detail: "Onboarded into Mombasa distribution team.", date: "2026-01-10" },
+      { title: "Probation review scheduled", detail: "Supervisor review meeting set for next month.", date: "2026-04-03" },
+    ],
   },
   "emp-044": {
     id: "emp-044",
@@ -322,6 +404,45 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     bankName: "Absa Bank",
     bankAccount: "5566001122",
     hireDate: "2026-04-01",
+    profileSections: [
+      {
+        title: "Personal and contact",
+        items: [
+          { label: "Phone", value: "0722 501 640" },
+          { label: "Company email", value: "mercy.njeri@solvahr.app" },
+          { label: "Branch", value: "Nairobi HQ" },
+          { label: "Department", value: "Finance" },
+        ],
+      },
+      {
+        title: "Employment and reporting",
+        items: [
+          { label: "Hire date", value: "2026-04-01" },
+          { label: "Supervisor", value: "David Karanja" },
+          { label: "Cost center", value: "FIN-NAI-02" },
+          { label: "Employment type", value: "Permanent" },
+        ],
+      },
+      {
+        title: "Statutory and bank",
+        items: [
+          { label: "KRA PIN", value: "A556677889W" },
+          { label: "SHIF", value: "SHIF-420210" },
+          { label: "NSSF", value: "NSSF-113904" },
+          { label: "Bank", value: "Absa Bank 5566001122" },
+        ],
+      },
+    ],
+    documentSummary: [
+      { name: "Signed contract", category: "Contract", status: "Current", expiry: "2028-03-31" },
+      { name: "Bank confirmation", category: "Payroll", status: "Current", expiry: "N/A" },
+      { name: "Employee activation pack", category: "Onboarding", status: "Pending approval", expiry: "N/A" },
+    ],
+    movementHistory: [
+      { title: "Offer accepted", detail: "Candidate accepted offer and pre-boarding started.", date: "2026-03-24" },
+      { title: "Payroll profile staged", detail: "Payroll identifiers captured pending final activation.", date: "2026-04-02" },
+      { title: "Activation awaiting review", detail: "Supervisor sign-off still pending.", date: "2026-04-21" },
+    ],
   },
 };
 
@@ -360,6 +481,112 @@ const payrollVariance: PayrollVarianceItem[] = [
     previous: "5",
     movement: "-2",
     tone: "positive",
+  },
+];
+
+const payrollValidationIssues: PayrollValidationIssue[] = [
+  {
+    id: "pv-001",
+    title: "Missing bank details",
+    detail: "3 employees have approved payroll results but no active bank destination.",
+    severity: "critical",
+    owner: "Payroll Admin",
+    status: "Needs correction",
+  },
+  {
+    id: "pv-002",
+    title: "SHIF mismatch",
+    detail: "1 employee has gross pay but an out-of-range SHIF contribution after arrears upload.",
+    severity: "warning",
+    owner: "Payroll Analyst",
+    status: "Review formula",
+  },
+  {
+    id: "pv-003",
+    title: "Negative net pay",
+    detail: "2 employees exceeded net pay due to loan and checkoff deductions.",
+    severity: "warning",
+    owner: "Finance Officer",
+    status: "Escalated",
+  },
+  {
+    id: "pv-004",
+    title: "Exited employee in draft",
+    detail: "1 exited employee remains in the current payroll snapshot and needs exclusion.",
+    severity: "critical",
+    owner: "HR Admin",
+    status: "Awaiting HR update",
+  },
+];
+
+const payrollApprovalStages: PayrollApprovalStage[] = [
+  {
+    id: "pa-001",
+    label: "Prepared by",
+    owner: "Payroll Admin",
+    status: "Completed",
+    comment: "Variable inputs imported and draft calculations reviewed.",
+    date: "2026-04-20 16:10",
+  },
+  {
+    id: "pa-002",
+    label: "Reviewed by",
+    owner: "Finance Officer",
+    status: "Pending",
+    comment: "Variance review and bank exposure confirmation in progress.",
+    date: "2026-04-21 09:05",
+  },
+  {
+    id: "pa-003",
+    label: "Approved by",
+    owner: "Super Admin",
+    status: "Queued",
+    comment: "Final sign-off opens after finance review completes.",
+    date: "-",
+  },
+];
+
+const payrollRunHistory: PayrollRunHistoryItem[] = [
+  {
+    period: "Apr 2026",
+    payrollType: "Full month",
+    status: "Pending approval",
+    grossPay: "KES 18.45M",
+    netPay: "KES 13.94M",
+    processedAt: "2026-04-21 08:58",
+  },
+  {
+    period: "Mar 2026",
+    payrollType: "Full month",
+    status: "Closed",
+    grossPay: "KES 18.20M",
+    netPay: "KES 13.71M",
+    processedAt: "2026-03-31 17:24",
+  },
+  {
+    period: "Mar 2026",
+    payrollType: "Bonus payroll",
+    status: "Closed",
+    grossPay: "KES 2.11M",
+    netPay: "KES 1.64M",
+    processedAt: "2026-03-20 14:06",
+  },
+];
+
+const payrollExportHistory: PayrollExportHistoryItem[] = [
+  {
+    id: "pe-001",
+    label: "PAYE support schedule",
+    actor: "payrolladmin@solvahr.app",
+    status: "Ready",
+    generatedAt: "2026-04-21 08:42",
+  },
+  {
+    id: "pe-002",
+    label: "Net-to-bank export",
+    actor: "finance@solvahr.app",
+    status: "Ready",
+    generatedAt: "2026-04-21 09:02",
   },
 ];
 
@@ -425,6 +652,17 @@ export function getPayrollPackage() {
 
 export function getPayrollVariance() {
   return [...payrollVariance];
+}
+
+export function getPayrollProcessData(): PayrollProcessData {
+  return {
+    validations: [...payrollValidationIssues],
+    approvals: [...payrollApprovalStages],
+    history: [...payrollRunHistory],
+    exports: [...payrollExportHistory].sort((left, right) =>
+      right.generatedAt.localeCompare(left.generatedAt)
+    ),
+  };
 }
 
 export function getEmployeeProfile(employeeId: string) {
@@ -506,6 +744,42 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
     bankName: "Pending setup",
     bankAccount: "Pending setup",
     hireDate: "2026-04-21",
+    profileSections: [
+      {
+        title: "Personal and contact",
+        items: [
+          { label: "Phone", value: "0700 000 000" },
+          { label: "Company email", value: `${payload.fullName.toLowerCase().replace(/\s+/g, ".")}@solvahr.app` },
+          { label: "Branch", value: payload.branch },
+          { label: "Department", value: payload.department },
+        ],
+      },
+      {
+        title: "Employment and reporting",
+        items: [
+          { label: "Hire date", value: "2026-04-21" },
+          { label: "Supervisor", value: "Pending assignment" },
+          { label: "Cost center", value: "NEW-CC-01" },
+          { label: "Employment type", value: payload.employmentType },
+        ],
+      },
+      {
+        title: "Statutory and bank",
+        items: [
+          { label: "KRA PIN", value: "PENDING" },
+          { label: "SHIF", value: "PENDING" },
+          { label: "NSSF", value: "PENDING" },
+          { label: "Bank", value: "Pending setup" },
+        ],
+      },
+    ],
+    documentSummary: [
+      { name: "ID copy", category: "Identity", status: "Missing", expiry: "N/A" },
+      { name: "Employment contract", category: "Contract", status: "Pending upload", expiry: "N/A" },
+    ],
+    movementHistory: [
+      { title: "Master record created", detail: `${payload.actorRole} added the employee record.`, date: "2026-04-21" },
+    ],
   };
   logAuditEvent({
     moduleKey: "people",
@@ -521,6 +795,25 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
 }
 
 export function createPayrollApprovalRequest(payload: PayrollApprovalPayload) {
+  payrollApprovalStages[0] = {
+    ...payrollApprovalStages[0],
+    status: "Completed",
+    comment: `Payroll package prepared by ${payload.actorEmail}.`,
+    date: nowLabel(),
+  };
+  payrollApprovalStages[1] = {
+    ...payrollApprovalStages[1],
+    status: "Pending",
+    comment: "Awaiting finance review and variance confirmation.",
+    date: nowLabel(),
+  };
+  payrollApprovalStages[2] = {
+    ...payrollApprovalStages[2],
+    status: "Queued",
+    comment: "Will open after finance review completes.",
+    date: "-",
+  };
+
   const task: ApprovalTask = {
     id: `task-${approvalTasks.length + 1}`.padStart(8, "0"),
     kind: "payroll_approval",
@@ -707,6 +1000,16 @@ export function recordPayrollExport(payload: PayrollExportPayload) {
     payroll_register: "Payroll register",
     p9_forms: "P9 forms bundle",
   };
+
+  const exportRecord: PayrollExportHistoryItem = {
+    id: `pe-${String(payrollExportHistory.length + 1).padStart(3, "0")}`,
+    label: exportLabels[payload.exportType],
+    actor: payload.actorEmail,
+    status: "Ready",
+    generatedAt: nowLabel(),
+  };
+
+  payrollExportHistory.unshift(exportRecord);
 
   logAuditEvent({
     moduleKey: "payroll",
@@ -940,6 +1243,18 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Super Admin";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Finance reviewed by ${actorEmail}`;
+    payrollApprovalStages[1] = {
+      ...payrollApprovalStages[1],
+      status: "Completed",
+      comment: `Finance review completed by ${actorEmail}.`,
+      date: task.updatedAt,
+    };
+    payrollApprovalStages[2] = {
+      ...payrollApprovalStages[2],
+      status: "Pending",
+      comment: "Awaiting Super Admin sign-off on final payroll package.",
+      date: task.updatedAt,
+    };
     logAuditEvent({
       moduleKey: "payroll",
       category: "approval",
@@ -958,6 +1273,12 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
   task.ownerRole = "Completed";
   task.updatedAt = nowLabel();
   task.description = `${task.description} | Final approval by ${actorEmail}`;
+  payrollApprovalStages[2] = {
+    ...payrollApprovalStages[2],
+    status: "Completed",
+    comment: `Final payroll sign-off completed by ${actorEmail}.`,
+    date: task.updatedAt,
+  };
   logAuditEvent({
     moduleKey: "payroll",
     category: "approval",

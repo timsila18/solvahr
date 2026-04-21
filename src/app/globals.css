@@ -603,6 +603,10 @@ input {
   gap: 18px;
 }
 
+.payroll-workbench-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .mini-panel {
   padding: 18px;
   border: 1px solid var(--line);
@@ -655,6 +659,49 @@ input {
 
 .detail-card-button:hover strong {
   color: var(--brand);
+}
+
+.profile-detail-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.detail-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.detail-section-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.detail-section-card h5 {
+  margin: 0 0 12px;
+  font-size: 0.98rem;
+}
+
+.detail-kv-list {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-kv-list article {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-kv-list span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.detail-kv-list strong {
+  font-size: 0.96rem;
+  overflow-wrap: anywhere;
 }
 
 .mini-list strong,
@@ -813,6 +860,10 @@ input {
   .overview-grid,
   .control-grid,
   .workbench-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-section-grid {
     grid-template-columns: 1fr;
   }
 

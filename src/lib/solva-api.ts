@@ -100,6 +100,59 @@ export function createRequisitionApprovalRequest(input: {
   });
 }
 
+export function createProfileUpdateRequest(input: {
+  employeeName: string;
+  fieldName: string;
+  newValue: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "profile_update",
+      ...input,
+    }),
+  });
+}
+
+export function createTrainingRequest(input: {
+  employeeName: string;
+  programName: string;
+  schedule: string;
+  budget: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "training_request",
+      ...input,
+    }),
+  });
+}
+
+export function createAssetRequest(input: {
+  employeeName: string;
+  assetName: string;
+  requestType: string;
+  branch: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "asset_request",
+      ...input,
+    }),
+  });
+}
+
 export function updateApprovalTask(
   taskId: string,
   input: { action: "approve" | "reject"; actorEmail: string; actorRole: string }

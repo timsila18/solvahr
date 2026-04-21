@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  createAssetRequest,
   createEmployeeActivationRequest,
   createLeaveRequest,
   createPayrollApprovalRequest,
+  createProfileUpdateRequest,
   createRequisitionApprovalRequest,
+  createTrainingRequest,
   fetchApprovalTasks,
   fetchPage,
   fetchPlatformSnapshot,
@@ -286,7 +289,10 @@ function ApprovalWorkbench({
   onCreateEmployee,
   onCreateLeave,
   onCreatePayroll,
+  onCreateProfileUpdate,
   onCreateRequisition,
+  onCreateTraining,
+  onCreateAsset,
   busyId,
   taskMessage,
 }: {
@@ -299,7 +305,10 @@ function ApprovalWorkbench({
   onCreateEmployee: (event: FormEvent<HTMLFormElement>) => void;
   onCreateLeave: (event: FormEvent<HTMLFormElement>) => void;
   onCreatePayroll: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateProfileUpdate: (event: FormEvent<HTMLFormElement>) => void;
   onCreateRequisition: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateTraining: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateAsset: (event: FormEvent<HTMLFormElement>) => void;
   busyId: string | null;
   taskMessage: string;
 }) {
@@ -308,6 +317,9 @@ function ApprovalWorkbench({
   const canPreparePayroll = ["Payroll Admin", "Super Admin"].includes(selectedRole.role);
   const canPrepareLeave = ["Employee", "Manager", "HR Admin", "Super Admin"].includes(selectedRole.role);
   const canPrepareRequisition = ["Manager", "Recruiter", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canPrepareTraining = ["Employee", "Manager", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canPrepareAsset = ["Employee", "Operator", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canPrepareProfile = ["Employee", "HR Admin", "Super Admin"].includes(selectedRole.role);
 
   return (
     <section className="surface-card action-workbench">
@@ -506,13 +518,105 @@ function ApprovalWorkbench({
             )
           ) : null}
 
+          {moduleKey === "training" &&
+          (activeItem === "Training Requests" || activeItem === "Training Calendar") ? (
+            canPrepareTraining ? (
+              <form className="action-form" onSubmit={onCreateTraining}>
+                <label>
+                  <span>Employee name</span>
+                  <input defaultValue="Daniel Oloo" name="employeeName" required />
+                </label>
+                <label>
+                  <span>Program name</span>
+                  <input defaultValue="Forklift Safety Refresher" name="programName" required />
+                </label>
+                <label>
+                  <span>Schedule</span>
+                  <input defaultValue="2026-05-02" name="schedule" required />
+                </label>
+                <label>
+                  <span>Budget</span>
+                  <input defaultValue="KES 28,000" name="budget" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit training request
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Employee, Manager, HR Admin, or Super Admin to prepare training requests.
+              </p>
+            )
+          ) : null}
+
+          {moduleKey === "assets" &&
+          (activeItem === "Asset Allocation" || activeItem === "Asset Returns") ? (
+            canPrepareAsset ? (
+              <form className="action-form" onSubmit={onCreateAsset}>
+                <label>
+                  <span>Employee name</span>
+                  <input defaultValue="Lucy Atieno" name="employeeName" required />
+                </label>
+                <label>
+                  <span>Asset name</span>
+                  <input defaultValue="Dell Latitude 7440" name="assetName" required />
+                </label>
+                <label>
+                  <span>Request type</span>
+                  <input defaultValue="Assign" name="requestType" required />
+                </label>
+                <label>
+                  <span>Branch</span>
+                  <input defaultValue="Nairobi HQ" name="branch" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit asset request
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Employee, Operator, HR Admin, or Super Admin to prepare asset requests.
+              </p>
+            )
+          ) : null}
+
+          {moduleKey === "ess" &&
+          (activeItem === "My Profile" || activeItem === "My Requests") ? (
+            canPrepareProfile ? (
+              <form className="action-form" onSubmit={onCreateProfileUpdate}>
+                <label>
+                  <span>Employee name</span>
+                  <input defaultValue="Brian Mwangi" name="employeeName" required />
+                </label>
+                <label>
+                  <span>Field name</span>
+                  <input defaultValue="Company phone number" name="fieldName" required />
+                </label>
+                <label>
+                  <span>New value</span>
+                  <input defaultValue="0712 555 901" name="newValue" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit profile update
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Employee, HR Admin, or Super Admin to prepare profile update requests.
+              </p>
+            )
+          ) : null}
+
           {moduleKey !== "people" &&
           moduleKey !== "payroll" &&
           moduleKey !== "leave" &&
-          moduleKey !== "recruitment" ? (
+          moduleKey !== "recruitment" &&
+          moduleKey !== "training" &&
+          moduleKey !== "assets" &&
+          moduleKey !== "ess" ? (
             <p className="section-description">
-              This demo workbench is now wired for People, Payroll, Leave, and Recruitment. The same approval pattern
-              will extend into training, assets, and employee self-service requests.
+              This demo workbench is now wired for People, Payroll, Leave, Recruitment, Training, Assets, and employee
+              self-service requests. The same approval pattern can keep spreading across the platform.
             </p>
           ) : null}
         </section>
@@ -730,6 +834,68 @@ export function SolvaShell() {
     }
   }
 
+  async function handleProfileUpdateRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createProfileUpdateRequest({
+        employeeName: String(form.get("employeeName") ?? ""),
+        fieldName: String(form.get("fieldName") ?? ""),
+        newValue: String(form.get("newValue") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Profile update submitted into HR validation.");
+    } catch {
+      setTaskMessage("Could not submit the profile update right now.");
+    }
+  }
+
+  async function handleTrainingRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createTrainingRequest({
+        employeeName: String(form.get("employeeName") ?? ""),
+        programName: String(form.get("programName") ?? ""),
+        schedule: String(form.get("schedule") ?? ""),
+        budget: String(form.get("budget") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Training request submitted into HR review.");
+    } catch {
+      setTaskMessage("Could not submit the training request right now.");
+    }
+  }
+
+  async function handleAssetRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createAssetRequest({
+        employeeName: String(form.get("employeeName") ?? ""),
+        assetName: String(form.get("assetName") ?? ""),
+        requestType: String(form.get("requestType") ?? ""),
+        branch: String(form.get("branch") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Asset request submitted into HR approval.");
+    } catch {
+      setTaskMessage("Could not submit the asset request right now.");
+    }
+  }
+
   return (
     <main className={`solva-app theme-${theme}`}>
       <aside className="primary-sidebar">
@@ -920,7 +1086,10 @@ export function SolvaShell() {
                 onCreateEmployee={(event) => void handleEmployeeRequest(event)}
                 onCreateLeave={(event) => void handleLeaveRequest(event)}
                 onCreatePayroll={(event) => void handlePayrollRequest(event)}
+                onCreateProfileUpdate={(event) => void handleProfileUpdateRequest(event)}
                 onCreateRequisition={(event) => void handleRequisitionRequest(event)}
+                onCreateTraining={(event) => void handleTrainingRequest(event)}
+                onCreateAsset={(event) => void handleAssetRequest(event)}
                 onReject={(taskId) => void handleTaskAction(taskId, "reject")}
                 selectedRole={selectedRole}
                 taskMessage={taskMessage}

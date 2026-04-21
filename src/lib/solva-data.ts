@@ -61,7 +61,10 @@ export type ApprovalTask = {
     | "employee_activation"
     | "payroll_approval"
     | "leave_request"
-    | "requisition_approval";
+    | "requisition_approval"
+    | "profile_update"
+    | "training_request"
+    | "asset_request";
   moduleKey: string;
   title: string;
   description: string;

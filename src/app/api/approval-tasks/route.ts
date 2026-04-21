@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+  createAssetRequest,
   createEmployeeActivationRequest,
   createLeaveRequest,
   createPayrollApprovalRequest,
+  createProfileUpdateRequest,
   createRequisitionApprovalRequest,
+  createTrainingRequest,
   listApprovalTasks,
 } from "@/lib/mock-platform-store";
 
@@ -48,6 +51,32 @@ export async function POST(request: Request) {
         headcount: string;
         actorEmail: string;
         actorRole: string;
+      }
+    | {
+        kind: "profile_update";
+        employeeName: string;
+        fieldName: string;
+        newValue: string;
+        actorEmail: string;
+        actorRole: string;
+      }
+    | {
+        kind: "training_request";
+        employeeName: string;
+        programName: string;
+        schedule: string;
+        budget: string;
+        actorEmail: string;
+        actorRole: string;
+      }
+    | {
+        kind: "asset_request";
+        employeeName: string;
+        assetName: string;
+        requestType: string;
+        branch: string;
+        actorEmail: string;
+        actorRole: string;
       };
 
   if (body.kind === "employee_activation") {
@@ -85,6 +114,47 @@ export async function POST(request: Request) {
         department: body.department,
         branch: body.branch,
         headcount: body.headcount,
+        actorEmail: body.actorEmail,
+        actorRole: body.actorRole,
+      }),
+      { status: 201 }
+    );
+  }
+
+  if (body.kind === "profile_update") {
+    return NextResponse.json(
+      createProfileUpdateRequest({
+        employeeName: body.employeeName,
+        fieldName: body.fieldName,
+        newValue: body.newValue,
+        actorEmail: body.actorEmail,
+        actorRole: body.actorRole,
+      }),
+      { status: 201 }
+    );
+  }
+
+  if (body.kind === "training_request") {
+    return NextResponse.json(
+      createTrainingRequest({
+        employeeName: body.employeeName,
+        programName: body.programName,
+        schedule: body.schedule,
+        budget: body.budget,
+        actorEmail: body.actorEmail,
+        actorRole: body.actorRole,
+      }),
+      { status: 201 }
+    );
+  }
+
+  if (body.kind === "asset_request") {
+    return NextResponse.json(
+      createAssetRequest({
+        employeeName: body.employeeName,
+        assetName: body.assetName,
+        requestType: body.requestType,
+        branch: body.branch,
         actorEmail: body.actorEmail,
         actorRole: body.actorRole,
       }),

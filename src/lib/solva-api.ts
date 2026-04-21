@@ -11,11 +11,30 @@ import type {
   PlatformSnapshot,
 } from "@/lib/solva-data";
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
 
   if (!response.ok) {
-    throw new Error(`request_failed:${response.status}`);
+    let message = `request_failed:${response.status}`;
+
+    try {
+      const payload = (await response.json()) as { error?: string };
+      message = payload.error ?? message;
+    } catch {
+      // Ignore JSON parse failure and keep generic message.
+    }
+
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

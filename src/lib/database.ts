@@ -16,13 +16,14 @@ import {
 } from "@/lib/solva-data";
 import {
   normalizeRole,
+  roleCanAccessModule,
   roleCanAccessPayroll,
   roleCanAccessPeople,
   roleCanAccessRecruitment,
   type AppRole,
   type AuthUserProfile,
 } from "@/lib/auth";
-import { getStorageBucketNames } from "@/lib/supabase/env";
+import { getAuthCallbackUrl, getStorageBucketNames } from "@/lib/supabase/env";
 
 type LookupTable = "branches" | "departments" | "designations" | "job_grades" | "payroll_groups";
 
@@ -311,6 +312,29 @@ function withEmployeeScope(query: any, profile: AuthUserProfile) {
   return query.eq("id", "00000000-0000-0000-0000-000000000000");
 }
 
+async function assertEmployeeScope(context: RequestContext, employeeId: string) {
+  let query = context.supabase
+    .from("employees")
+    .select("id", { count: "exact", head: true })
+    .eq("id", employeeId);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = withEmployeeScope(query as never, context.profile) as typeof query;
+
+  const { count, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  if (!count) {
+    throw new Error("forbidden");
+  }
+}
+
 export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
   const context = await getRequestContext();
   const base = getStaticPlatformSnapshot();
@@ -344,7 +368,7 @@ export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
         email: context.profile.email,
       },
     ],
-    modules: base.modules.map((module) => {
+    modules: base.modules.filter((module) => roleCanAccessModule(context.profile.role, module.key)).map((module) => {
       if (module.key === "people") {
         return {
           ...module,
@@ -448,13 +472,22 @@ export async function getEmployeeProfile(employeeId: string): Promise<EmployeePr
     throw new Error("forbidden");
   }
 
-  const { data, error } = await context.supabase
+  await assertEmployeeScope(context, employeeId);
+
+  let query = context.supabase
     .from("employees")
     .select(
       "id, employee_number, first_name, last_name, phone, email, employment_type, hire_date, confirmation_date, contract_end_date, national_id, kra_pin, shif_number, nssf_number, bank_name, bank_branch, bank_account, salary, status, department:departments(name, code), branch:branches(name), designation:designations(title), job_grade:job_grades(name), payroll_group:payroll_groups(name), supervisor:supervisor_employee_id(first_name, last_name)"
     )
-    .eq("id", employeeId)
-    .maybeSingle();
+    .eq("id", employeeId);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = withEmployeeScope(query as never, context.profile) as typeof query;
+
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data) {
     return null;
@@ -1669,7 +1702,7 @@ export async function inviteUser(input: {
     data: {
       full_name: input.fullName,
     },
-    redirectTo: process.env.NEXT_PUBLIC_APP_URL,
+    redirectTo: getAuthCallbackUrl("/"),
   });
 
   if (error || !data.user) {
@@ -1709,6 +1742,22 @@ export async function uploadEmployeeDocument(input: {
 }) {
   const context = await getRequestContext();
   ensureRole(context.profile, ["Super Admin", "HR Admin", "Payroll Admin", "Operator", "Employee"]);
+  await assertEmployeeScope(context, input.employeeId);
+
+  const allowedTypes = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ];
+
+  if (input.file.size > 10 * 1024 * 1024) {
+    throw new Error("file_too_large");
+  }
+
+  if (input.file.type && !allowedTypes.includes(input.file.type)) {
+    throw new Error("unsupported_file_type");
+  }
 
   const buckets = getStorageBucketNames();
   const bucket =
@@ -1759,6 +1808,123 @@ export async function uploadEmployeeDocument(input: {
   });
 
   return data;
+}
+
+export async function listEmployeeDocuments(employeeId: string) {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "HR Admin", "Payroll Admin", "Operator", "Employee", "Auditor"]);
+  await assertEmployeeScope(context, employeeId);
+
+  const { data, error } = await context.supabase
+    .from("employee_documents")
+    .select("id, employee_id, category, file_name, storage_bucket, storage_path, mime_type, size_bytes, uploaded_at")
+    .eq("employee_id", employeeId)
+    .order("uploaded_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => ({
+    id: safeString(row.id),
+    employeeId: safeString(row.employee_id),
+    category: safeString(row.category),
+    fileName: safeString(row.file_name),
+    mimeType: safeString(row.mime_type),
+    sizeBytes: safeNumber(row.size_bytes),
+    uploadedAt: safeString(row.uploaded_at),
+  }));
+}
+
+export async function getEmployeeDocumentDownload(employeeId: string, documentId: string) {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "HR Admin", "Payroll Admin", "Operator", "Employee", "Auditor"]);
+  await assertEmployeeScope(context, employeeId);
+
+  const { data, error } = await context.supabase
+    .from("employee_documents")
+    .select("id, employee_id, category, file_name, storage_bucket, storage_path, mime_type, size_bytes, uploaded_at")
+    .eq("employee_id", employeeId)
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("document_not_found");
+  }
+
+  const admin = createSupabaseAdminClient();
+  const signedUrlResult = await admin.storage
+    .from(safeString(data.storage_bucket))
+    .createSignedUrl(safeString(data.storage_path), 60 * 10);
+
+  if (signedUrlResult.error || !signedUrlResult.data?.signedUrl) {
+    throw signedUrlResult.error ?? new Error("signed_url_failed");
+  }
+
+  return {
+    id: safeString(data.id),
+    employeeId: safeString(data.employee_id),
+    category: safeString(data.category),
+    fileName: safeString(data.file_name),
+    mimeType: safeString(data.mime_type),
+    sizeBytes: safeNumber(data.size_bytes),
+    uploadedAt: safeString(data.uploaded_at),
+    signedUrl: signedUrlResult.data.signedUrl,
+  };
+}
+
+export async function deleteEmployeeDocument(employeeId: string, documentId: string) {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "HR Admin", "Payroll Admin", "Operator"]);
+  await assertEmployeeScope(context, employeeId);
+
+  const { data, error } = await context.supabase
+    .from("employee_documents")
+    .select("*")
+    .eq("employee_id", employeeId)
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("document_not_found");
+  }
+
+  const admin = createSupabaseAdminClient();
+  const removeResult = await admin.storage
+    .from(safeString(data.storage_bucket))
+    .remove([safeString(data.storage_path)]);
+
+  if (removeResult.error) {
+    throw removeResult.error;
+  }
+
+  const deleteResult = await context.supabase
+    .from("employee_documents")
+    .delete()
+    .eq("id", documentId)
+    .eq("employee_id", employeeId);
+
+  if (deleteResult.error) {
+    throw deleteResult.error;
+  }
+
+  await createAuditLog(context, {
+    moduleKey: "people",
+    entityType: "employee_document",
+    entityId: documentId,
+    action: "deleted_employee_document",
+    beforeValue: data as Record<string, unknown>,
+  });
+
+  return { success: true };
 }
 
 export async function buildPageFromDatabase(module: ModuleSpec, item: string): Promise<PageSpec> {

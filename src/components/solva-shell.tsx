@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
+  ApiError,
   createAssetRequest,
   createEmployeeRecord,
   createEmployeeActivationRequest,
@@ -23,6 +25,7 @@ import {
   getPayrollExportUrl,
   updateApprovalTask,
 } from "@/lib/solva-api";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   getPage,
   loginProfiles,
@@ -43,6 +46,14 @@ import {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
+function describeApiError(error: unknown) {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  return new ApiError(500, "Unexpected runtime failure");
 }
 
 function SolvaLogo() {
@@ -1017,11 +1028,12 @@ function ApprovalWorkbench({
 }
 
 export function SolvaShell() {
+  const router = useRouter();
   const fallbackModules = modules;
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [snapshot, setSnapshot] = useState<PlatformSnapshot | null>(null);
   const [tasks, setTasks] = useState<ApprovalTask[]>([]);
-  const [dataMode, setDataMode] = useState<"loading" | "live" | "fallback">("loading");
+  const [dataMode, setDataMode] = useState<"loading" | "live" | "error">("loading");
   const [moduleKey, setModuleKey] = useState(fallbackModules[0]?.key ?? "dashboard");
   const [search, setSearch] = useState("");
   const [selectedRoleEmail, setSelectedRoleEmail] = useState("");
@@ -1037,13 +1049,15 @@ export function SolvaShell() {
   const [payrollPackage, setPayrollPackage] = useState<PayrollPackage | null>(null);
   const [payrollVariance, setPayrollVariance] = useState<PayrollVarianceItem[]>([]);
   const [payrollProcess, setPayrollProcess] = useState<PayrollProcessData | null>(null);
-  const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
+  const [pageStatus, setPageStatus] = useState<"loading" | "live" | "error">("loading");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [exportBusy, setExportBusy] = useState<string | null>(null);
   const [taskMessage, setTaskMessage] = useState("");
+  const [runtimeError, setRuntimeError] = useState("");
 
   const refreshRuntime = async () => {
     try {
+      setRuntimeError("");
       const [
         platformPayload,
         taskPayload,
@@ -1069,7 +1083,19 @@ export function SolvaShell() {
       setPayrollVariance(payrollReviewPayload.variance);
       setPayrollProcess(payrollProcessPayload.process);
       setDataMode("live");
-    } catch {
+    } catch (error) {
+      const apiError = describeApiError(error);
+
+      if (apiError.status === 401) {
+        router.push("/unauthorized");
+        return;
+      }
+
+      if (apiError.status === 403) {
+        router.push("/forbidden");
+        return;
+      }
+
       setSnapshot(null);
       setTasks([]);
       setAuditEvents([]);
@@ -1077,13 +1103,14 @@ export function SolvaShell() {
       setPayrollPackage(null);
       setPayrollVariance([]);
       setPayrollProcess(null);
-      setDataMode("fallback");
+      setRuntimeError(apiError.message);
+      setDataMode("error");
     }
   };
 
   useEffect(() => {
     void refreshRuntime();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (selectedEmployee || employees.length === 0) {
@@ -1139,13 +1166,26 @@ export function SolvaShell() {
 
         setPageState(payload);
         setPageStatus("live");
-      } catch {
+      } catch (error) {
+        const apiError = describeApiError(error);
+
         if (!mounted) {
           return;
         }
 
+        if (apiError.status === 401) {
+          router.push("/unauthorized");
+          return;
+        }
+
+        if (apiError.status === 403) {
+          router.push("/forbidden");
+          return;
+        }
+
         setPageState(getPage(activeModule, activeItem));
-        setPageStatus("fallback");
+        setRuntimeError(apiError.message);
+        setPageStatus("error");
       }
     }
 
@@ -1154,13 +1194,20 @@ export function SolvaShell() {
     return () => {
       mounted = false;
     };
-  }, [activeItem, activeModule]);
+  }, [activeItem, activeModule, router]);
 
   function openItem(item: string) {
     setActiveItems((current) => ({
       ...current,
       [activeModule.key]: item,
     }));
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   }
 
   async function handleTaskAction(taskId: string, action: "approve" | "reject") {
@@ -1472,6 +1519,9 @@ export function SolvaShell() {
               <span>{selectedRole.role.slice(0, 2).toUpperCase()}</span>
               <strong>{selectedRole.role}</strong>
             </button>
+            <button className="ghost-button" onClick={() => void handleSignOut()} type="button">
+              Sign out
+            </button>
           </div>
         </header>
 
@@ -1518,15 +1568,15 @@ export function SolvaShell() {
 
               <div className="status-row">
                 <TonePill tone={dataMode === "live" ? "positive" : dataMode === "loading" ? "warning" : "critical"}>
-                  {dataMode === "live" ? "api connected" : dataMode === "loading" ? "loading" : "fallback data"}
+                  {dataMode === "live" ? "api connected" : dataMode === "loading" ? "loading" : "connection issue"}
                 </TonePill>
                 <TonePill tone={pageStatus === "live" ? "positive" : pageStatus === "loading" ? "warning" : "critical"}>
-                  {pageStatus === "live" ? "workspace live" : pageStatus === "loading" ? "loading page" : "workspace fallback"}
+                  {pageStatus === "live" ? "workspace live" : pageStatus === "loading" ? "loading page" : "workspace blocked"}
                 </TonePill>
                 <span className="status-copy">
                   {snapshot?.generatedAt
                     ? `Last snapshot ${snapshot.generatedAt}`
-                    : "Mock APIs are in place, with local fallback data if a route is unavailable."}
+                    : runtimeError || "The workspace shell is loaded, but live data has not been established yet."}
                 </span>
               </div>
 

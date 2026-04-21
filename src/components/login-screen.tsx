@@ -2,17 +2,22 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = useMemo(() => searchParams.get("redirectTo") ?? "/", [searchParams]);
+  const inboundMessage = useMemo(() => searchParams.get("message") ?? "", [searchParams]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(inboundMessage);
+
+  useEffect(() => {
+    setMessage(inboundMessage);
+  }, [inboundMessage]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

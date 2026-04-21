@@ -6,12 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node scripts/run-sql.mjs supabase/migrations/20260421_0001_solva_hr_init.sql",
+    "db:seed": "node scripts/run-sql.mjs supabase/seed.sql",
+    "db:seed-auth": "node scripts/seed-auth-users.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
     "next": "16.2.4",
+    "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

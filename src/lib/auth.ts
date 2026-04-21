@@ -71,3 +71,24 @@ export function roleCanAccessRecruitment(role: AppRole) {
 export function roleCanApproveFinance(role: AppRole) {
   return ["Super Admin", "Finance Officer", "Payroll Admin"].includes(role);
 }
+
+const moduleAccess: Record<string, AppRole[]> = {
+  dashboard: APP_ROLES as unknown as AppRole[],
+  people: ["Super Admin", "HR Admin", "Supervisor", "Manager", "Operator", "Auditor", "Employee"],
+  payroll: ["Super Admin", "Payroll Admin", "Finance Officer", "Auditor", "Employee"],
+  leave: ["Super Admin", "HR Admin", "Supervisor", "Manager", "Employee", "Auditor"],
+  recruitment: ["Super Admin", "HR Admin", "Recruiter", "Manager", "Finance Officer", "Auditor"],
+  performance: ["Super Admin", "HR Admin", "Manager", "Employee", "Auditor"],
+  training: ["Super Admin", "HR Admin", "Manager", "Employee", "Auditor"],
+  assets: ["Super Admin", "HR Admin", "Operator", "Supervisor", "Employee", "Auditor"],
+  ess: APP_ROLES as unknown as AppRole[],
+  reports: ["Super Admin", "HR Admin", "Payroll Admin", "Finance Officer", "Auditor", "Manager"],
+  settings: ["Super Admin", "HR Admin", "Payroll Admin"],
+  audit: ["Super Admin", "HR Admin", "Payroll Admin", "Finance Officer", "Auditor"],
+  integrations: ["Super Admin", "HR Admin", "Payroll Admin"],
+  consultancy: ["Super Admin", "HR Admin", "Finance Officer", "Auditor"],
+};
+
+export function roleCanAccessModule(role: AppRole, moduleKey: string) {
+  return (moduleAccess[moduleKey] ?? ["Super Admin"]).includes(role);
+}

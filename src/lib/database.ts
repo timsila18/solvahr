@@ -276,6 +276,43 @@ async function createAuditLog(
   });
 }
 
+async function adjustLeaveBalance(
+  context: RequestContext,
+  employeeId: string,
+  leaveType: string,
+  changes: {
+    pendingDelta?: number;
+    takenDelta?: number;
+    balanceDelta?: number;
+  }
+) {
+  const { data: balanceRow, error } = await context.supabase
+    .from("leave_balances")
+    .select("*")
+    .eq("employee_id", employeeId)
+    .eq("leave_type", leaveType)
+    .order("as_of_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !balanceRow) {
+    return;
+  }
+
+  const pendingDays = Math.max(0, safeNumber(balanceRow.pending_days) + (changes.pendingDelta ?? 0));
+  const takenDays = Math.max(0, safeNumber(balanceRow.taken_days) + (changes.takenDelta ?? 0));
+  const balanceDays = Math.max(0, safeNumber(balanceRow.balance_days) + (changes.balanceDelta ?? 0));
+
+  await context.supabase
+    .from("leave_balances")
+    .update({
+      pending_days: pendingDays,
+      taken_days: takenDays,
+      balance_days: balanceDays,
+    })
+    .eq("id", safeString(balanceRow.id));
+}
+
 async function getLatestPayrollRun(context: RequestContext) {
   let query = context.supabase
     .from("payroll_runs")
@@ -335,6 +372,62 @@ async function assertEmployeeScope(context: RequestContext, employeeId: string) 
   }
 }
 
+async function getScopedEmployeeIds(context: RequestContext) {
+  if (
+    [
+      "Super Admin",
+      "HR Admin",
+      "Payroll Admin",
+      "Finance Officer",
+      "Auditor",
+      "Operator",
+    ].includes(context.profile.role)
+  ) {
+    return null;
+  }
+
+  if (!context.profile.employee_id) {
+    return [];
+  }
+
+  if (["Manager", "Supervisor"].includes(context.profile.role)) {
+    let query = context.supabase
+      .from("employees")
+      .select("id")
+      .or(`id.eq.${context.profile.employee_id},supervisor_employee_id.eq.${context.profile.employee_id}`);
+
+    if (context.profile.company_id) {
+      query = query.eq("company_id", context.profile.company_id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []).map((row) => safeString((row as Record<string, unknown>).id)).filter(Boolean);
+  }
+
+  return [context.profile.employee_id];
+}
+
+function applyScopedEmployeeIds(query: any, employeeIds: string[] | null, column = "employee_id") {
+  if (employeeIds === null) {
+    return query;
+  }
+
+  if (employeeIds.length === 0) {
+    return query.eq(column, "00000000-0000-0000-0000-000000000000");
+  }
+
+  if (employeeIds.length === 1) {
+    return query.eq(column, employeeIds[0]);
+  }
+
+  return query.in(column, employeeIds);
+}
+
 export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
   const context = await getRequestContext();
   const base = getStaticPlatformSnapshot();
@@ -344,20 +437,26 @@ export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
     .from("approval_tasks")
     .select("*", { count: "exact", head: true })
     .eq("status", "pending");
+  let leaveCountQuery = context.supabase
+    .from("leave_requests")
+    .select("*", { count: "exact", head: true });
 
   if (context.profile.company_id) {
     employeeCountQuery = employeeCountQuery.eq("company_id", context.profile.company_id);
     approvalsCountQuery = approvalsCountQuery.eq("company_id", context.profile.company_id);
+    leaveCountQuery = leaveCountQuery.eq("company_id", context.profile.company_id);
   }
 
-  const [employeeCountResult, approvalCountResult, payrollRun] = await Promise.all([
+  const [employeeCountResult, approvalCountResult, leaveCountResult, payrollRun] = await Promise.all([
     employeeCountQuery,
     approvalsCountQuery,
+    leaveCountQuery,
     getLatestPayrollRun(context),
   ]);
 
   const employeeCount = employeeCountResult.count ?? 0;
   const approvalCount = approvalCountResult.count ?? 0;
+  const leaveCount = leaveCountResult.count ?? 0;
   const currentRun = payrollRun ? mapPayrollPackage(payrollRun) : null;
 
   return {
@@ -390,6 +489,23 @@ export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
 
             if (metric.label === "Gross pay") {
               return { ...metric, value: currentRun.grossPay, hint: `${currentRun.employeeCount} active payroll employees` };
+            }
+
+            return metric;
+          }),
+        };
+      }
+
+      if (module.key === "leave") {
+        return {
+          ...module,
+          heroStats: module.heroStats.map((metric) => {
+            if (metric.label === "Leave requests") {
+              return { ...metric, value: String(leaveCount), hint: "Live leave records in Supabase" };
+            }
+
+            if (metric.label === "Attendance exceptions") {
+              return { ...metric, hint: "Live attendance tables and overtime queue are now active" };
             }
 
             return metric;
@@ -790,6 +906,13 @@ export async function createLeaveRequest(input: {
     },
   });
 
+  if (employeeId) {
+    await adjustLeaveBalance(context, employeeId, input.leaveType, {
+      pendingDelta: Number(input.days),
+      balanceDelta: -Number(input.days),
+    });
+  }
+
   return mapApprovalTask(taskRow);
 }
 
@@ -837,6 +960,189 @@ export async function createTrainingRequest(input: {
     .eq("id", data.id);
 
   return mapApprovalTask(taskRow);
+}
+
+export async function listLeaveRequests() {
+  const context = await getRequestContext();
+  const scopedEmployeeIds = await getScopedEmployeeIds(context);
+
+  let query = context.supabase
+    .from("leave_requests")
+    .select(
+      "id, employee_id, leave_type, start_date, end_date, days, reason, status, created_at, employee:employee_id(employee_number, first_name, last_name, department:department_id(name), branch:branch_id(name)), approval_task:approval_task_id(status, owner_role, stage)"
+    )
+    .order("start_date", { ascending: false })
+    .limit(200);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = applyScopedEmployeeIds(query as never, scopedEmployeeIds) as typeof query;
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function listLeaveBalances() {
+  const context = await getRequestContext();
+  const scopedEmployeeIds = await getScopedEmployeeIds(context);
+
+  let query = context.supabase
+    .from("leave_balances")
+    .select(
+      "id, employee_id, leave_type, opening_balance, accrued_days, taken_days, pending_days, balance_days, as_of_date, employee:employee_id(employee_number, first_name, last_name, salary, department:department_id(name), branch:branch_id(name))"
+    )
+    .order("as_of_date", { ascending: false })
+    .limit(250);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = applyScopedEmployeeIds(query as never, scopedEmployeeIds) as typeof query;
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function listAttendanceRecords() {
+  const context = await getRequestContext();
+  const scopedEmployeeIds = await getScopedEmployeeIds(context);
+
+  let query = context.supabase
+    .from("attendance_records")
+    .select(
+      "id, employee_id, work_date, shift_name, status, minutes_late, minutes_early_leave, overtime_hours, source, notes, clock_in_at, clock_out_at, employee:employee_id(employee_number, first_name, last_name, department:department_id(name), branch:branch_id(name))"
+    )
+    .order("work_date", { ascending: false })
+    .limit(250);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = applyScopedEmployeeIds(query as never, scopedEmployeeIds) as typeof query;
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function listOvertimeRequests() {
+  const context = await getRequestContext();
+  const scopedEmployeeIds = await getScopedEmployeeIds(context);
+
+  let query = context.supabase
+    .from("overtime_requests")
+    .select(
+      "id, employee_id, work_date, hours, rate_type, reason, status, created_at, employee:employee_id(employee_number, first_name, last_name, department:department_id(name), branch:branch_id(name)), approval_task:approval_task_id(status, owner_role, stage)"
+    )
+    .order("work_date", { ascending: false })
+    .limit(200);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = applyScopedEmployeeIds(query as never, scopedEmployeeIds) as typeof query;
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function listHolidays() {
+  const context = await getRequestContext();
+
+  let query = context.supabase
+    .from("holidays")
+    .select("id, name, holiday_date, scope, is_paid, branch:branch_id(name)")
+    .order("holiday_date", { ascending: true })
+    .limit(100);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function listLeavePolicies() {
+  const context = await getRequestContext();
+
+  let query = context.supabase
+    .from("leave_policies")
+    .select("id, leave_type, policy_name, annual_allowance, accrual_frequency, carry_forward_limit, requires_attachment, status")
+    .order("leave_type", { ascending: true });
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+export async function getLeaveDashboardSnapshot() {
+  const [requests, balances, attendance, overtime] = await Promise.all([
+    listLeaveRequests(),
+    listLeaveBalances(),
+    listAttendanceRecords(),
+    listOvertimeRequests(),
+  ]);
+
+  const pendingRequests = requests.filter((row) => safeString(row.status) === "pending").length;
+  const pendingOvertime = overtime.filter((row) => safeString(row.status) === "pending").length;
+  const exceptions = attendance.filter((row) => ["late", "absent", "incomplete"].includes(safeString(row.status))).length;
+
+  const annualBalances = balances.filter((row) => safeString(row.leave_type) === "Annual Leave");
+  const leaveLiability = annualBalances.reduce((sum, row) => {
+    const employee = asRecord(row.employee);
+    const salary = safeNumber(employee?.salary);
+    return sum + (salary / 21) * safeNumber(row.balance_days);
+  }, 0);
+
+  return {
+    requestCount: requests.length,
+    pendingRequests,
+    balanceFlags: balances.filter((row) => safeNumber(row.balance_days) < 5).length,
+    attendanceExceptions: exceptions,
+    overtimeQueue: pendingOvertime,
+    leaveLiability,
+    unpaidLeaveImpact: requests
+      .filter((row) => safeString(row.leave_type) === "Unpaid Leave" && safeString(row.status) !== "rejected")
+      .reduce((sum, row) => sum + safeNumber(row.days) * 6000, 0),
+  };
 }
 
 export async function createAssetRequest(input: {
@@ -1037,6 +1343,34 @@ export async function updateApprovalTask(taskId: string, action: "approve" | "re
       .select("*, requester:requested_by(email, role)")
       .single();
 
+    const rejectedEntityType = safeString(taskRow.entity_type);
+    const rejectedEntityId = safeString(taskRow.entity_id);
+
+    if (rejectedEntityType === "leave_request" && rejectedEntityId) {
+      const { data: leaveRow } = await context.supabase
+        .from("leave_requests")
+        .select("employee_id, leave_type, days")
+        .eq("id", rejectedEntityId)
+        .maybeSingle();
+
+      await context.supabase
+        .from("leave_requests")
+        .update({ status: "rejected" })
+        .eq("id", rejectedEntityId);
+
+      if (leaveRow) {
+        await adjustLeaveBalance(context, safeString(leaveRow.employee_id), safeString(leaveRow.leave_type), {
+          pendingDelta: -safeNumber(leaveRow.days),
+          balanceDelta: safeNumber(leaveRow.days),
+        });
+      }
+    } else if (rejectedEntityType === "overtime_request" && rejectedEntityId) {
+      await context.supabase
+        .from("overtime_requests")
+        .update({ status: "rejected" })
+        .eq("id", rejectedEntityId);
+    }
+
     await createAuditLog(context, {
       moduleKey: safeString(taskRow.module_key),
       entityType: safeString(taskRow.entity_type),
@@ -1107,10 +1441,27 @@ export async function updateApprovalTask(taskId: string, action: "approve" | "re
     await context.supabase.from("employees").update({ status: "Active" }).eq("id", entityId);
   } else if (entityType === "leave_request") {
     await context.supabase.from("leave_requests").update({ status: finalStatus }).eq("id", entityId);
+    const { data: leaveRow } = await context.supabase
+      .from("leave_requests")
+      .select("employee_id, leave_type, days")
+      .eq("id", entityId)
+      .maybeSingle();
+
+    if (leaveRow) {
+      await adjustLeaveBalance(context, safeString(leaveRow.employee_id), safeString(leaveRow.leave_type), {
+        pendingDelta: -safeNumber(leaveRow.days),
+        takenDelta: safeNumber(leaveRow.days),
+      });
+    }
   } else if (entityType === "training_request") {
     await context.supabase.from("training_requests").update({ status: finalStatus }).eq("id", entityId);
   } else if (entityType === "asset_request") {
     await context.supabase.from("asset_requests").update({ status: finalStatus }).eq("id", entityId);
+  } else if (entityType === "overtime_request") {
+    await context.supabase
+      .from("overtime_requests")
+      .update({ status: finalStatus, approved_by: context.profile.id })
+      .eq("id", entityId);
   } else if (entityType === "requisition_approval") {
     await context.supabase.from("recruitment_requisitions").update({ status: finalStatus }).eq("id", entityId);
   } else if (entityType === "payroll_approval" && entityId) {
@@ -2126,18 +2477,220 @@ export async function buildPageFromDatabase(module: ModuleSpec, item: string): P
   }
 
   if (module.key === "leave" && item === "Leave Dashboard") {
-    let query = context.supabase.from("leave_requests").select("*", { count: "exact", head: true });
-    if (context.profile.company_id) {
-      query = query.eq("company_id", context.profile.company_id);
-    }
-    const { count } = await query;
+    const [dashboard, requests, overtime] = await Promise.all([
+      getLeaveDashboardSnapshot(),
+      listLeaveRequests(),
+      listOvertimeRequests(),
+    ]);
+
     return {
       ...base,
       metrics: base.metrics.map((metric) =>
         metric.label === "Leave requests"
-          ? { ...metric, value: String(count ?? 0), hint: "Live leave records from Supabase" }
-          : metric
+          ? { ...metric, value: String(dashboard.requestCount), hint: `${dashboard.pendingRequests} awaiting approval` }
+          : metric.label === "Leave liability"
+            ? { ...metric, value: formatCurrency(dashboard.leaveLiability), hint: "Live annual leave balance value" }
+            : metric.label === "Attendance exceptions"
+              ? { ...metric, value: String(dashboard.attendanceExceptions), hint: "Late, absent, and incomplete logs" }
+              : metric.label === "Overtime claims"
+                ? { ...metric, value: String(overtime.length), hint: `${dashboard.overtimeQueue} pending review` }
+                : metric
       ),
+      table: {
+        title: "Leave and attendance priorities",
+        description: "Live requests and overtime items that still need action.",
+        columns: [
+          { key: "employee", label: "Employee" },
+          { key: "type", label: "Type" },
+          { key: "period", label: "Period" },
+          { key: "status", label: "Status" },
+          { key: "owner", label: "Next Owner" },
+        ],
+        rows: [
+          ...requests.slice(0, 8).map((row) => {
+            const employee = asRecord(row.employee);
+            const approvalTask = asRecord(row.approval_task);
+            return {
+              employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+              type: safeString(row.leave_type),
+              period: `${safeString(row.start_date)} to ${safeString(row.end_date)}`,
+              status: safeString(row.status),
+              owner: safeString(approvalTask?.owner_role, safeString(approvalTask?.stage, "Workflow")),
+            };
+          }),
+          ...overtime.slice(0, 4).map((row) => {
+            const employee = asRecord(row.employee);
+            const approvalTask = asRecord(row.approval_task);
+            return {
+              employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+              type: `Overtime ${safeNumber(row.hours).toFixed(2)} hrs`,
+              period: safeString(row.work_date),
+              status: safeString(row.status),
+              owner: safeString(approvalTask?.owner_role, safeString(approvalTask?.stage, "Payroll review")),
+            };
+          }),
+        ],
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Leave Requests") {
+    const requests = await listLeaveRequests();
+    return {
+      ...base,
+      table: {
+        title: "Leave requests",
+        description: "Live leave workflow records from Supabase.",
+        columns: [
+          { key: "employee", label: "Employee" },
+          { key: "leaveType", label: "Leave Type" },
+          { key: "dates", label: "Dates" },
+          { key: "days", label: "Days" },
+          { key: "status", label: "Status" },
+        ],
+        rows: requests.map((row) => {
+          const employee = asRecord(row.employee);
+          return {
+            employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+            leaveType: safeString(row.leave_type),
+            dates: `${safeString(row.start_date)} to ${safeString(row.end_date)}`,
+            days: String(safeNumber(row.days)),
+            status: safeString(row.status),
+          };
+        }),
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Leave Balances") {
+    const balances = await listLeaveBalances();
+    return {
+      ...base,
+      table: {
+        title: "Leave balances",
+        description: "Live balances by employee and leave type.",
+        columns: [
+          { key: "employee", label: "Employee" },
+          { key: "leaveType", label: "Leave Type" },
+          { key: "accrued", label: "Accrued" },
+          { key: "pending", label: "Pending" },
+          { key: "balance", label: "Balance" },
+        ],
+        rows: balances.slice(0, 80).map((row) => {
+          const employee = asRecord(row.employee);
+          return {
+            employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+            leaveType: safeString(row.leave_type),
+            accrued: String(safeNumber(row.accrued_days)),
+            pending: String(safeNumber(row.pending_days)),
+            balance: String(safeNumber(row.balance_days)),
+          };
+        }),
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Attendance") {
+    const records = await listAttendanceRecords();
+    return {
+      ...base,
+      table: {
+        title: "Attendance records",
+        description: "Live attendance and exception data from Supabase.",
+        columns: [
+          { key: "employee", label: "Employee" },
+          { key: "workDate", label: "Work Date" },
+          { key: "status", label: "Status" },
+          { key: "late", label: "Late (min)" },
+          { key: "overtime", label: "Overtime" },
+        ],
+        rows: records.map((row) => {
+          const employee = asRecord(row.employee);
+          return {
+            employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+            workDate: safeString(row.work_date),
+            status: safeString(row.status),
+            late: String(safeNumber(row.minutes_late)),
+            overtime: `${safeNumber(row.overtime_hours).toFixed(2)} hrs`,
+          };
+        }),
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Overtime") {
+    const overtime = await listOvertimeRequests();
+    return {
+      ...base,
+      table: {
+        title: "Overtime requests",
+        description: "Live overtime claims ready for review and payroll linkage.",
+        columns: [
+          { key: "employee", label: "Employee" },
+          { key: "workDate", label: "Work Date" },
+          { key: "hours", label: "Hours" },
+          { key: "status", label: "Status" },
+          { key: "reason", label: "Reason" },
+        ],
+        rows: overtime.map((row) => {
+          const employee = asRecord(row.employee);
+          return {
+            employee: `${safeString(employee?.employee_number)} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+            workDate: safeString(row.work_date),
+            hours: `${safeNumber(row.hours).toFixed(2)} hrs`,
+            status: safeString(row.status),
+            reason: safeString(row.reason, "-"),
+          };
+        }),
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Holidays") {
+    const holidays = await listHolidays();
+    return {
+      ...base,
+      table: {
+        title: "Holiday calendar",
+        description: "Live statutory and company holiday records.",
+        columns: [
+          { key: "name", label: "Holiday" },
+          { key: "date", label: "Date" },
+          { key: "scope", label: "Scope" },
+          { key: "paid", label: "Paid" },
+        ],
+        rows: holidays.map((row) => ({
+          name: safeString(row.name),
+          date: safeString(row.holiday_date),
+          scope: safeString(row.scope),
+          paid: row.is_paid === false ? "No" : "Yes",
+        })),
+      },
+    };
+  }
+
+  if (module.key === "leave" && item === "Leave Policies") {
+    const policies = await listLeavePolicies();
+    return {
+      ...base,
+      table: {
+        title: "Leave policies",
+        description: "Company leave rule configuration now stored in Supabase.",
+        columns: [
+          { key: "leaveType", label: "Leave Type" },
+          { key: "policyName", label: "Policy" },
+          { key: "allowance", label: "Annual Allowance" },
+          { key: "accrual", label: "Accrual" },
+          { key: "carryForward", label: "Carry Forward" },
+        ],
+        rows: policies.map((row) => ({
+          leaveType: safeString(row.leave_type),
+          policyName: safeString(row.policy_name),
+          allowance: String(safeNumber(row.annual_allowance)),
+          accrual: safeString(row.accrual_frequency),
+          carryForward: String(safeNumber(row.carry_forward_limit)),
+        })),
+      },
     };
   }
 

@@ -12,6 +12,7 @@ The following parts are now wired to Supabase instead of in-memory mock state:
 - People API for employee list, employee detail, employee create, and employee update
 - Employee document APIs for upload, list, signed download URL generation, and delete
 - Lookup CRUD APIs for branches, departments, designations, job grades, and payroll groups
+- Leave and Attendance APIs for leave requests, balances, policies, holidays, attendance records, and overtime queues
 - Payroll APIs for package summary, periods, employee payroll data, review, process state, payslips, statutory summaries, exports, settings, and audit trail
 - Approval task APIs and audit log APIs
 
@@ -67,6 +68,7 @@ Run the schema migration:
 ```bash
 npm run db:migrate
 node scripts/run-sql.mjs supabase/migrations/20260421_0002_storage_expansion.sql
+node scripts/run-sql.mjs supabase/migrations/20260421_0003_leave_attendance_schema.sql
 ```
 
 Run seed data:
@@ -74,6 +76,7 @@ Run seed data:
 ```bash
 npm run db:seed
 node scripts/seed-auth-users.mjs
+node scripts/run-sql.mjs supabase/seeds/20260421_leave_attendance_seed.sql
 ```
 
 What the seed creates:
@@ -88,6 +91,11 @@ What the seed creates:
 - 2 payroll runs
 - 100 payroll employee rows
 - 10 Supabase Auth demo users
+- 5 leave policies
+- 200 leave balances
+- 200 attendance records
+- 40 overtime requests
+- 5 holidays
 
 ## Demo Accounts
 
@@ -186,6 +194,13 @@ Key API routes:
 - `/api/people/employees/[employeeId]/documents/[documentId]`
 - `/api/lookups/[table]`
 - `/api/lookups/[table]/[recordId]`
+- `/api/leave/dashboard`
+- `/api/leave/requests`
+- `/api/leave/balances`
+- `/api/leave/policies`
+- `/api/leave/holidays`
+- `/api/attendance/records`
+- `/api/attendance/overtime`
 - `/api/payroll/package`
 - `/api/payroll/periods`
 - `/api/payroll/employee-data`

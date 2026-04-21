@@ -1,8 +1,10 @@
 import type {
   ApprovalTask,
   AuditEvent,
+  EmployeeRecord,
   ModuleSpec,
   PageSpec,
+  PayrollPackage,
   PlatformSnapshot,
 } from "@/lib/solva-data";
 
@@ -172,4 +174,46 @@ export function updateApprovalTask(
 
 export function fetchAuditLogs() {
   return readJson<{ events: AuditEvent[] }>("/api/audit-logs", { cache: "no-store" });
+}
+
+export function fetchEmployeeRecords() {
+  return readJson<{ employees: EmployeeRecord[] }>("/api/people/employees", {
+    cache: "no-store",
+  });
+}
+
+export function createEmployeeRecord(input: {
+  fullName: string;
+  department: string;
+  branch: string;
+  employmentType: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<EmployeeRecord>("/api/people/employees", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchPayrollPackage() {
+  return readJson<{ payroll: PayrollPackage }>("/api/payroll/package", {
+    cache: "no-store",
+  });
+}
+
+export function createPayrollExport(input: {
+  exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<{ exportType: string; label: string; period: string; status: string }>(
+    "/api/payroll/package",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }
+  );
 }

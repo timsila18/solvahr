@@ -3,15 +3,19 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   createAssetRequest,
+  createEmployeeRecord,
   createEmployeeActivationRequest,
   createLeaveRequest,
+  createPayrollExport,
   createPayrollApprovalRequest,
   createProfileUpdateRequest,
   createRequisitionApprovalRequest,
   createTrainingRequest,
   fetchAuditLogs,
   fetchApprovalTasks,
+  fetchEmployeeRecords,
   fetchPage,
+  fetchPayrollPackage,
   fetchPlatformSnapshot,
   updateApprovalTask,
 } from "@/lib/solva-api";
@@ -21,9 +25,11 @@ import {
   modules,
   type ApprovalTask,
   type AuditEvent,
+  type EmployeeRecord,
   type Metric,
   type ModuleSpec,
   type PageSpec,
+  type PayrollPackage,
   type PlatformSnapshot,
   type ThemeMode,
 } from "@/lib/solva-data";
@@ -303,6 +309,178 @@ function AuditStream({ events }: { events: AuditEvent[] }) {
             </small>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function PeopleWorkbench({
+  employees,
+  selectedRole,
+  onCreateRecord,
+}: {
+  employees: EmployeeRecord[];
+  selectedRole: (typeof loginProfiles)[number];
+  onCreateRecord: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const canCreate = ["Operator", "HR Admin", "Super Admin"].includes(selectedRole.role);
+
+  return (
+    <section className="surface-card action-workbench">
+      <div className="section-heading">
+        <div>
+          <p className="section-eyebrow">People Workspace</p>
+          <h3>Employee master records</h3>
+        </div>
+        <TonePill tone="positive">live records</TonePill>
+      </div>
+      <div className="workbench-grid">
+        <section className="mini-panel">
+          <h4>Current roster</h4>
+          <div className="mini-list queue-list">
+            {employees.slice(0, 8).map((employee) => (
+              <article key={employee.id}>
+                <strong>
+                  {employee.employeeNumber} {employee.fullName}
+                </strong>
+                <span>
+                  {employee.department} | {employee.branch}
+                </span>
+                <small>
+                  {employee.employmentType} | {employee.status}
+                </small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="mini-panel">
+          <h4>Create employee record</h4>
+          {canCreate ? (
+            <form className="action-form" onSubmit={onCreateRecord}>
+              <label>
+                <span>Full name</span>
+                <input defaultValue="Lucy Atieno" name="fullName" required />
+              </label>
+              <label>
+                <span>Department</span>
+                <input defaultValue="People Operations" name="department" required />
+              </label>
+              <label>
+                <span>Branch</span>
+                <input defaultValue="Nairobi HQ" name="branch" required />
+              </label>
+              <label>
+                <span>Employment type</span>
+                <input defaultValue="Permanent" name="employmentType" required />
+              </label>
+              <button className="primary-button" type="submit">
+                Add employee master record
+              </button>
+            </form>
+          ) : (
+            <p className="section-description">
+              Switch to Operator, HR Admin, or Super Admin to create employee master records.
+            </p>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function PayrollWorkbench({
+  payroll,
+  selectedRole,
+  onExport,
+  exportBusy,
+}: {
+  payroll: PayrollPackage | null;
+  selectedRole: (typeof loginProfiles)[number];
+  onExport: (exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms") => void;
+  exportBusy: string | null;
+}) {
+  const canExport = ["Payroll Admin", "Finance Officer", "Super Admin"].includes(selectedRole.role);
+
+  return (
+    <section className="surface-card action-workbench">
+      <div className="section-heading">
+        <div>
+          <p className="section-eyebrow">Payroll Workspace</p>
+          <h3>Payroll package and exports</h3>
+        </div>
+        <TonePill tone="warning">export ready</TonePill>
+      </div>
+      <div className="workbench-grid">
+        <section className="mini-panel">
+          <h4>Current payroll package</h4>
+          {payroll ? (
+            <div className="mini-list queue-list">
+              <article>
+                <strong>{payroll.period}</strong>
+                <span>
+                  {payroll.status} | {payroll.employeeCount} employees
+                </span>
+                <small>
+                  Gross {payroll.grossPay} | Net {payroll.netPay}
+                </small>
+              </article>
+              <article>
+                <strong>Statutory totals</strong>
+                <span>
+                  PAYE {payroll.paye} | SHIF {payroll.shif}
+                </span>
+                <small>
+                  NSSF {payroll.nssf} | Housing Levy {payroll.housingLevy}
+                </small>
+              </article>
+            </div>
+          ) : (
+            <p className="section-description">Payroll summary is loading.</p>
+          )}
+        </section>
+        <section className="mini-panel">
+          <h4>Export center</h4>
+          {canExport ? (
+            <div className="action-form">
+              <button
+                className="primary-button"
+                disabled={exportBusy === "payroll_register"}
+                onClick={() => onExport("payroll_register")}
+                type="button"
+              >
+                {exportBusy === "payroll_register" ? "Generating..." : "Export payroll register"}
+              </button>
+              <button
+                className="ghost-button"
+                disabled={exportBusy === "net_to_bank"}
+                onClick={() => onExport("net_to_bank")}
+                type="button"
+              >
+                {exportBusy === "net_to_bank" ? "Generating..." : "Export net-to-bank"}
+              </button>
+              <button
+                className="ghost-button"
+                disabled={exportBusy === "paye_report"}
+                onClick={() => onExport("paye_report")}
+                type="button"
+              >
+                {exportBusy === "paye_report" ? "Generating..." : "Export PAYE schedule"}
+              </button>
+              <button
+                className="ghost-button"
+                disabled={exportBusy === "p9_forms"}
+                onClick={() => onExport("p9_forms")}
+                type="button"
+              >
+                {exportBusy === "p9_forms" ? "Generating..." : "Export P9 forms"}
+              </button>
+            </div>
+          ) : (
+            <p className="section-description">
+              Switch to Payroll Admin, Finance Officer, or Super Admin to generate payroll exports.
+            </p>
+          )}
+        </section>
       </div>
     </section>
   );
@@ -670,25 +848,34 @@ export function SolvaShell() {
     getPage(fallbackModules[0], fallbackModules[0]?.items[0] ?? "")
   );
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [payrollPackage, setPayrollPackage] = useState<PayrollPackage | null>(null);
   const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [exportBusy, setExportBusy] = useState<string | null>(null);
   const [taskMessage, setTaskMessage] = useState("");
 
   const refreshRuntime = async () => {
     try {
-      const [platformPayload, taskPayload, auditPayload] = await Promise.all([
+      const [platformPayload, taskPayload, auditPayload, employeePayload, payrollPayload] = await Promise.all([
         fetchPlatformSnapshot(),
         fetchApprovalTasks(),
         fetchAuditLogs(),
+        fetchEmployeeRecords(),
+        fetchPayrollPackage(),
       ]);
       setSnapshot(platformPayload);
       setTasks(taskPayload.tasks);
       setAuditEvents(auditPayload.events);
+      setEmployees(employeePayload.employees);
+      setPayrollPackage(payrollPayload.payroll);
       setDataMode("live");
     } catch {
       setSnapshot(null);
       setTasks([]);
       setAuditEvents([]);
+      setEmployees([]);
+      setPayrollPackage(null);
       setDataMode("fallback");
     }
   };
@@ -929,6 +1116,48 @@ export function SolvaShell() {
     }
   }
 
+  async function handleEmployeeRecordCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createEmployeeRecord({
+        fullName: String(form.get("fullName") ?? ""),
+        department: String(form.get("department") ?? ""),
+        branch: String(form.get("branch") ?? ""),
+        employmentType: String(form.get("employmentType") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Employee master record created successfully.");
+    } catch {
+      setTaskMessage("Could not create the employee record right now.");
+    }
+  }
+
+  async function handlePayrollExport(
+    exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms"
+  ) {
+    setExportBusy(exportType);
+    setTaskMessage("");
+
+    try {
+      const result = await createPayrollExport({
+        exportType,
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage(`${result.label} is ready and has been written into the audit trail.`);
+    } catch {
+      setTaskMessage("Could not generate the payroll export right now.");
+    } finally {
+      setExportBusy(null);
+    }
+  }
+
   return (
     <main className={`solva-app theme-${theme}`}>
       <aside className="primary-sidebar">
@@ -1110,6 +1339,27 @@ export function SolvaShell() {
               </div>
 
               <ControlCenter selectedRole={selectedRole} snapshot={snapshot} />
+
+              {activeModule.key === "people" && activeItem === "Employee Directory" ? (
+                <PeopleWorkbench
+                  employees={employees}
+                  onCreateRecord={(event) => void handleEmployeeRecordCreate(event)}
+                  selectedRole={selectedRole}
+                />
+              ) : null}
+
+              {activeModule.key === "payroll" &&
+              (activeItem === "Payroll Dashboard" ||
+                activeItem === "Payroll Reports" ||
+                activeItem === "Net to Bank" ||
+                activeItem === "P9 Forms") ? (
+                <PayrollWorkbench
+                  exportBusy={exportBusy}
+                  onExport={(exportType) => void handlePayrollExport(exportType)}
+                  payroll={payrollPackage}
+                  selectedRole={selectedRole}
+                />
+              ) : null}
 
               {activeModule.key === "audit" ? <AuditStream events={auditEvents} /> : null}
 

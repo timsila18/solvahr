@@ -2,6 +2,8 @@ import {
   getPlatformSnapshot as getStaticSnapshot,
   type ApprovalTask,
   type AuditEvent,
+  type EmployeeRecord,
+  type PayrollPackage,
   type PlatformSnapshot,
 } from "@/lib/solva-data";
 
@@ -63,6 +65,21 @@ type AssetRequestPayload = {
   assetName: string;
   requestType: string;
   branch: string;
+  actorEmail: string;
+  actorRole: string;
+};
+
+type EmployeeRecordPayload = {
+  fullName: string;
+  department: string;
+  branch: string;
+  employmentType: string;
+  actorEmail: string;
+  actorRole: string;
+};
+
+type PayrollExportPayload = {
+  exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
   actorEmail: string;
   actorRole: string;
 };
@@ -204,6 +221,48 @@ const auditEvents: AuditEvent[] = [
   },
 ];
 
+const employeeRecords: EmployeeRecord[] = [
+  {
+    id: "emp-001",
+    employeeNumber: "SOL-001",
+    fullName: "Amina Otieno",
+    department: "People Operations",
+    branch: "Nairobi HQ",
+    employmentType: "Permanent",
+    status: "Active",
+  },
+  {
+    id: "emp-018",
+    employeeNumber: "SOL-018",
+    fullName: "Brian Mwangi",
+    department: "Distribution",
+    branch: "Mombasa",
+    employmentType: "Probation",
+    status: "Review due",
+  },
+  {
+    id: "emp-044",
+    employeeNumber: "SOL-044",
+    fullName: "Mercy Njeri",
+    department: "Finance",
+    branch: "Nairobi HQ",
+    employmentType: "Permanent",
+    status: "Pending activation",
+  },
+];
+
+const payrollPackage: PayrollPackage = {
+  period: "Apr 2026",
+  status: "Pending approval",
+  employeeCount: "1044",
+  grossPay: "KES 18.45M",
+  netPay: "KES 13.94M",
+  paye: "KES 2.48M",
+  shif: "KES 507,375",
+  nssf: "KES 1,127,520",
+  housingLevy: "KES 276,750",
+};
+
 function nowLabel() {
   return "2026-04-21 09:30";
 }
@@ -256,6 +315,14 @@ export function listAuditEvents() {
   return [...auditEvents].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
 }
 
+export function listEmployeeRecords() {
+  return [...employeeRecords];
+}
+
+export function getPayrollPackage() {
+  return { ...payrollPackage };
+}
+
 export function getPlatformSnapshot(): PlatformSnapshot {
   const base = getStaticSnapshot();
   const approvals = listApprovalTasks()
@@ -305,6 +372,31 @@ export function createEmployeeActivationRequest(payload: EmployeeActivationPaylo
     timestamp: task.updatedAt,
   });
   return task;
+}
+
+export function createEmployeeRecord(payload: EmployeeRecordPayload) {
+  const record: EmployeeRecord = {
+    id: `emp-${String(employeeRecords.length + 1).padStart(3, "0")}`,
+    employeeNumber: `SOL-${String(employeeRecords.length + 1).padStart(3, "0")}`,
+    fullName: payload.fullName,
+    department: payload.department,
+    branch: payload.branch,
+    employmentType: payload.employmentType,
+    status: "Pending activation",
+  };
+
+  employeeRecords.unshift(record);
+  logAuditEvent({
+    moduleKey: "people",
+    category: "employee",
+    action: "created_employee_record",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.fullName,
+    outcome: "employee master record added",
+    timestamp: nowLabel(),
+  });
+  return record;
 }
 
 export function createPayrollApprovalRequest(payload: PayrollApprovalPayload) {
@@ -485,6 +577,33 @@ export function createAssetRequest(payload: AssetRequestPayload) {
     timestamp: task.updatedAt,
   });
   return task;
+}
+
+export function recordPayrollExport(payload: PayrollExportPayload) {
+  const exportLabels: Record<PayrollExportPayload["exportType"], string> = {
+    net_to_bank: "Net-to-bank export",
+    paye_report: "PAYE support schedule",
+    payroll_register: "Payroll register",
+    p9_forms: "P9 forms bundle",
+  };
+
+  logAuditEvent({
+    moduleKey: "payroll",
+    category: "export",
+    action: "generated_payroll_export",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: exportLabels[payload.exportType],
+    outcome: `generated for ${payrollPackage.period}`,
+    timestamp: nowLabel(),
+  });
+
+  return {
+    exportType: payload.exportType,
+    label: exportLabels[payload.exportType],
+    period: payrollPackage.period,
+    status: "ready",
+  };
 }
 
 export function updateApprovalTask(taskId: string, action: "approve" | "reject", actorEmail: string, actorRole: string) {

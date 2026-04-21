@@ -89,6 +89,28 @@ export type AuditEvent = {
   timestamp: string;
 };
 
+export type EmployeeRecord = {
+  id: string;
+  employeeNumber: string;
+  fullName: string;
+  department: string;
+  branch: string;
+  employmentType: string;
+  status: string;
+};
+
+export type PayrollPackage = {
+  period: string;
+  status: string;
+  employeeCount: string;
+  grossPay: string;
+  netPay: string;
+  paye: string;
+  shif: string;
+  nssf: string;
+  housingLevy: string;
+};
+
 export type PlatformSnapshot = {
   generatedAt: string;
   loginProfiles: typeof loginProfiles;

@@ -64,6 +64,42 @@ export function createPayrollApprovalRequest(input: {
   });
 }
 
+export function createLeaveRequest(input: {
+  employeeName: string;
+  leaveType: string;
+  days: string;
+  startDate: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "leave_request",
+      ...input,
+    }),
+  });
+}
+
+export function createRequisitionApprovalRequest(input: {
+  roleTitle: string;
+  department: string;
+  branch: string;
+  headcount: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "requisition_approval",
+      ...input,
+    }),
+  });
+}
+
 export function updateApprovalTask(
   taskId: string,
   input: { action: "approve" | "reject"; actorEmail: string; actorRole: string }

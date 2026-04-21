@@ -57,7 +57,11 @@ export type ModuleSpec = {
 
 export type ApprovalTask = {
   id: string;
-  kind: "employee_activation" | "payroll_approval";
+  kind:
+    | "employee_activation"
+    | "payroll_approval"
+    | "leave_request"
+    | "requisition_approval";
   moduleKey: string;
   title: string;
   description: string;

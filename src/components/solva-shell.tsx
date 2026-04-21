@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   createEmployeeActivationRequest,
+  createLeaveRequest,
   createPayrollApprovalRequest,
+  createRequisitionApprovalRequest,
   fetchApprovalTasks,
   fetchPage,
   fetchPlatformSnapshot,
@@ -282,7 +284,9 @@ function ApprovalWorkbench({
   onApprove,
   onReject,
   onCreateEmployee,
+  onCreateLeave,
   onCreatePayroll,
+  onCreateRequisition,
   busyId,
   taskMessage,
 }: {
@@ -293,13 +297,17 @@ function ApprovalWorkbench({
   onApprove: (taskId: string) => void;
   onReject: (taskId: string) => void;
   onCreateEmployee: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateLeave: (event: FormEvent<HTMLFormElement>) => void;
   onCreatePayroll: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateRequisition: (event: FormEvent<HTMLFormElement>) => void;
   busyId: string | null;
   taskMessage: string;
 }) {
   const visibleTasks = tasks.slice(0, 6);
   const canPrepareEmployee = ["Operator", "HR Admin", "Super Admin"].includes(selectedRole.role);
   const canPreparePayroll = ["Payroll Admin", "Super Admin"].includes(selectedRole.role);
+  const canPrepareLeave = ["Employee", "Manager", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canPrepareRequisition = ["Manager", "Recruiter", "HR Admin", "Super Admin"].includes(selectedRole.role);
 
   return (
     <section className="surface-card action-workbench">
@@ -436,14 +444,75 @@ function ApprovalWorkbench({
             )
           ) : null}
 
+          {moduleKey === "leave" &&
+          (activeItem === "Leave Requests" || activeItem === "Leave Dashboard") ? (
+            canPrepareLeave ? (
+              <form className="action-form" onSubmit={onCreateLeave}>
+                <label>
+                  <span>Employee name</span>
+                  <input defaultValue="Brian Mwangi" name="employeeName" required />
+                </label>
+                <label>
+                  <span>Leave type</span>
+                  <input defaultValue="Annual Leave" name="leaveType" required />
+                </label>
+                <label>
+                  <span>Days</span>
+                  <input defaultValue="4" name="days" required />
+                </label>
+                <label>
+                  <span>Start date</span>
+                  <input defaultValue="2026-04-28" name="startDate" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit leave request
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Employee, Manager, HR Admin, or Super Admin to prepare leave requests.
+              </p>
+            )
+          ) : null}
+
+          {moduleKey === "recruitment" &&
+          (activeItem === "Job Requisitions" || activeItem === "Vacancies") ? (
+            canPrepareRequisition ? (
+              <form className="action-form" onSubmit={onCreateRequisition}>
+                <label>
+                  <span>Role title</span>
+                  <input defaultValue="Payroll Analyst" name="roleTitle" required />
+                </label>
+                <label>
+                  <span>Department</span>
+                  <input defaultValue="Finance" name="department" required />
+                </label>
+                <label>
+                  <span>Branch</span>
+                  <input defaultValue="Nairobi HQ" name="branch" required />
+                </label>
+                <label>
+                  <span>Headcount</span>
+                  <input defaultValue="1" name="headcount" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit requisition
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Manager, Recruiter, HR Admin, or Super Admin to prepare requisitions.
+              </p>
+            )
+          ) : null}
+
           {moduleKey !== "people" &&
           moduleKey !== "payroll" &&
-          activeItem !== "Employee Directory" &&
-          activeItem !== "Payroll Dashboard" &&
-          activeItem !== "Review & Approval" ? (
+          moduleKey !== "leave" &&
+          moduleKey !== "recruitment" ? (
             <p className="section-description">
-              This demo workbench is currently wired for People activation and Payroll approval. The same pattern will
-              extend into leave, recruitment, training, and assets.
+              This demo workbench is now wired for People, Payroll, Leave, and Recruitment. The same approval pattern
+              will extend into training, assets, and employee self-service requests.
             </p>
           ) : null}
         </section>
@@ -616,6 +685,48 @@ export function SolvaShell() {
       setTaskMessage("Payroll package submitted into finance approval.");
     } catch {
       setTaskMessage("Could not submit the payroll approval request just now.");
+    }
+  }
+
+  async function handleLeaveRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createLeaveRequest({
+        employeeName: String(form.get("employeeName") ?? ""),
+        leaveType: String(form.get("leaveType") ?? ""),
+        days: String(form.get("days") ?? ""),
+        startDate: String(form.get("startDate") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Leave request submitted into supervisor approval.");
+    } catch {
+      setTaskMessage("Could not submit the leave request just now.");
+    }
+  }
+
+  async function handleRequisitionRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createRequisitionApprovalRequest({
+        roleTitle: String(form.get("roleTitle") ?? ""),
+        department: String(form.get("department") ?? ""),
+        branch: String(form.get("branch") ?? ""),
+        headcount: String(form.get("headcount") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Requisition submitted into finance approval.");
+    } catch {
+      setTaskMessage("Could not submit the requisition just now.");
     }
   }
 
@@ -807,7 +918,9 @@ export function SolvaShell() {
                 moduleKey={activeModule.key}
                 onApprove={(taskId) => void handleTaskAction(taskId, "approve")}
                 onCreateEmployee={(event) => void handleEmployeeRequest(event)}
+                onCreateLeave={(event) => void handleLeaveRequest(event)}
                 onCreatePayroll={(event) => void handlePayrollRequest(event)}
+                onCreateRequisition={(event) => void handleRequisitionRequest(event)}
                 onReject={(taskId) => void handleTaskAction(taskId, "reject")}
                 selectedRole={selectedRole}
                 taskMessage={taskMessage}

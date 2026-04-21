@@ -635,6 +635,28 @@ input {
   gap: 8px;
 }
 
+.detail-card-button {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail-card-button:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.detail-card-button:hover strong {
+  color: var(--brand);
+}
+
 .mini-list strong,
 .mini-list span,
 .mini-list small {

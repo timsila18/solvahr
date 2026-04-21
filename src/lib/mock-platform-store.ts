@@ -3,7 +3,9 @@ import {
   type ApprovalTask,
   type AuditEvent,
   type EmployeeRecord,
+  type EmployeeProfile,
   type PayrollPackage,
+  type PayrollVarianceItem,
   type PlatformSnapshot,
 } from "@/lib/solva-data";
 
@@ -263,6 +265,104 @@ const payrollPackage: PayrollPackage = {
   housingLevy: "KES 276,750",
 };
 
+const employeeProfiles: Record<string, EmployeeProfile> = {
+  "emp-001": {
+    id: "emp-001",
+    employeeNumber: "SOL-001",
+    fullName: "Amina Otieno",
+    department: "People Operations",
+    branch: "Nairobi HQ",
+    employmentType: "Permanent",
+    status: "Active",
+    phoneNumber: "0712 340 221",
+    companyEmail: "amina.otieno@solvahr.app",
+    supervisor: "Grace Wambui",
+    costCenter: "HR-NAI-01",
+    kraPin: "A012345678X",
+    shifNumber: "SHIF-991204",
+    nssfNumber: "NSSF-192022",
+    bankName: "KCB Bank",
+    bankAccount: "1122334455",
+    hireDate: "2023-03-14",
+  },
+  "emp-018": {
+    id: "emp-018",
+    employeeNumber: "SOL-018",
+    fullName: "Brian Mwangi",
+    department: "Distribution",
+    branch: "Mombasa",
+    employmentType: "Probation",
+    status: "Review due",
+    phoneNumber: "0708 118 765",
+    companyEmail: "brian.mwangi@solvahr.app",
+    supervisor: "Kevin Ochieng",
+    costCenter: "OPS-MSA-04",
+    kraPin: "A112233445P",
+    shifNumber: "SHIF-822104",
+    nssfNumber: "NSSF-620911",
+    bankName: "Equity Bank",
+    bankAccount: "9988776655",
+    hireDate: "2026-01-10",
+  },
+  "emp-044": {
+    id: "emp-044",
+    employeeNumber: "SOL-044",
+    fullName: "Mercy Njeri",
+    department: "Finance",
+    branch: "Nairobi HQ",
+    employmentType: "Permanent",
+    status: "Pending activation",
+    phoneNumber: "0722 501 640",
+    companyEmail: "mercy.njeri@solvahr.app",
+    supervisor: "David Karanja",
+    costCenter: "FIN-NAI-02",
+    kraPin: "A556677889W",
+    shifNumber: "SHIF-420210",
+    nssfNumber: "NSSF-113904",
+    bankName: "Absa Bank",
+    bankAccount: "5566001122",
+    hireDate: "2026-04-01",
+  },
+};
+
+const payrollVariance: PayrollVarianceItem[] = [
+  {
+    label: "Gross pay",
+    current: "KES 18.45M",
+    previous: "KES 18.20M",
+    movement: "+1.4%",
+    tone: "warning",
+  },
+  {
+    label: "Net pay",
+    current: "KES 13.94M",
+    previous: "KES 13.71M",
+    movement: "+1.7%",
+    tone: "positive",
+  },
+  {
+    label: "Overtime cost",
+    current: "KES 612K",
+    previous: "KES 441K",
+    movement: "+38.8%",
+    tone: "critical",
+  },
+  {
+    label: "New hires",
+    current: "12",
+    previous: "7",
+    movement: "+5",
+    tone: "warning",
+  },
+  {
+    label: "Exits",
+    current: "3",
+    previous: "5",
+    movement: "-2",
+    tone: "positive",
+  },
+];
+
 function nowLabel() {
   return "2026-04-21 09:30";
 }
@@ -321,6 +421,14 @@ export function listEmployeeRecords() {
 
 export function getPayrollPackage() {
   return { ...payrollPackage };
+}
+
+export function getPayrollVariance() {
+  return [...payrollVariance];
+}
+
+export function getEmployeeProfile(employeeId: string) {
+  return employeeProfiles[employeeId];
 }
 
 export function getPlatformSnapshot(): PlatformSnapshot {
@@ -386,6 +494,19 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
   };
 
   employeeRecords.unshift(record);
+  employeeProfiles[record.id] = {
+    ...record,
+    phoneNumber: "0700 000 000",
+    companyEmail: `${payload.fullName.toLowerCase().replace(/\s+/g, ".")}@solvahr.app`,
+    supervisor: "Pending assignment",
+    costCenter: "NEW-CC-01",
+    kraPin: "PENDING",
+    shifNumber: "PENDING",
+    nssfNumber: "PENDING",
+    bankName: "Pending setup",
+    bankAccount: "Pending setup",
+    hireDate: "2026-04-21",
+  };
   logAuditEvent({
     moduleKey: "people",
     category: "employee",
@@ -604,6 +725,48 @@ export function recordPayrollExport(payload: PayrollExportPayload) {
     period: payrollPackage.period,
     status: "ready",
   };
+}
+
+export function getPayrollExportFile(
+  exportType: PayrollExportPayload["exportType"],
+  actorEmail: string,
+  actorRole: string
+) {
+  const files: Record<PayrollExportPayload["exportType"], { filename: string; body: string }> = {
+    payroll_register: {
+      filename: "payroll-register-apr-2026.csv",
+      body:
+        "employee_number,employee_name,gross_pay,net_pay\nSOL-001,Amina Otieno,245000,181220\nSOL-018,Brian Mwangi,168500,129450\nSOL-044,Mercy Njeri,212000,156180\n",
+    },
+    net_to_bank: {
+      filename: "net-to-bank-apr-2026.csv",
+      body:
+        "employee_number,employee_name,bank,account_number,net_pay\nSOL-001,Amina Otieno,KCB Bank,1122334455,181220\nSOL-018,Brian Mwangi,Equity Bank,9988776655,129450\nSOL-044,Mercy Njeri,Absa Bank,5566001122,156180\n",
+    },
+    paye_report: {
+      filename: "paye-support-apr-2026.csv",
+      body:
+        "employee_number,employee_name,taxable_pay,paye\nSOL-001,Amina Otieno,228400,41280\nSOL-018,Brian Mwangi,154200,25110\nSOL-044,Mercy Njeri,198600,35200\n",
+    },
+    p9_forms: {
+      filename: "p9-summary-apr-2026.csv",
+      body:
+        "employee_number,employee_name,ytd_taxable_pay,ytd_paye\nSOL-001,Amina Otieno,912000,165120\nSOL-018,Brian Mwangi,617000,100440\nSOL-044,Mercy Njeri,794400,140800\n",
+    },
+  };
+
+  logAuditEvent({
+    moduleKey: "payroll",
+    category: "export",
+    action: "downloaded_payroll_export",
+    actorEmail,
+    actorRole,
+    subject: files[exportType].filename,
+    outcome: "file downloaded",
+    timestamp: nowLabel(),
+  });
+
+  return files[exportType];
 }
 
 export function updateApprovalTask(taskId: string, action: "approve" | "reject", actorEmail: string, actorRole: string) {

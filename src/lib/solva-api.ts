@@ -2,9 +2,11 @@ import type {
   ApprovalTask,
   AuditEvent,
   EmployeeRecord,
+  EmployeeProfile,
   ModuleSpec,
   PageSpec,
   PayrollPackage,
+  PayrollVarianceItem,
   PlatformSnapshot,
 } from "@/lib/solva-data";
 
@@ -216,4 +218,32 @@ export function createPayrollExport(input: {
       body: JSON.stringify(input),
     }
   );
+}
+
+export function fetchEmployeeProfile(employeeId: string) {
+  return readJson<{ employee: EmployeeProfile }>(`/api/people/employees/${employeeId}`, {
+    cache: "no-store",
+  });
+}
+
+export function fetchPayrollReview() {
+  return readJson<{ payroll: PayrollPackage; variance: PayrollVarianceItem[] }>(
+    "/api/payroll/review",
+    {
+      cache: "no-store",
+    }
+  );
+}
+
+export function getPayrollExportUrl(
+  exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms",
+  actorEmail: string,
+  actorRole: string
+) {
+  const params = new URLSearchParams({
+    actorEmail,
+    actorRole,
+  });
+
+  return `/api/payroll/exports/${exportType}?${params.toString()}`;
 }

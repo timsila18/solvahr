@@ -14,9 +14,12 @@ import {
   fetchAuditLogs,
   fetchApprovalTasks,
   fetchEmployeeRecords,
+  fetchEmployeeProfile,
   fetchPage,
   fetchPayrollPackage,
+  fetchPayrollReview,
   fetchPlatformSnapshot,
+  getPayrollExportUrl,
   updateApprovalTask,
 } from "@/lib/solva-api";
 import {
@@ -26,10 +29,12 @@ import {
   type ApprovalTask,
   type AuditEvent,
   type EmployeeRecord,
+  type EmployeeProfile,
   type Metric,
   type ModuleSpec,
   type PageSpec,
   type PayrollPackage,
+  type PayrollVarianceItem,
   type PlatformSnapshot,
   type ThemeMode,
 } from "@/lib/solva-data";
@@ -316,10 +321,14 @@ function AuditStream({ events }: { events: AuditEvent[] }) {
 
 function PeopleWorkbench({
   employees,
+  selectedEmployee,
+  onSelectEmployee,
   selectedRole,
   onCreateRecord,
 }: {
   employees: EmployeeRecord[];
+  selectedEmployee: EmployeeProfile | null;
+  onSelectEmployee: (employeeId: string) => void;
   selectedRole: (typeof loginProfiles)[number];
   onCreateRecord: (event: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -339,7 +348,12 @@ function PeopleWorkbench({
           <h4>Current roster</h4>
           <div className="mini-list queue-list">
             {employees.slice(0, 8).map((employee) => (
-              <article key={employee.id}>
+              <button
+                className="detail-card-button"
+                key={employee.id}
+                onClick={() => onSelectEmployee(employee.id)}
+                type="button"
+              >
                 <strong>
                   {employee.employeeNumber} {employee.fullName}
                 </strong>
@@ -349,9 +363,45 @@ function PeopleWorkbench({
                 <small>
                   {employee.employmentType} | {employee.status}
                 </small>
-              </article>
+              </button>
             ))}
           </div>
+        </section>
+        <section className="mini-panel">
+          <h4>Employee detail</h4>
+          {selectedEmployee ? (
+            <div className="mini-list queue-list">
+              <article>
+                <strong>{selectedEmployee.fullName}</strong>
+                <span>
+                  {selectedEmployee.employeeNumber} | {selectedEmployee.status}
+                </span>
+                <small>
+                  {selectedEmployee.department} | {selectedEmployee.branch} | {selectedEmployee.employmentType}
+                </small>
+              </article>
+              <article>
+                <strong>Contacts and reporting</strong>
+                <span>
+                  {selectedEmployee.phoneNumber} | {selectedEmployee.companyEmail}
+                </span>
+                <small>
+                  Supervisor {selectedEmployee.supervisor} | Cost center {selectedEmployee.costCenter}
+                </small>
+              </article>
+              <article>
+                <strong>Statutory and banking</strong>
+                <span>
+                  KRA {selectedEmployee.kraPin} | SHIF {selectedEmployee.shifNumber}
+                </span>
+                <small>
+                  NSSF {selectedEmployee.nssfNumber} | {selectedEmployee.bankName} {selectedEmployee.bankAccount}
+                </small>
+              </article>
+            </div>
+          ) : (
+            <p className="section-description">Select an employee to inspect their profile detail.</p>
+          )}
         </section>
         <section className="mini-panel">
           <h4>Create employee record</h4>
@@ -390,11 +440,13 @@ function PeopleWorkbench({
 
 function PayrollWorkbench({
   payroll,
+  variance,
   selectedRole,
   onExport,
   exportBusy,
 }: {
   payroll: PayrollPackage | null;
+  variance: PayrollVarianceItem[];
   selectedRole: (typeof loginProfiles)[number];
   onExport: (exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms") => void;
   exportBusy: string | null;
@@ -439,6 +491,21 @@ function PayrollWorkbench({
           )}
         </section>
         <section className="mini-panel">
+          <h4>Variance review</h4>
+          <div className="mini-list queue-list">
+            {variance.map((item) => (
+              <article key={item.label}>
+                <strong>{item.label}</strong>
+                <span>
+                  Current {item.current} | Previous {item.previous}
+                </span>
+                <small>{item.movement}</small>
+                <TonePill tone={item.tone}>{item.tone}</TonePill>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="mini-panel">
           <h4>Export center</h4>
           {canExport ? (
             <div className="action-form">
@@ -474,6 +541,9 @@ function PayrollWorkbench({
               >
                 {exportBusy === "p9_forms" ? "Generating..." : "Export P9 forms"}
               </button>
+              <small className="section-description">
+                Exports open the generated CSV route and also write a download event into the audit trail.
+              </small>
             </div>
           ) : (
             <p className="section-description">
@@ -849,7 +919,9 @@ export function SolvaShell() {
   );
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
   const [payrollPackage, setPayrollPackage] = useState<PayrollPackage | null>(null);
+  const [payrollVariance, setPayrollVariance] = useState<PayrollVarianceItem[]>([]);
   const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [exportBusy, setExportBusy] = useState<string | null>(null);
@@ -857,18 +929,21 @@ export function SolvaShell() {
 
   const refreshRuntime = async () => {
     try {
-      const [platformPayload, taskPayload, auditPayload, employeePayload, payrollPayload] = await Promise.all([
+      const [platformPayload, taskPayload, auditPayload, employeePayload, payrollPayload, payrollReviewPayload] =
+        await Promise.all([
         fetchPlatformSnapshot(),
         fetchApprovalTasks(),
         fetchAuditLogs(),
         fetchEmployeeRecords(),
         fetchPayrollPackage(),
+        fetchPayrollReview(),
       ]);
       setSnapshot(platformPayload);
       setTasks(taskPayload.tasks);
       setAuditEvents(auditPayload.events);
       setEmployees(employeePayload.employees);
       setPayrollPackage(payrollPayload.payroll);
+      setPayrollVariance(payrollReviewPayload.variance);
       setDataMode("live");
     } catch {
       setSnapshot(null);
@@ -876,6 +951,7 @@ export function SolvaShell() {
       setAuditEvents([]);
       setEmployees([]);
       setPayrollPackage(null);
+      setPayrollVariance([]);
       setDataMode("fallback");
     }
   };
@@ -1131,9 +1207,26 @@ export function SolvaShell() {
         actorRole: selectedRole.role,
       });
       await refreshRuntime();
+      const refreshed = await fetchEmployeeRecords();
+      const newestEmployee = refreshed.employees[0];
+      if (newestEmployee) {
+        const profile = await fetchEmployeeProfile(newestEmployee.id);
+        setSelectedEmployee(profile.employee);
+      }
       setTaskMessage("Employee master record created successfully.");
     } catch {
       setTaskMessage("Could not create the employee record right now.");
+    }
+  }
+
+  async function handleEmployeeSelect(employeeId: string) {
+    setTaskMessage("");
+
+    try {
+      const payload = await fetchEmployeeProfile(employeeId);
+      setSelectedEmployee(payload.employee);
+    } catch {
+      setTaskMessage("Could not load that employee profile right now.");
     }
   }
 
@@ -1149,6 +1242,7 @@ export function SolvaShell() {
         actorEmail: selectedRole.email,
         actorRole: selectedRole.role,
       });
+      window.open(getPayrollExportUrl(exportType, selectedRole.email, selectedRole.role), "_blank");
       await refreshRuntime();
       setTaskMessage(`${result.label} is ready and has been written into the audit trail.`);
     } catch {
@@ -1344,6 +1438,8 @@ export function SolvaShell() {
                 <PeopleWorkbench
                   employees={employees}
                   onCreateRecord={(event) => void handleEmployeeRecordCreate(event)}
+                  onSelectEmployee={(employeeId) => void handleEmployeeSelect(employeeId)}
+                  selectedEmployee={selectedEmployee}
                   selectedRole={selectedRole}
                 />
               ) : null}
@@ -1357,6 +1453,7 @@ export function SolvaShell() {
                   exportBusy={exportBusy}
                   onExport={(exportType) => void handlePayrollExport(exportType)}
                   payroll={payrollPackage}
+                  variance={payrollVariance}
                   selectedRole={selectedRole}
                 />
               ) : null}

@@ -111,6 +111,27 @@ export type PayrollPackage = {
   housingLevy: string;
 };
 
+export type EmployeeProfile = EmployeeRecord & {
+  phoneNumber: string;
+  companyEmail: string;
+  supervisor: string;
+  costCenter: string;
+  kraPin: string;
+  shifNumber: string;
+  nssfNumber: string;
+  bankName: string;
+  bankAccount: string;
+  hireDate: string;
+};
+
+export type PayrollVarianceItem = {
+  label: string;
+  current: string;
+  previous: string;
+  movement: string;
+  tone: "default" | "positive" | "warning" | "critical";
+};
+
 export type PlatformSnapshot = {
   generatedAt: string;
   loginProfiles: typeof loginProfiles;

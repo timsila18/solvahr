@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthShell } from "@/components/auth-shell";
 import { getAuthRedirectUrl } from "@/lib/supabase/env";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -25,13 +26,19 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="auth-screen">
+    <AuthShell
+      eyebrow="Password Recovery"
+      title="Recover your Solva HR account"
+      description="Send yourself a password reset link and return to your payroll, leave, and ESS workspace."
+    >
       <section className="auth-card">
-        <p className="section-eyebrow">Solva HR</p>
-        <h1>Forgot password</h1>
-        <p className="section-description">
-          We will send a reset link to your email using the configured Supabase redirect URL.
-        </p>
+        <div className="auth-card-header">
+          <p className="section-eyebrow">Forgot password</p>
+          <h2>Request a reset link</h2>
+          <p className="section-description">
+            We will send a reset link to your email using the configured Supabase redirect URL.
+          </p>
+        </div>
         <form className="action-form" onSubmit={handleSubmit}>
           <label>
             <span>Email</span>
@@ -53,6 +60,6 @@ export default function ForgotPasswordPage() {
         </div>
         {message ? <div className="task-banner">{message}</div> : null}
       </section>
-    </main>
+    </AuthShell>
   );
 }

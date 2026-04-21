@@ -3,6 +3,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 const publicPaths = [
   "/login",
+  "/signup",
   "/forgot-password",
   "/reset-password",
   "/auth/callback",

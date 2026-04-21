@@ -7,12 +7,14 @@ Solva HR is a Kenyan cloud-based HR and payroll platform built with Next.js, Typ
 The following parts are now wired to Supabase instead of in-memory mock state:
 
 - Supabase Auth login, forgot password, reset password, callback handling, and sign out
+- Public self-service sign-up flow with employee-linked account creation
 - Protected app shell with middleware-based session checks
 - Profile-aware platform snapshot and role-filtered module visibility
 - People API for employee list, employee detail, employee create, and employee update
 - Employee document APIs for upload, list, signed download URL generation, and delete
 - Lookup CRUD APIs for branches, departments, designations, job grades, and payroll groups
 - Leave and Attendance APIs for leave requests, balances, policies, holidays, attendance records, and overtime queues
+- ESS APIs for dashboard, profile, payslips, leave, documents, requests, notifications, and profile update requests
 - Payroll APIs for package summary, periods, employee payroll data, review, process state, payslips, statutory summaries, exports, settings, and audit trail
 - Approval task APIs and audit log APIs
 
@@ -177,6 +179,7 @@ Current access highlights:
 
 - `/`
 - `/login`
+- `/signup`
 - `/forgot-password`
 - `/reset-password`
 - `/auth/callback`
@@ -188,6 +191,15 @@ Key API routes:
 - `/api/platform`
 - `/api/approval-tasks`
 - `/api/audit-logs`
+- `/api/auth/signup`
+- `/api/ess/dashboard`
+- `/api/ess/profile`
+- `/api/ess/payslips`
+- `/api/ess/leave`
+- `/api/ess/documents`
+- `/api/ess/requests`
+- `/api/ess/notifications`
+- `/api/ess/profile-update`
 - `/api/people/employees`
 - `/api/people/employees/[employeeId]`
 - `/api/people/employees/[employeeId]/documents`

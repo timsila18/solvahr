@@ -2278,6 +2278,236 @@ export async function deleteEmployeeDocument(employeeId: string, documentId: str
   return { success: true };
 }
 
+export async function listMyApprovalRequests() {
+  const context = await getRequestContext();
+
+  const { data, error } = await context.supabase
+    .from("approval_tasks")
+    .select("*, requester:requested_by(email, role)")
+    .eq("requested_by", context.profile.id)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapApprovalTask(row as TaskRow));
+}
+
+export async function listMyNotifications() {
+  const context = await getRequestContext();
+
+  const { data, error } = await context.supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", context.profile.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => ({
+    id: safeString(row.id),
+    title: safeString(row.title),
+    message: safeString(row.message),
+    category: safeString(row.category),
+    linkHref: safeString(row.link_href),
+    status: safeString(row.status),
+    createdAt: safeString(row.created_at),
+  }));
+}
+
+export async function getEssProfile() {
+  const context = await getRequestContext();
+
+  if (context.profile.employee_id) {
+    const employeeProfile = await getEmployeeProfile(context.profile.employee_id);
+
+    if (employeeProfile) {
+      return employeeProfile;
+    }
+  }
+
+  return {
+    id: context.profile.id,
+    employeeNumber: "Pending",
+    fullName: context.profile.full_name,
+    department: "Unassigned",
+    branch: "Unassigned",
+    employmentType: "Self Service",
+    status: context.profile.status,
+    phoneNumber: context.profile.phone ?? "-",
+    companyEmail: context.profile.email,
+    supervisor: "Unassigned",
+    costCenter: "-",
+    kraPin: "-",
+    shifNumber: "-",
+    nssfNumber: "-",
+    bankName: "-",
+    bankAccount: "-",
+    hireDate: "-",
+    profileSections: [
+      {
+        title: "Account",
+        items: [
+          { label: "Email", value: context.profile.email },
+          { label: "Role", value: context.profile.role },
+          { label: "Status", value: context.profile.status },
+          { label: "Phone", value: context.profile.phone ?? "-" },
+        ],
+      },
+    ],
+    documentSummary: [],
+    movementHistory: [],
+  } satisfies EmployeeProfile;
+}
+
+export async function getEssDashboardSnapshot() {
+  const [profile, payslips, leaveRequests, leaveBalances, documents, requests, notifications, attendance] =
+    await Promise.all([
+      getEssProfile(),
+      listPayslips(),
+      listLeaveRequests(),
+      listLeaveBalances(),
+      getRequestContext().then(async (context) =>
+        context.profile.employee_id ? listEmployeeDocuments(context.profile.employee_id) : []
+      ),
+      listMyApprovalRequests(),
+      listMyNotifications(),
+      listAttendanceRecords(),
+    ]);
+
+  const annualBalance = leaveBalances.find((row) => safeString((row as Record<string, unknown>).leave_type) === "Annual Leave");
+  const pendingRequests = requests.filter((request) => request.status === "pending").length;
+  const latestPayslip = payslips[0] ?? null;
+  const attendanceExceptions = attendance.filter((row) => ["late", "absent", "incomplete"].includes(safeString((row as Record<string, unknown>).status))).length;
+
+  return {
+    profile,
+    stats: {
+      payslips: payslips.length,
+      annualLeaveBalance: annualBalance ? safeNumber((annualBalance as Record<string, unknown>).balance_days) : 0,
+      documents: documents.length,
+      pendingRequests,
+      unreadNotifications: notifications.filter((item) => item.status === "unread").length,
+      attendanceExceptions,
+    },
+    latestPayslip,
+    recentLeaveRequests: leaveRequests.slice(0, 5),
+    recentRequests: requests.slice(0, 5),
+    recentNotifications: notifications.slice(0, 5),
+  };
+}
+
+export async function registerSelfServiceUser(input: {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string | null;
+}) {
+  const admin = createSupabaseAdminClient();
+
+  const { data: departmentRow, error: departmentError } = await admin
+    .from("departments")
+    .select("id, branch_id, company_id")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (departmentError || !departmentRow) {
+    throw departmentError ?? new Error("default_company_setup_missing");
+  }
+
+  const { count: employeeCount, error: countError } = await admin
+    .from("employees")
+    .select("*", { count: "exact", head: true })
+    .eq("company_id", safeString(departmentRow.company_id));
+
+  if (countError) {
+    throw countError;
+  }
+
+  const { data: createdUser, error: authError } = await admin.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: input.fullName,
+      phone: input.phone ?? null,
+    },
+    app_metadata: {
+      role: "Employee",
+    },
+  });
+
+  if (authError || !createdUser.user) {
+    throw authError ?? new Error("signup_failed");
+  }
+
+  const [firstName, ...rest] = input.fullName.trim().split(/\s+/);
+  const lastName = rest.join(" ") || "User";
+  const employeeNumber = `SOL-${String((employeeCount ?? 0) + 1).padStart(3, "0")}`;
+
+  const { data: employeeRow, error: employeeError } = await admin
+    .from("employees")
+    .insert({
+      company_id: safeString(departmentRow.company_id),
+      employee_number: employeeNumber,
+      first_name: firstName,
+      last_name: lastName,
+      email: input.email,
+      phone: input.phone ?? null,
+      employment_type: "Self Service",
+      department_id: safeString(departmentRow.id),
+      branch_id: safeString(departmentRow.branch_id),
+      status: "Active",
+      salary: 0,
+    })
+    .select("id, department_id, branch_id")
+    .single();
+
+  if (employeeError || !employeeRow) {
+    throw employeeError ?? new Error("signup_employee_create_failed");
+  }
+
+  const userUpsert = await admin.from("users").upsert({
+    id: createdUser.user.id,
+    company_id: safeString(departmentRow.company_id),
+    full_name: input.fullName,
+    email: input.email,
+    phone: input.phone ?? null,
+    role: "Employee",
+    employee_id: safeString(employeeRow.id),
+    branch_id: safeString(employeeRow.branch_id),
+    department_id: safeString(employeeRow.department_id),
+    status: "active",
+  });
+
+  if (userUpsert.error) {
+    throw userUpsert.error;
+  }
+
+  await admin.from("notifications").insert({
+    company_id: safeString(departmentRow.company_id),
+    user_id: createdUser.user.id,
+    title: "Welcome to Solva HR",
+    message: "Your employee self-service workspace is ready. Sign in to view your profile, leave, payslips, and documents.",
+    category: "welcome",
+    link_href: "/",
+    status: "unread",
+  });
+
+  return {
+    id: createdUser.user.id,
+    email: input.email,
+    role: "Employee",
+    employeeNumber,
+  };
+}
+
 export async function buildPageFromDatabase(module: ModuleSpec, item: string): Promise<PageSpec> {
   const base = getPage(module, item);
   const context = await getRequestContext();
@@ -2689,6 +2919,230 @@ export async function buildPageFromDatabase(module: ModuleSpec, item: string): P
           allowance: String(safeNumber(row.annual_allowance)),
           accrual: safeString(row.accrual_frequency),
           carryForward: String(safeNumber(row.carry_forward_limit)),
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Dashboard") {
+    const dashboard = await getEssDashboardSnapshot();
+    return {
+      ...base,
+      metrics: [
+        { label: "Payslips", value: String(dashboard.stats.payslips), hint: "Visible in self service" },
+        { label: "Annual leave balance", value: `${dashboard.stats.annualLeaveBalance} days`, hint: "Live balance from Supabase" },
+        { label: "My documents", value: String(dashboard.stats.documents), hint: "Private employee file access" },
+        { label: "Pending requests", value: String(dashboard.stats.pendingRequests), hint: "Approval tasks awaiting action", tone: dashboard.stats.pendingRequests ? "warning" : "positive" },
+        { label: "Unread notifications", value: String(dashboard.stats.unreadNotifications), hint: "Workflow and system alerts" },
+      ],
+      table: {
+        title: "My workspace snapshot",
+        description: "Your latest requests, notifications, and payroll visibility.",
+        columns: [
+          { key: "item", label: "Item" },
+          { key: "category", label: "Category" },
+          { key: "status", label: "Status" },
+          { key: "updated", label: "Updated" },
+        ],
+        rows: [
+          ...(dashboard.latestPayslip
+            ? [{
+                item: `${dashboard.latestPayslip.period} payslip`,
+                category: "Payroll",
+                status: dashboard.latestPayslip.netPay,
+                updated: dashboard.latestPayslip.period,
+              }]
+            : []),
+          ...dashboard.recentLeaveRequests.map((row) => ({
+            item: `${safeString(row.leave_type)} request`,
+            category: "Leave",
+            status: safeString(row.status),
+            updated: safeString(row.start_date),
+          })),
+          ...dashboard.recentNotifications.slice(0, 2).map((item) => ({
+            item: item.title,
+            category: "Notification",
+            status: item.status,
+            updated: item.createdAt,
+          })),
+        ],
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Profile") {
+    const profile = await getEssProfile();
+    return {
+      ...base,
+      metrics: [
+        { label: "Employee number", value: profile.employeeNumber, hint: profile.status },
+        { label: "Department", value: profile.department, hint: profile.branch },
+        { label: "Employment type", value: profile.employmentType, hint: `Supervisor: ${profile.supervisor}` },
+        { label: "Contact", value: profile.companyEmail, hint: profile.phoneNumber },
+      ],
+      table: {
+        title: "My profile",
+        description: "Live employee profile information linked to your ESS account.",
+        columns: [
+          { key: "section", label: "Section" },
+          { key: "field", label: "Field" },
+          { key: "value", label: "Value" },
+        ],
+        rows: profile.profileSections.flatMap((section) =>
+          section.items.map((item) => ({
+            section: section.title,
+            field: item.label,
+            value: item.value,
+          }))
+        ),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Payslips") {
+    const payslips = await listPayslips();
+    return {
+      ...base,
+      table: {
+        title: "My payslips",
+        description: "Your live payslip history from payroll runs you are permitted to view.",
+        columns: [
+          { key: "period", label: "Period" },
+          { key: "gross", label: "Gross Pay" },
+          { key: "net", label: "Net Pay" },
+          { key: "email", label: "Email" },
+        ],
+        rows: payslips.map((payslip) => ({
+          period: payslip.period,
+          gross: payslip.grossPay,
+          net: payslip.netPay,
+          email: payslip.email,
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Leave") {
+    const [requests, balances] = await Promise.all([listLeaveRequests(), listLeaveBalances()]);
+    return {
+      ...base,
+      metrics: [
+        { label: "Requests", value: String(requests.length), hint: "My leave applications" },
+        { label: "Annual balance", value: `${safeNumber((balances.find((row) => safeString((row as Record<string, unknown>).leave_type) === "Annual Leave") as Record<string, unknown> | undefined)?.balance_days)} days`, hint: "Current available days" },
+        { label: "Pending", value: String(requests.filter((row) => safeString(row.status) === "pending").length), hint: "Awaiting approval" },
+        { label: "Approved", value: String(requests.filter((row) => safeString(row.status) === "approved").length), hint: "Already cleared" },
+      ],
+      table: {
+        title: "My leave requests",
+        description: "Your live leave workflow and balances.",
+        columns: [
+          { key: "leaveType", label: "Leave Type" },
+          { key: "dates", label: "Dates" },
+          { key: "days", label: "Days" },
+          { key: "status", label: "Status" },
+        ],
+        rows: requests.map((row) => ({
+          leaveType: safeString(row.leave_type),
+          dates: `${safeString(row.start_date)} to ${safeString(row.end_date)}`,
+          days: String(safeNumber(row.days)),
+          status: safeString(row.status),
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Attendance") {
+    const attendance = await listAttendanceRecords();
+    return {
+      ...base,
+      table: {
+        title: "My attendance",
+        description: "Clocking, lateness, and overtime records visible in employee self service.",
+        columns: [
+          { key: "date", label: "Date" },
+          { key: "status", label: "Status" },
+          { key: "clockIn", label: "Clock In" },
+          { key: "clockOut", label: "Clock Out" },
+          { key: "overtime", label: "Overtime" },
+        ],
+        rows: attendance.map((row) => ({
+          date: safeString((row as Record<string, unknown>).work_date),
+          status: safeString((row as Record<string, unknown>).status),
+          clockIn: safeString((row as Record<string, unknown>).clock_in_at, "-"),
+          clockOut: safeString((row as Record<string, unknown>).clock_out_at, "-"),
+          overtime: `${safeNumber((row as Record<string, unknown>).overtime_hours).toFixed(2)} hrs`,
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Documents") {
+    const contextForDocuments = await getRequestContext();
+    const documents = contextForDocuments.profile.employee_id
+      ? await listEmployeeDocuments(contextForDocuments.profile.employee_id)
+      : [];
+    return {
+      ...base,
+      table: {
+        title: "My documents",
+        description: "Private employee documents stored in Supabase Storage.",
+        columns: [
+          { key: "name", label: "File" },
+          { key: "category", label: "Category" },
+          { key: "uploaded", label: "Uploaded" },
+          { key: "type", label: "Type" },
+        ],
+        rows: documents.map((document) => ({
+          name: document.fileName,
+          category: document.category,
+          uploaded: document.uploadedAt,
+          type: document.mimeType || "-",
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Requests") {
+    const requests = await listMyApprovalRequests();
+    return {
+      ...base,
+      table: {
+        title: "My submitted requests",
+        description: "Approval-driven requests initiated from ESS and other self-service actions.",
+        columns: [
+          { key: "title", label: "Request" },
+          { key: "module", label: "Module" },
+          { key: "status", label: "Status" },
+          { key: "owner", label: "Current Owner" },
+        ],
+        rows: requests.map((request) => ({
+          title: request.title,
+          module: request.moduleKey,
+          status: request.status,
+          owner: request.ownerRole,
+        })),
+      },
+    };
+  }
+
+  if (module.key === "ess" && item === "My Notifications") {
+    const notifications = await listMyNotifications();
+    return {
+      ...base,
+      table: {
+        title: "My notifications",
+        description: "Workflow, payroll, and profile messages delivered to your self-service inbox.",
+        columns: [
+          { key: "title", label: "Title" },
+          { key: "category", label: "Category" },
+          { key: "status", label: "Status" },
+          { key: "created", label: "Created" },
+        ],
+        rows: notifications.map((item) => ({
+          title: item.title,
+          category: item.category,
+          status: item.status,
+          created: item.createdAt,
         })),
       },
     };

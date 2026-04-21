@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AuthShell } from "@/components/auth-shell";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function ResetPasswordPage() {
@@ -41,13 +42,19 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="auth-screen">
+    <AuthShell
+      eyebrow="Password Recovery"
+      title="Set a new password"
+      description="Finish the recovery flow and securely return to your Solva HR account."
+    >
       <section className="auth-card">
-        <p className="section-eyebrow">Solva HR</p>
-        <h1>Reset password</h1>
-        <p className="section-description">
-          Finish the recovery flow and set a new password for your Solva HR account.
-        </p>
+        <div className="auth-card-header">
+          <p className="section-eyebrow">Reset password</p>
+          <h2>Choose a new password</h2>
+          <p className="section-description">
+            Finish the recovery flow and set a new password for your Solva HR account.
+          </p>
+        </div>
         <form className="action-form" onSubmit={handleSubmit}>
           <label>
             <span>New password</span>
@@ -78,6 +85,6 @@ export default function ResetPasswordPage() {
         </div>
         {message ? <div className="task-banner">{message}</div> : null}
       </section>
-    </main>
+    </AuthShell>
   );
 }

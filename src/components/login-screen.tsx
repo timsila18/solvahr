@@ -42,11 +42,13 @@ export function LoginScreen() {
 
   return (
     <section className="auth-card">
-      <p className="section-eyebrow">Solva HR</p>
-      <h1>Sign in</h1>
-      <p className="section-description">
-        Secure access for HR, payroll, finance, recruitment, managers, and employees.
-      </p>
+      <div className="auth-card-header">
+        <p className="section-eyebrow">Welcome back</p>
+        <h2>Sign in to Solva HR</h2>
+        <p className="section-description">
+          Secure access for HR, payroll, finance, recruitment, managers, supervisors, and employees.
+        </p>
+      </div>
       <form className="action-form" onSubmit={handleSubmit}>
         <label>
           <span>Email</span>
@@ -76,7 +78,13 @@ export function LoginScreen() {
       </form>
       <div className="auth-links">
         <Link href="/forgot-password">Forgot password?</Link>
-        <span>Two-factor authentication placeholder is ready for the next auth slice.</span>
+        <Link href="/signup">Create ESS account</Link>
+      </div>
+      <div className="auth-role-strip">
+        <span>Super Admin</span>
+        <span>HR Admin</span>
+        <span>Payroll Admin</span>
+        <span>Employee</span>
       </div>
       {message ? <div className="task-banner">{message}</div> : null}
     </section>

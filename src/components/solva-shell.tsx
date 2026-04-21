@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { fetchPage, fetchPlatformSnapshot } from "@/lib/solva-api";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  createEmployeeActivationRequest,
+  createPayrollApprovalRequest,
+  fetchApprovalTasks,
+  fetchPage,
+  fetchPlatformSnapshot,
+  updateApprovalTask,
+} from "@/lib/solva-api";
 import {
   getPage,
   loginProfiles,
   modules,
+  type ApprovalTask,
   type Metric,
   type ModuleSpec,
   type PageSpec,
@@ -266,10 +274,189 @@ function ControlCenter({
   );
 }
 
+function ApprovalWorkbench({
+  moduleKey,
+  activeItem,
+  selectedRole,
+  tasks,
+  onApprove,
+  onReject,
+  onCreateEmployee,
+  onCreatePayroll,
+  busyId,
+  taskMessage,
+}: {
+  moduleKey: string;
+  activeItem: string;
+  selectedRole: (typeof loginProfiles)[number];
+  tasks: ApprovalTask[];
+  onApprove: (taskId: string) => void;
+  onReject: (taskId: string) => void;
+  onCreateEmployee: (event: FormEvent<HTMLFormElement>) => void;
+  onCreatePayroll: (event: FormEvent<HTMLFormElement>) => void;
+  busyId: string | null;
+  taskMessage: string;
+}) {
+  const visibleTasks = tasks.slice(0, 6);
+  const canPrepareEmployee = ["Operator", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canPreparePayroll = ["Payroll Admin", "Super Admin"].includes(selectedRole.role);
+
+  return (
+    <section className="surface-card action-workbench">
+      <div className="section-heading">
+        <div>
+          <p className="section-eyebrow">Workflow Demo</p>
+          <h3>Interactive approvals</h3>
+        </div>
+        <TonePill tone="warning">role aware</TonePill>
+      </div>
+      <p className="section-description">
+        Prepare requests from People and Payroll, then switch roles to approve them in the queue below.
+      </p>
+
+      {taskMessage ? <div className="task-banner">{taskMessage}</div> : null}
+
+      <div className="workbench-grid">
+        <section className="mini-panel">
+          <h4>Approval Queue</h4>
+          <div className="mini-list queue-list">
+            {visibleTasks.map((task) => {
+              const canAct =
+                task.status === "pending" &&
+                (task.ownerRole === selectedRole.role || selectedRole.role === "Super Admin");
+
+              return (
+                <article key={task.id}>
+                  <strong>{task.title}</strong>
+                  <span>
+                    {task.stage} | Owner: {task.ownerRole}
+                  </span>
+                  <small>
+                    {task.description} | Updated {task.updatedAt}
+                  </small>
+                  <div className="queue-actions">
+                    <TonePill
+                      tone={
+                        task.status === "approved"
+                          ? "positive"
+                          : task.status === "rejected"
+                            ? "critical"
+                            : "warning"
+                      }
+                    >
+                      {task.status}
+                    </TonePill>
+                    {canAct ? (
+                      <div className="inline-actions">
+                        <button
+                          className="primary-button"
+                          disabled={busyId === task.id}
+                          onClick={() => onApprove(task.id)}
+                          type="button"
+                        >
+                          {busyId === task.id ? "Working..." : "Approve"}
+                        </button>
+                        <button
+                          className="ghost-button"
+                          disabled={busyId === task.id}
+                          onClick={() => onReject(task.id)}
+                          type="button"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mini-panel">
+          <h4>Request Studio</h4>
+          {moduleKey === "people" && activeItem === "Employee Directory" ? (
+            canPrepareEmployee ? (
+              <form className="action-form" onSubmit={onCreateEmployee}>
+                <label>
+                  <span>Employee name</span>
+                  <input name="employeeName" placeholder="e.g. Lucy Atieno" required />
+                </label>
+                <label>
+                  <span>Department</span>
+                  <input name="department" placeholder="People Operations" required />
+                </label>
+                <label>
+                  <span>Branch</span>
+                  <input name="branch" placeholder="Nairobi HQ" required />
+                </label>
+                <label>
+                  <span>Employment type</span>
+                  <input name="employmentType" placeholder="Permanent" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Submit for supervisor approval
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Operator, HR Admin, or Super Admin to prepare employee activation requests.
+              </p>
+            )
+          ) : null}
+
+          {moduleKey === "payroll" &&
+          (activeItem === "Payroll Dashboard" || activeItem === "Review & Approval") ? (
+            canPreparePayroll ? (
+              <form className="action-form" onSubmit={onCreatePayroll}>
+                <label>
+                  <span>Payroll period</span>
+                  <input defaultValue="Apr 2026" name="period" required />
+                </label>
+                <label>
+                  <span>Gross pay</span>
+                  <input defaultValue="KES 18.45M" name="grossPay" required />
+                </label>
+                <label>
+                  <span>Net pay</span>
+                  <input defaultValue="KES 13.94M" name="netPay" required />
+                </label>
+                <label>
+                  <span>Employee count</span>
+                  <input defaultValue="1044" name="employeeCount" required />
+                </label>
+                <button className="primary-button" type="submit">
+                  Send to finance review
+                </button>
+              </form>
+            ) : (
+              <p className="section-description">
+                Switch to Payroll Admin or Super Admin to create payroll approval requests.
+              </p>
+            )
+          ) : null}
+
+          {moduleKey !== "people" &&
+          moduleKey !== "payroll" &&
+          activeItem !== "Employee Directory" &&
+          activeItem !== "Payroll Dashboard" &&
+          activeItem !== "Review & Approval" ? (
+            <p className="section-description">
+              This demo workbench is currently wired for People activation and Payroll approval. The same pattern will
+              extend into leave, recruitment, training, and assets.
+            </p>
+          ) : null}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 export function SolvaShell() {
   const fallbackModules = modules;
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [snapshot, setSnapshot] = useState<PlatformSnapshot | null>(null);
+  const [tasks, setTasks] = useState<ApprovalTask[]>([]);
   const [dataMode, setDataMode] = useState<"loading" | "live" | "fallback">("loading");
   const [moduleKey, setModuleKey] = useState(fallbackModules[0]?.key ?? "dashboard");
   const [search, setSearch] = useState("");
@@ -281,34 +468,27 @@ export function SolvaShell() {
     getPage(fallbackModules[0], fallbackModules[0]?.items[0] ?? "")
   );
   const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [taskMessage, setTaskMessage] = useState("");
+
+  const refreshRuntime = async () => {
+    try {
+      const [platformPayload, taskPayload] = await Promise.all([
+        fetchPlatformSnapshot(),
+        fetchApprovalTasks(),
+      ]);
+      setSnapshot(platformPayload);
+      setTasks(taskPayload.tasks);
+      setDataMode("live");
+    } catch {
+      setSnapshot(null);
+      setTasks([]);
+      setDataMode("fallback");
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadSnapshot() {
-      try {
-        const payload = await fetchPlatformSnapshot();
-        if (!mounted) {
-          return;
-        }
-
-        setSnapshot(payload);
-        setDataMode("live");
-      } catch {
-        if (!mounted) {
-          return;
-        }
-
-        setSnapshot(null);
-        setDataMode("fallback");
-      }
-    }
-
-    loadSnapshot();
-
-    return () => {
-      mounted = false;
-    };
+    void refreshRuntime();
   }, []);
 
   const liveModules = snapshot?.modules ?? fallbackModules;
@@ -363,7 +543,7 @@ export function SolvaShell() {
       }
     }
 
-    loadPage();
+    void loadPage();
 
     return () => {
       mounted = false;
@@ -375,6 +555,68 @@ export function SolvaShell() {
       ...current,
       [activeModule.key]: item,
     }));
+  }
+
+  async function handleTaskAction(taskId: string, action: "approve" | "reject") {
+    setBusyId(taskId);
+    setTaskMessage("");
+
+    try {
+      await updateApprovalTask(taskId, {
+        action,
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage(`Task ${action}d successfully as ${selectedRole.role}.`);
+    } catch {
+      setTaskMessage(`That action is not available for ${selectedRole.role} right now.`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleEmployeeRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createEmployeeActivationRequest({
+        employeeName: String(form.get("employeeName") ?? ""),
+        department: String(form.get("department") ?? ""),
+        branch: String(form.get("branch") ?? ""),
+        employmentType: String(form.get("employmentType") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      event.currentTarget.reset();
+      setTaskMessage("Employee activation request submitted for supervisor review.");
+    } catch {
+      setTaskMessage("Could not submit the employee request just now.");
+    }
+  }
+
+  async function handlePayrollRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setTaskMessage("");
+
+    try {
+      await createPayrollApprovalRequest({
+        period: String(form.get("period") ?? ""),
+        grossPay: String(form.get("grossPay") ?? ""),
+        netPay: String(form.get("netPay") ?? ""),
+        employeeCount: String(form.get("employeeCount") ?? ""),
+        actorEmail: selectedRole.email,
+        actorRole: selectedRole.role,
+      });
+      await refreshRuntime();
+      setTaskMessage("Payroll package submitted into finance approval.");
+    } catch {
+      setTaskMessage("Could not submit the payroll approval request just now.");
+    }
   }
 
   return (
@@ -447,7 +689,7 @@ export function SolvaShell() {
               />
             </label>
             <button className="icon-button" type="button">
-              7
+              {tasks.filter((task) => task.status === "pending").length || 7}
             </button>
             <button
               className="icon-button"
@@ -558,6 +800,19 @@ export function SolvaShell() {
               </div>
 
               <ControlCenter selectedRole={selectedRole} snapshot={snapshot} />
+
+              <ApprovalWorkbench
+                activeItem={activeItem}
+                busyId={busyId}
+                moduleKey={activeModule.key}
+                onApprove={(taskId) => void handleTaskAction(taskId, "approve")}
+                onCreateEmployee={(event) => void handleEmployeeRequest(event)}
+                onCreatePayroll={(event) => void handlePayrollRequest(event)}
+                onReject={(taskId) => void handleTaskAction(taskId, "reject")}
+                selectedRole={selectedRole}
+                taskMessage={taskMessage}
+                tasks={tasks}
+              />
 
               <DataTable
                 columns={pageState.table.columns}

@@ -1,4 +1,4 @@
-import type { ModuleSpec, PageSpec, PlatformSnapshot } from "@/lib/solva-data";
+import type { ApprovalTask, ModuleSpec, PageSpec, PlatformSnapshot } from "@/lib/solva-data";
 
 async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
@@ -21,5 +21,56 @@ export function fetchModule(moduleKey: string) {
 export function fetchPage(moduleKey: string, pageKey: string) {
   return readJson<PageSpec>(`/api/modules/${moduleKey}/pages/${pageKey}`, {
     cache: "no-store",
+  });
+}
+
+export function fetchApprovalTasks() {
+  return readJson<{ tasks: ApprovalTask[] }>("/api/approval-tasks", { cache: "no-store" });
+}
+
+export function createEmployeeActivationRequest(input: {
+  employeeName: string;
+  department: string;
+  branch: string;
+  employmentType: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "employee_activation",
+      ...input,
+    }),
+  });
+}
+
+export function createPayrollApprovalRequest(input: {
+  period: string;
+  grossPay: string;
+  netPay: string;
+  employeeCount: string;
+  actorEmail: string;
+  actorRole: string;
+}) {
+  return readJson<ApprovalTask>("/api/approval-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind: "payroll_approval",
+      ...input,
+    }),
+  });
+}
+
+export function updateApprovalTask(
+  taskId: string,
+  input: { action: "approve" | "reject"; actorEmail: string; actorRole: string }
+) {
+  return readJson<ApprovalTask>(`/api/approval-tasks/${taskId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
   });
 }

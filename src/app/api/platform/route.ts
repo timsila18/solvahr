@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPlatformSnapshot } from "@/lib/solva-data";
+import { getPlatformSnapshot } from "@/lib/mock-platform-store";
 
 export async function GET() {
   return NextResponse.json(getPlatformSnapshot());

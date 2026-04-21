@@ -55,6 +55,21 @@ export type ModuleSpec = {
   chartData: ChartDatum[];
 };
 
+export type ApprovalTask = {
+  id: string;
+  kind: "employee_activation" | "payroll_approval";
+  moduleKey: string;
+  title: string;
+  description: string;
+  ownerRole: string;
+  requestedBy: string;
+  requestedByRole: string;
+  status: "pending" | "approved" | "rejected";
+  stage: string;
+  due: string;
+  updatedAt: string;
+};
+
 export type PlatformSnapshot = {
   generatedAt: string;
   loginProfiles: typeof loginProfiles;
@@ -69,6 +84,8 @@ export type PlatformSnapshot = {
 
 export const loginProfiles = [
   { role: "Super Admin", email: "superadmin@solvahr.app" },
+  { role: "Operator", email: "operator@solvahr.app" },
+  { role: "Supervisor", email: "supervisor@solvahr.app" },
   { role: "HR Admin", email: "hradmin@solvahr.app" },
   { role: "Payroll Admin", email: "payrolladmin@solvahr.app" },
   { role: "Manager", email: "manager@solvahr.app" },

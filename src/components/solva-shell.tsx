@@ -9,6 +9,7 @@ import {
   createProfileUpdateRequest,
   createRequisitionApprovalRequest,
   createTrainingRequest,
+  fetchAuditLogs,
   fetchApprovalTasks,
   fetchPage,
   fetchPlatformSnapshot,
@@ -19,6 +20,7 @@ import {
   loginProfiles,
   modules,
   type ApprovalTask,
+  type AuditEvent,
   type Metric,
   type ModuleSpec,
   type PageSpec,
@@ -274,6 +276,33 @@ function ControlCenter({
             ))}
           </div>
         </section>
+      </div>
+    </section>
+  );
+}
+
+function AuditStream({ events }: { events: AuditEvent[] }) {
+  return (
+    <section className="surface-card action-workbench">
+      <div className="section-heading">
+        <div>
+          <p className="section-eyebrow">Audit Stream</p>
+          <h3>Recent system activity</h3>
+        </div>
+        <TonePill tone="critical">accountability</TonePill>
+      </div>
+      <div className="mini-list queue-list">
+        {events.slice(0, 8).map((event) => (
+          <article key={event.id}>
+            <strong>{event.subject}</strong>
+            <span>
+              {event.actorRole} | {event.actorEmail}
+            </span>
+            <small>
+              {event.action} | {event.outcome} | {event.timestamp}
+            </small>
+          </article>
+        ))}
       </div>
     </section>
   );
@@ -640,22 +669,26 @@ export function SolvaShell() {
   const [pageState, setPageState] = useState<PageSpec>(() =>
     getPage(fallbackModules[0], fallbackModules[0]?.items[0] ?? "")
   );
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [taskMessage, setTaskMessage] = useState("");
 
   const refreshRuntime = async () => {
     try {
-      const [platformPayload, taskPayload] = await Promise.all([
+      const [platformPayload, taskPayload, auditPayload] = await Promise.all([
         fetchPlatformSnapshot(),
         fetchApprovalTasks(),
+        fetchAuditLogs(),
       ]);
       setSnapshot(platformPayload);
       setTasks(taskPayload.tasks);
+      setAuditEvents(auditPayload.events);
       setDataMode("live");
     } catch {
       setSnapshot(null);
       setTasks([]);
+      setAuditEvents([]);
       setDataMode("fallback");
     }
   };
@@ -1077,6 +1110,8 @@ export function SolvaShell() {
               </div>
 
               <ControlCenter selectedRole={selectedRole} snapshot={snapshot} />
+
+              {activeModule.key === "audit" ? <AuditStream events={auditEvents} /> : null}
 
               <ApprovalWorkbench
                 activeItem={activeItem}

@@ -1,4 +1,10 @@
-import type { ApprovalTask, ModuleSpec, PageSpec, PlatformSnapshot } from "@/lib/solva-data";
+import type {
+  ApprovalTask,
+  AuditEvent,
+  ModuleSpec,
+  PageSpec,
+  PlatformSnapshot,
+} from "@/lib/solva-data";
 
 async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
@@ -162,4 +168,8 @@ export function updateApprovalTask(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export function fetchAuditLogs() {
+  return readJson<{ events: AuditEvent[] }>("/api/audit-logs", { cache: "no-store" });
 }

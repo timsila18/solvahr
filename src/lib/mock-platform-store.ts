@@ -1,4 +1,9 @@
-import { getPlatformSnapshot as getStaticSnapshot, type ApprovalTask, type PlatformSnapshot } from "@/lib/solva-data";
+import {
+  getPlatformSnapshot as getStaticSnapshot,
+  type ApprovalTask,
+  type AuditEvent,
+  type PlatformSnapshot,
+} from "@/lib/solva-data";
 
 type EmployeeActivationPayload = {
   employeeName: string;
@@ -163,8 +168,54 @@ const approvalTasks: ApprovalTask[] = [
   },
 ];
 
+const auditEvents: AuditEvent[] = [
+  {
+    id: "audit-001",
+    moduleKey: "payroll",
+    category: "approval",
+    action: "submitted_payroll_package",
+    actorEmail: "payrolladmin@solvahr.app",
+    actorRole: "Payroll Admin",
+    subject: "Apr 2026 payroll package",
+    outcome: "sent to Finance Officer",
+    timestamp: "2026-04-21 09:05",
+  },
+  {
+    id: "audit-002",
+    moduleKey: "people",
+    category: "employee",
+    action: "submitted_employee_activation",
+    actorEmail: "operator@solvahr.app",
+    actorRole: "Operator",
+    subject: "Mercy Njeri",
+    outcome: "awaiting Supervisor review",
+    timestamp: "2026-04-21 08:40",
+  },
+  {
+    id: "audit-003",
+    moduleKey: "audit",
+    category: "access",
+    action: "login_success",
+    actorEmail: "superadmin@solvahr.app",
+    actorRole: "Super Admin",
+    subject: "Solva HR admin session",
+    outcome: "granted",
+    timestamp: "2026-04-21 08:10",
+  },
+];
+
 function nowLabel() {
   return "2026-04-21 09:30";
+}
+
+function logAuditEvent(input: Omit<AuditEvent, "id">) {
+  const event: AuditEvent = {
+    id: `audit-${String(auditEvents.length + 1).padStart(3, "0")}`,
+    ...input,
+  };
+
+  auditEvents.unshift(event);
+  return event;
 }
 
 function taskDue(
@@ -199,6 +250,10 @@ function taskDue(
 
 export function listApprovalTasks() {
   return [...approvalTasks].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export function listAuditEvents() {
+  return [...auditEvents].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
 }
 
 export function getPlatformSnapshot(): PlatformSnapshot {
@@ -239,6 +294,16 @@ export function createEmployeeActivationRequest(payload: EmployeeActivationPaylo
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "people",
+    category: "employee",
+    action: "submitted_employee_activation",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.employeeName,
+    outcome: "awaiting Supervisor review",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -259,6 +324,16 @@ export function createPayrollApprovalRequest(payload: PayrollApprovalPayload) {
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "payroll",
+    category: "approval",
+    action: "submitted_payroll_package",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.period,
+    outcome: "sent to Finance Officer",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -279,6 +354,16 @@ export function createLeaveRequest(payload: LeaveRequestPayload) {
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "leave",
+    category: "leave",
+    action: "submitted_leave_request",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: `${payload.employeeName} ${payload.leaveType}`,
+    outcome: "awaiting Supervisor review",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -299,6 +384,16 @@ export function createRequisitionApprovalRequest(payload: RequisitionApprovalPay
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "recruitment",
+    category: "recruitment",
+    action: "submitted_requisition",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.roleTitle,
+    outcome: "sent to Finance Officer",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -319,6 +414,16 @@ export function createProfileUpdateRequest(payload: ProfileUpdatePayload) {
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "ess",
+    category: "profile",
+    action: "submitted_profile_update",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.employeeName,
+    outcome: "awaiting HR validation",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -339,6 +444,16 @@ export function createTrainingRequest(payload: TrainingRequestPayload) {
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "training",
+    category: "training",
+    action: "submitted_training_request",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.programName,
+    outcome: "awaiting HR training review",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -359,6 +474,16 @@ export function createAssetRequest(payload: AssetRequestPayload) {
   };
 
   approvalTasks.unshift(task);
+  logAuditEvent({
+    moduleKey: "assets",
+    category: "assets",
+    action: "submitted_asset_request",
+    actorEmail: payload.actorEmail,
+    actorRole: payload.actorRole,
+    subject: payload.assetName,
+    outcome: "awaiting HR approval",
+    timestamp: task.updatedAt,
+  });
   return task;
 }
 
@@ -383,6 +508,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = task.requestedByRole;
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Rejected by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: task.moduleKey,
+      category: "approval",
+      action: "rejected_request",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: `returned to ${task.requestedByRole}`,
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -392,6 +527,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Approved by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "people",
+      category: "approval",
+      action: "approved_employee_activation",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "employee activated",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -401,6 +546,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Approved by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "leave",
+      category: "approval",
+      action: "approved_leave_request",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "leave approved",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -409,6 +564,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "HR Admin";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Budget reviewed by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "recruitment",
+      category: "approval",
+      action: "finance_reviewed_requisition",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "sent to HR Admin",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -418,6 +583,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Released by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "recruitment",
+      category: "approval",
+      action: "approved_requisition",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "vacancy ready",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -427,6 +602,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Validated by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "ess",
+      category: "approval",
+      action: "approved_profile_update",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "profile updated",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -436,6 +621,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Approved by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "training",
+      category: "approval",
+      action: "approved_training_request",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "training approved",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -445,6 +640,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Completed";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Approved by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "assets",
+      category: "approval",
+      action: "approved_asset_request",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "asset released",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -453,6 +658,16 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
     task.ownerRole = "Super Admin";
     task.updatedAt = nowLabel();
     task.description = `${task.description} | Finance reviewed by ${actorEmail}`;
+    logAuditEvent({
+      moduleKey: "payroll",
+      category: "approval",
+      action: "finance_reviewed_payroll",
+      actorEmail,
+      actorRole,
+      subject: task.title,
+      outcome: "sent to Super Admin",
+      timestamp: task.updatedAt,
+    });
     return task;
   }
 
@@ -461,5 +676,15 @@ export function updateApprovalTask(taskId: string, action: "approve" | "reject",
   task.ownerRole = "Completed";
   task.updatedAt = nowLabel();
   task.description = `${task.description} | Final approval by ${actorEmail}`;
+  logAuditEvent({
+    moduleKey: "payroll",
+    category: "approval",
+    action: "approved_payroll",
+    actorEmail,
+    actorRole,
+    subject: task.title,
+    outcome: "payroll approved",
+    timestamp: task.updatedAt,
+  });
   return task;
 }

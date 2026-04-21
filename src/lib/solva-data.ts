@@ -77,6 +77,18 @@ export type ApprovalTask = {
   updatedAt: string;
 };
 
+export type AuditEvent = {
+  id: string;
+  moduleKey: string;
+  category: string;
+  action: string;
+  actorEmail: string;
+  actorRole: string;
+  subject: string;
+  outcome: string;
+  timestamp: string;
+};
+
 export type PlatformSnapshot = {
   generatedAt: string;
   loginProfiles: typeof loginProfiles;

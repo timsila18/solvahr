@@ -1,7 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { getPage, loginProfiles, modules, type Metric, type ModuleSpec, type ThemeMode } from "@/lib/solva-data";
+import { useEffect, useMemo, useState } from "react";
+import { fetchPage, fetchPlatformSnapshot } from "@/lib/solva-api";
+import {
+  getPage,
+  loginProfiles,
+  modules,
+  type Metric,
+  type ModuleSpec,
+  type PageSpec,
+  type PlatformSnapshot,
+  type ThemeMode,
+} from "@/lib/solva-data";
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
 
 function SolvaLogo() {
   return (
@@ -12,7 +26,13 @@ function SolvaLogo() {
   );
 }
 
-function TonePill({ tone = "default", children }: { tone?: Metric["tone"] | "live"; children: React.ReactNode }) {
+function TonePill({
+  tone = "default",
+  children,
+}: {
+  tone?: Metric["tone"] | "live";
+  children: React.ReactNode;
+}) {
   return <span className={`tone-pill tone-${tone}`}>{children}</span>;
 }
 
@@ -32,7 +52,7 @@ function ChartCard({
           <p className="section-eyebrow">Visual Summary</p>
           <h3>{title}</h3>
         </div>
-        <TonePill tone="live">Live style</TonePill>
+        <TonePill tone="live">demo api</TonePill>
       </div>
       <div className="chart-stack">
         {data.map((entry) => (
@@ -70,9 +90,15 @@ function DataTable({
           <h3>{title}</h3>
         </div>
         <div className="inline-actions">
-          <button className="ghost-button">Filters</button>
-          <button className="ghost-button">Export CSV</button>
-          <button className="ghost-button">Bulk actions</button>
+          <button className="ghost-button" type="button">
+            Filters
+          </button>
+          <button className="ghost-button" type="button">
+            Export CSV
+          </button>
+          <button className="ghost-button" type="button">
+            Bulk actions
+          </button>
         </div>
       </div>
       <p className="section-description">{description}</p>
@@ -133,7 +159,7 @@ function HeroModule({
           <p>{module.summary}</p>
           <div className="hero-actions">
             {module.quickActions.slice(0, 4).map((action, index) => (
-              <button className={index === 0 ? "primary-button" : "ghost-button"} key={action}>
+              <button className={index === 0 ? "primary-button" : "ghost-button"} key={action} type="button">
                 {action}
               </button>
             ))}
@@ -186,32 +212,163 @@ function HeroModule({
   );
 }
 
-export function SolvaShell() {
-  const [theme, setTheme] = useState<ThemeMode>("light");
-  const [moduleKey, setModuleKey] = useState(modules[0]?.key ?? "dashboard");
-  const [search, setSearch] = useState("");
-  const [activeItems, setActiveItems] = useState<Record<string, string>>(
-    Object.fromEntries(modules.map((module) => [module.key, module.items[0] ?? ""]))
+function ControlCenter({
+  snapshot,
+  selectedRole,
+}: {
+  snapshot: PlatformSnapshot | null;
+  selectedRole: (typeof loginProfiles)[number];
+}) {
+  const featured = snapshot?.featured;
+
+  return (
+    <section className="surface-card control-center">
+      <div className="section-heading">
+        <div>
+          <p className="section-eyebrow">Control Center</p>
+          <h3>{featured?.title ?? "Solva HR Operating Snapshot"}</h3>
+        </div>
+        <TonePill tone="positive">{selectedRole.role}</TonePill>
+      </div>
+      <p className="section-description">
+        {featured?.summary ??
+          "A clean operations rail for approvals, announcements, and the current decision owner."}
+      </p>
+      <div className="control-grid">
+        <section className="mini-panel">
+          <h4>Pending Approvals</h4>
+          <div className="mini-list">
+            {(featured?.approvals ?? []).map((entry) => (
+              <article key={entry.item}>
+                <strong>{entry.item}</strong>
+                <span>{entry.owner}</span>
+                <small>
+                  {entry.status} | {entry.due}
+                </small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="mini-panel">
+          <h4>Announcements</h4>
+          <div className="mini-list">
+            {(featured?.announcements ?? []).map((entry) => (
+              <article key={entry.title}>
+                <strong>{entry.title}</strong>
+                <span>{entry.audience}</span>
+                <small>{entry.time}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
   );
+}
+
+export function SolvaShell() {
+  const fallbackModules = modules;
+  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [snapshot, setSnapshot] = useState<PlatformSnapshot | null>(null);
+  const [dataMode, setDataMode] = useState<"loading" | "live" | "fallback">("loading");
+  const [moduleKey, setModuleKey] = useState(fallbackModules[0]?.key ?? "dashboard");
+  const [search, setSearch] = useState("");
+  const [selectedRoleEmail, setSelectedRoleEmail] = useState(loginProfiles[0]?.email ?? "");
+  const [activeItems, setActiveItems] = useState<Record<string, string>>(
+    Object.fromEntries(fallbackModules.map((module) => [module.key, module.items[0] ?? ""]))
+  );
+  const [pageState, setPageState] = useState<PageSpec>(() =>
+    getPage(fallbackModules[0], fallbackModules[0]?.items[0] ?? "")
+  );
+  const [pageStatus, setPageStatus] = useState<"loading" | "live" | "fallback">("loading");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSnapshot() {
+      try {
+        const payload = await fetchPlatformSnapshot();
+        if (!mounted) {
+          return;
+        }
+
+        setSnapshot(payload);
+        setDataMode("live");
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        setSnapshot(null);
+        setDataMode("fallback");
+      }
+    }
+
+    loadSnapshot();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const liveModules = snapshot?.modules ?? fallbackModules;
 
   const activeModule = useMemo(
-    () => modules.find((module) => module.key === moduleKey) ?? modules[0],
-    [moduleKey]
+    () => liveModules.find((module) => module.key === moduleKey) ?? liveModules[0],
+    [liveModules, moduleKey]
   );
+
+  const selectedRole =
+    snapshot?.loginProfiles.find((profile) => profile.email === selectedRoleEmail) ??
+    loginProfiles.find((profile) => profile.email === selectedRoleEmail) ??
+    loginProfiles[0];
 
   const filteredModules = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) {
-      return modules;
+      return liveModules;
     }
 
-    return modules.filter((module) =>
+    return liveModules.filter((module) =>
       `${module.title} ${module.summary} ${module.items.join(" ")}`.toLowerCase().includes(query)
     );
-  }, [search]);
+  }, [liveModules, search]);
 
   const activeItem = activeItems[activeModule.key] ?? activeModule.items[0] ?? "";
-  const page = getPage(activeModule, activeItem);
+
+  useEffect(() => {
+    if (!activeModule || !activeItem) {
+      return;
+    }
+
+    let mounted = true;
+    setPageStatus("loading");
+
+    async function loadPage() {
+      try {
+        const payload = await fetchPage(activeModule.key, slugify(activeItem));
+        if (!mounted) {
+          return;
+        }
+
+        setPageState(payload);
+        setPageStatus("live");
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        setPageState(getPage(activeModule, activeItem));
+        setPageStatus("fallback");
+      }
+    }
+
+    loadPage();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeItem, activeModule]);
 
   function openItem(item: string) {
     setActiveItems((current) => ({
@@ -234,7 +391,7 @@ export function SolvaShell() {
         <div className="tenant-card">
           <span className="tenant-label">Current Workspace</span>
           <strong>Solva Demo Manufacturing</strong>
-          <small>Nairobi HQ • Multi-branch • Kenya payroll</small>
+          <small>Nairobi HQ | Multi-branch | Kenya payroll</small>
         </div>
 
         <nav className="primary-nav">
@@ -257,11 +414,16 @@ export function SolvaShell() {
         <div className="sidebar-footer">
           <p className="section-eyebrow">Demo Logins</p>
           <div className="login-grid">
-            {loginProfiles.map((profile) => (
-              <article key={profile.email}>
+            {(snapshot?.loginProfiles ?? loginProfiles).map((profile) => (
+              <button
+                className={`login-card ${profile.email === selectedRole.email ? "is-active" : ""}`}
+                key={profile.email}
+                onClick={() => setSelectedRoleEmail(profile.email)}
+                type="button"
+              >
                 <strong>{profile.role}</strong>
                 <span>{profile.email}</span>
-              </article>
+              </button>
             ))}
           </div>
         </div>
@@ -287,12 +449,16 @@ export function SolvaShell() {
             <button className="icon-button" type="button">
               7
             </button>
-            <button className="icon-button" onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))} type="button">
+            <button
+              className="icon-button"
+              onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+              type="button"
+            >
               {theme === "light" ? "Dark" : "Light"}
             </button>
             <button className="profile-chip" type="button">
-              <span>SA</span>
-              <strong>Super Admin</strong>
+              <span>{selectedRole.role.slice(0, 2).toUpperCase()}</span>
+              <strong>{selectedRole.role}</strong>
             </button>
           </div>
         </header>
@@ -325,28 +491,35 @@ export function SolvaShell() {
               <div className="section-heading">
                 <div>
                   <p className="section-eyebrow">Active Workspace</p>
-                  <h3>{page.title}</h3>
+                  <h3>{pageState.title}</h3>
                 </div>
                 <div className="inline-actions">
-                  {page.quickActions.slice(0, 4).map((action, index) => (
-                    <button className={index === 0 ? "primary-button" : "ghost-button"} key={action}>
+                  {pageState.quickActions.slice(0, 4).map((action, index) => (
+                    <button className={index === 0 ? "primary-button" : "ghost-button"} key={action} type="button">
                       {action}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <p className="section-description">{page.description}</p>
+              <p className="section-description">{pageState.description}</p>
 
               <div className="status-row">
-                <TonePill tone="positive">Prototype ready</TonePill>
+                <TonePill tone={dataMode === "live" ? "positive" : dataMode === "loading" ? "warning" : "critical"}>
+                  {dataMode === "live" ? "api connected" : dataMode === "loading" ? "loading" : "fallback data"}
+                </TonePill>
+                <TonePill tone={pageStatus === "live" ? "positive" : pageStatus === "loading" ? "warning" : "critical"}>
+                  {pageStatus === "live" ? "workspace live" : pageStatus === "loading" ? "loading page" : "workspace fallback"}
+                </TonePill>
                 <span className="status-copy">
-                  Full Solva HR system shell with Kenyan payroll, HR, reporting, and consultancy structure.
+                  {snapshot?.generatedAt
+                    ? `Last snapshot ${snapshot.generatedAt}`
+                    : "Mock APIs are in place, with local fallback data if a route is unavailable."}
                 </span>
               </div>
 
               <div className="filter-row">
-                {page.filters.map((filter) => (
+                {pageState.filters.map((filter) => (
                   <button className="filter-pill" key={filter} type="button">
                     {filter}
                   </button>
@@ -354,7 +527,7 @@ export function SolvaShell() {
               </div>
 
               <div className="metric-grid compact-grid">
-                {page.metrics.map((metric) => (
+                {pageState.metrics.map((metric) => (
                   <article className="metric-card" key={metric.label}>
                     <span>{metric.label}</span>
                     <strong>{metric.value}</strong>
@@ -365,7 +538,7 @@ export function SolvaShell() {
               </div>
 
               <div className="overview-grid">
-                <ChartCard title={page.chartTitle} data={page.chartData} />
+                <ChartCard title={pageState.chartTitle} data={pageState.chartData} />
                 <section className="surface-card">
                   <div className="section-heading">
                     <div>
@@ -374,7 +547,7 @@ export function SolvaShell() {
                     </div>
                   </div>
                   <div className="note-list">
-                    {page.highlights.map((highlight) => (
+                    {pageState.highlights.map((highlight) => (
                       <article key={highlight}>
                         <span className="note-dot" />
                         <p>{highlight}</p>
@@ -384,11 +557,13 @@ export function SolvaShell() {
                 </section>
               </div>
 
+              <ControlCenter selectedRole={selectedRole} snapshot={snapshot} />
+
               <DataTable
-                columns={page.table.columns}
-                description={page.table.description}
-                rows={page.table.rows}
-                title={page.table.title}
+                columns={pageState.table.columns}
+                description={pageState.table.description}
+                rows={pageState.table.rows}
+                title={pageState.table.title}
               />
             </section>
           </section>

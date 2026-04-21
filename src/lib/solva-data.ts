@@ -55,6 +55,18 @@ export type ModuleSpec = {
   chartData: ChartDatum[];
 };
 
+export type PlatformSnapshot = {
+  generatedAt: string;
+  loginProfiles: typeof loginProfiles;
+  modules: ModuleSpec[];
+  featured: {
+    title: string;
+    summary: string;
+    approvals: Array<{ item: string; owner: string; status: string; due: string }>;
+    announcements: Array<{ title: string; audience: string; time: string }>;
+  };
+};
+
 export const loginProfiles = [
   { role: "Super Admin", email: "superadmin@solvahr.app" },
   { role: "HR Admin", email: "hradmin@solvahr.app" },
@@ -634,6 +646,33 @@ export const modules: ModuleSpec[] = [
     ],
   },
 ];
+
+export function getPlatformSnapshot(): PlatformSnapshot {
+  return {
+    generatedAt: "2026-04-21T09:00:00+03:00",
+    loginProfiles,
+    modules,
+    featured: {
+      title: "Solva HR Operating Snapshot",
+      summary:
+        "Shared view across HR, payroll, approvals, compliance, and consultancy activity for Kenyan multi-company operations.",
+      approvals: [
+        { item: "April payroll sign-off", owner: "Company Admin", status: "Pending final approval", due: "Today 14:00" },
+        { item: "Employee activation batch", owner: "Supervisor", status: "Awaiting review", due: "Today 11:30" },
+        { item: "Training request cycle", owner: "HR Admin", status: "Pending validation", due: "Tomorrow" },
+      ],
+      announcements: [
+        { title: "SHIF compliance review pack ready", audience: "Payroll and Finance", time: "08:10" },
+        { title: "Q2 appraisal window opens Monday", audience: "All managers", time: "Yesterday" },
+        { title: "Mombasa biometric sync scheduled", audience: "Operations and HR", time: "Yesterday" },
+      ],
+    },
+  };
+}
+
+export function getModuleByKey(key: string): ModuleSpec | undefined {
+  return modules.find((module) => module.key === key);
+}
 
 const payrollTable: TableSpec = {
   title: "April payroll register",

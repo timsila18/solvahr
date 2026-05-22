@@ -3015,6 +3015,9 @@ export function EssWorkbench({
                             ))}
                           </div>
                         ) : null}
+                        <p className="section-description">
+                          After you submit, you can still come back and update this appraisal while your supervisor is reviewing it.
+                        </p>
                         <button
                           className="primary-button"
                           disabled={busyAction === `self-review-${item.id}`}

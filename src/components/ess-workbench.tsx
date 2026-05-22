@@ -287,6 +287,14 @@ type AppraisalItem = {
   createdAt: string;
 };
 
+type AppraisalAssistPayload = {
+  whatWentWell?: string;
+  challenges?: string;
+  supportNeeded?: string;
+  summary?: string;
+  model?: string;
+};
+
 type NotificationItem = {
   id: string;
   title: string;
@@ -1220,6 +1228,49 @@ export function EssWorkbench({
       );
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not submit your self-review.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleSelfReviewAssist(item: AppraisalItem) {
+    setBusyAction(`self-review-ai-${item.id}`);
+    setActionMessage("");
+    try {
+      const response = await readJson<AppraisalAssistPayload>("/api/ai/appraisal-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "employee_self_review",
+          employeeName: item.metricLabel || item.reviewCycle,
+          reviewTitle: item.reviewCycle,
+          reviewPeriod: item.reviewPeriod,
+          selfComments: selfReviewDrafts[item.id]?.whatWentWell ?? item.selfComments ?? "",
+          challengesSummary: selfReviewDrafts[item.id]?.challenges ?? item.challengesSummary ?? "",
+          supportRequired: selfReviewDrafts[item.id]?.supportNeeded ?? item.supportRequired ?? "",
+          areas: (item.areas ?? []).map((area) => ({
+            id: area.id,
+            title: area.title,
+            expectedOutput: area.expectedOutput,
+            performanceIndicator: area.performanceIndicator,
+            selfScore:
+              Number(selfReviewDrafts[item.id]?.areaScores?.[area.id] ?? "") || area.selfScore || undefined,
+          })),
+        }),
+      });
+
+      setSelfReviewDrafts((current) => ({
+        ...current,
+        [item.id]: {
+          whatWentWell: response.whatWentWell || current[item.id]?.whatWentWell || "",
+          challenges: response.challenges || current[item.id]?.challenges || "",
+          supportNeeded: response.supportNeeded || current[item.id]?.supportNeeded || "",
+          areaScores: current[item.id]?.areaScores ?? {},
+        },
+      }));
+      setActionMessage(response.summary || "A stronger self-review draft is ready. Please adjust it to match your real work.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Could not prepare a self-review draft right now.");
     } finally {
       setBusyAction("");
     }
@@ -3025,6 +3076,16 @@ export function EssWorkbench({
                         <p className="section-description">
                           After you submit, you can still come back and update this appraisal while your supervisor is reviewing it.
                         </p>
+                        <div className="inline-actions">
+                          <button
+                            className="ghost-button"
+                            disabled={busyAction === `self-review-ai-${item.id}`}
+                            onClick={() => void handleSelfReviewAssist(item)}
+                            type="button"
+                          >
+                            {busyAction === `self-review-ai-${item.id}` ? "Drafting..." : "Help me draft this"}
+                          </button>
+                        </div>
                         <button
                           className="primary-button"
                           disabled={busyAction === `self-review-${item.id}`}

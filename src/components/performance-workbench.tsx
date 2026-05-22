@@ -31,6 +31,22 @@ type ReviewItemDraft = {
   evaluatorComments: string;
 };
 
+type ReviewAssistPayload = {
+  supervisorComments?: string;
+  correctiveAction?: string;
+  trainingRecommendation?: string;
+  gmComments?: string;
+  finalDecision?: string;
+  nextQuarterActions?: string;
+  summary?: string;
+  areaSuggestions?: Array<{
+    areaId?: string;
+    suggestedScore?: number | null;
+    note?: string;
+  }>;
+  model?: string;
+};
+
 async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     cache: "no-store",
@@ -457,6 +473,104 @@ export function PerformanceWorkbench({
       await loadWorkspace();
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not update that appraisal review.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleReviewAssist(review: Record<string, unknown>, draft: ReviewDraft) {
+    const reviewId = safeString(review.id);
+    const mode = draft.stage === "gm" ? "gm_review" : "supervisor_review";
+    setBusyAction(`review-ai-${reviewId}`);
+    setActionMessage("");
+    try {
+      const payload = await readJson<ReviewAssistPayload>("/api/ai/appraisal-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          employeeName: safeString(review.employeeName),
+          reviewTitle: safeString(review.title),
+          reviewPeriod: safeString(
+            review.reviewPeriodLabel,
+            `${safeString(review.periodStart)} to ${safeString(review.periodEnd)}`
+          ),
+          selfComments: safeString(review.selfComments),
+          challengesSummary: safeString(review.challengesSummary),
+          supportRequired: safeString(review.supportRequired),
+          supervisorComments: draft.supervisorComments,
+          gmComments: draft.gmComments,
+          finalDecision: draft.finalDecision,
+          allowedOutcomes: simpleWorkflowOutcomes,
+          areas: asRecordArray(review.items).map((item) => {
+            const itemId = safeString(item.id);
+            const itemDraft = reviewItemDrafts[itemId];
+            return {
+              id: itemId,
+              title: safeString(item.title),
+              expectedOutput: safeString(item.expectedOutput),
+              performanceIndicator: safeString(item.performanceIndicator),
+              selfScore: safeNumber(item.selfScore),
+              supervisorScore:
+                draft.stage === "supervisor" && itemDraft?.supervisorScore
+                  ? safeNumber(itemDraft.supervisorScore)
+                  : safeNumber(item.supervisorScore),
+              gmScore:
+                draft.stage === "gm" && itemDraft?.gmScore
+                  ? safeNumber(itemDraft.gmScore)
+                  : safeNumber(item.gmScore),
+              evaluatorComments: safeString(itemDraft?.evaluatorComments, safeString(item.evaluatorComments)),
+            };
+          }),
+        }),
+      });
+
+      setReviewDrafts((current) => ({
+        ...current,
+        [reviewId]: {
+          ...draft,
+          supervisorComments: payload.supervisorComments || draft.supervisorComments,
+          correctiveAction: payload.correctiveAction || draft.correctiveAction,
+          trainingRecommendation: payload.trainingRecommendation || draft.trainingRecommendation,
+          gmComments: payload.gmComments || draft.gmComments,
+          finalDecision: payload.finalDecision || draft.finalDecision,
+          nextQuarterActions: payload.nextQuarterActions || draft.nextQuarterActions,
+        },
+      }));
+
+      if (Array.isArray(payload.areaSuggestions) && payload.areaSuggestions.length) {
+        setReviewItemDrafts((current) => {
+          const next = { ...current };
+          for (const suggestion of payload.areaSuggestions ?? []) {
+            const areaId = safeString(suggestion.areaId);
+            if (!areaId) continue;
+            const existing = next[areaId] ?? {
+              actualText: "",
+              actualValue: "0",
+              supervisorScore: "",
+              gmScore: "",
+              evaluatorComments: "",
+            };
+            next[areaId] = {
+              ...existing,
+              supervisorScore:
+                draft.stage === "supervisor" && suggestion.suggestedScore
+                  ? String(suggestion.suggestedScore)
+                  : existing.supervisorScore,
+              gmScore:
+                draft.stage === "gm" && suggestion.suggestedScore
+                  ? String(suggestion.suggestedScore)
+                  : existing.gmScore,
+              evaluatorComments: suggestion.note || existing.evaluatorComments,
+            };
+          }
+          return next;
+        });
+      }
+
+      setActionMessage(payload.summary || "A stronger review draft is ready. Please adjust it to match the real performance record.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Could not prepare review assistance right now.");
     } finally {
       setBusyAction("");
     }
@@ -951,6 +1065,20 @@ export function PerformanceWorkbench({
                             {["Manager", "HR Admin", "Super Admin"].includes(viewerRole) ? <option value="gm">GM final review</option> : null}
                           </select>
                         </label>
+                        <div className="inline-actions">
+                          <button
+                            className="ghost-button"
+                            disabled={busyAction === `review-ai-${safeString(review.id)}`}
+                            onClick={() => void handleReviewAssist(review, draft)}
+                            type="button"
+                          >
+                            {busyAction === `review-ai-${safeString(review.id)}`
+                              ? "Drafting..."
+                              : draft.stage === "gm"
+                                ? "Help me finalize this"
+                                : "Help me draft this"}
+                          </button>
+                        </div>
 
                         {items.map((item) => {
                           const itemId = safeString(item.id);
@@ -1070,6 +1198,20 @@ export function PerformanceWorkbench({
                         {viewerRole === "Payroll Admin" && payrollAdminActionEnabled ? <option value="supervisor">Payroll review support</option> : null}
                       </select>
                     </label>
+                    <div className="inline-actions">
+                      <button
+                        className="ghost-button"
+                        disabled={busyAction === `review-ai-${safeString(review.id)}`}
+                        onClick={() => void handleReviewAssist(review, draft)}
+                        type="button"
+                      >
+                        {busyAction === `review-ai-${safeString(review.id)}`
+                          ? "Drafting..."
+                          : draft.stage === "gm"
+                            ? "Help me finalize this"
+                            : "Help me draft this"}
+                      </button>
+                    </div>
                     {items.map((item) => {
                       const itemId = safeString(item.id);
                       const itemDraft = reviewItemDrafts[itemId] ?? {

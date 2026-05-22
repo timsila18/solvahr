@@ -1,5 +1,5 @@
 insert into public.companies (id, name, slug, status)
-values ('11111111-1111-1111-1111-111111111111', 'Solva Demo Manufacturing', 'solva-demo-manufacturing', 'active')
+values ('11111111-1111-1111-1111-111111111111', 'Solva HR Workspace', 'solva-hr-workspace', 'active')
 on conflict (id) do update
 set
   name = excluded.name,

@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
 import { updateApprovalTask } from "@/lib/database";
+import { getCurrentUserProfile } from "@/lib/session";
+
+async function assertNonEmployeeAccess() {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  if (profile.role === "Employee") {
+    throw new Error("forbidden");
+  }
+}
 
 export async function PATCH(
   request: Request,
@@ -10,10 +21,12 @@ export async function PATCH(
     action: "approve" | "reject";
     actorEmail: string;
     actorRole: string;
+    comment?: string;
   };
 
   try {
-    const task = await updateApprovalTask(taskId, body.action);
+    await assertNonEmployeeAccess();
+    const task = await updateApprovalTask(taskId, body.action, body.comment);
     return NextResponse.json(task);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";

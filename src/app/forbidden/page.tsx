@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUserProfile } from "@/lib/session";
 
-export default function ForbiddenPage() {
+export default async function ForbiddenPage() {
+  const profile = await getCurrentUserProfile();
+
+  if (profile?.role === "Employee") {
+    redirect("/?module=ess&item=My%20Dashboard");
+  }
+
   return (
     <main className="auth-screen">
       <section className="auth-card">

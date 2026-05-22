@@ -14,7 +14,18 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
-      exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
+      exportType:
+        | "wagebill_report"
+        | "earnings_deductions_analysis"
+        | "monthly_deduction_posting_list"
+        | "net_to_bank"
+        | "paye_report"
+        | "nssf_report"
+        | "shif_report"
+        | "helb_report"
+        | "payroll_register"
+        | "p9_forms"
+        | "housing_levy_report";
     };
 
     return NextResponse.json(

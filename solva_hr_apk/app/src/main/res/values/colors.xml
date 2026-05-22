@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#1E4ED8</color>
+    <color name="brand_primary">#0B57D0</color>
+    <color name="brand_primary_dark">#0A3D91</color>
+    <color name="brand_primary_soft_text">#D8E6FF</color>
+    <color name="surface_app">#F5F8FC</color>
+    <color name="surface_tint">#EAF2FF</color>
+    <color name="card_stroke">#D6E1F2</color>
+    <color name="text_primary">#0F172A</color>
+    <color name="text_muted">#64748B</color>
+    <color name="status_positive">#10B981</color>
+</resources>

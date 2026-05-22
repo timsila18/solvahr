@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPayrollProcessData } from "@/lib/database";
+import { getPayrollPackage, getPayrollProcessData, transitionPayrollPeriod } from "@/lib/database";
 
 export async function GET() {
   try {
@@ -9,6 +9,30 @@ export async function GET() {
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
     const status = message === "unauthorized" ? 401 : message === "forbidden" ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export async function POST() {
+  try {
+    const payroll = await getPayrollPackage();
+    if (!payroll?.runId) {
+      return NextResponse.json({ error: "payroll_run_not_found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      period: await transitionPayrollPeriod(payroll.runId, "process"),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    const status =
+      message === "unauthorized"
+        ? 401
+        : message === "forbidden"
+          ? 403
+          : message.startsWith("invalid_") || message.includes("not_")
+            ? 400
+            : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

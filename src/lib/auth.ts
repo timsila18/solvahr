@@ -57,11 +57,11 @@ export function normalizeRole(value: string | null | undefined): AppRole {
 }
 
 export function roleCanAccessPeople(role: AppRole) {
-  return ["Super Admin", "HR Admin", "Supervisor", "Manager", "Operator", "Auditor"].includes(role);
+  return ["Super Admin", "HR Admin", "Payroll Admin", "Supervisor", "Manager", "Operator", "Auditor"].includes(role);
 }
 
 export function roleCanAccessPayroll(role: AppRole) {
-  return ["Super Admin", "Payroll Admin", "Finance Officer", "Auditor"].includes(role);
+  return ["Super Admin", "Payroll Admin", "Finance Officer", "Manager", "HR Admin", "Auditor"].includes(role);
 }
 
 export function roleCanAccessRecruitment(role: AppRole) {
@@ -73,22 +73,27 @@ export function roleCanApproveFinance(role: AppRole) {
 }
 
 const moduleAccess: Record<string, AppRole[]> = {
-  dashboard: APP_ROLES as unknown as AppRole[],
-  people: ["Super Admin", "HR Admin", "Supervisor", "Manager", "Operator", "Auditor", "Employee"],
-  payroll: ["Super Admin", "Payroll Admin", "Finance Officer", "Auditor", "Employee"],
-  leave: ["Super Admin", "HR Admin", "Supervisor", "Manager", "Employee", "Auditor"],
-  recruitment: ["Super Admin", "HR Admin", "Recruiter", "Manager", "Finance Officer", "Auditor"],
-  performance: ["Super Admin", "HR Admin", "Manager", "Employee", "Auditor"],
-  training: ["Super Admin", "HR Admin", "Manager", "Employee", "Auditor"],
-  assets: ["Super Admin", "HR Admin", "Operator", "Supervisor", "Employee", "Auditor"],
+  dashboard: ["Super Admin", "HR Admin", "Payroll Admin", "Finance Officer", "Manager", "Recruiter", "Auditor", "Operator", "Supervisor", "Employee"],
+  people: ["Super Admin", "HR Admin", "Payroll Admin", "Auditor", "Manager", "Supervisor"],
+  payroll: ["Super Admin", "Payroll Admin", "Finance Officer", "Manager", "HR Admin", "Auditor"],
+  leave: ["Super Admin", "HR Admin", "Supervisor", "Manager", "Auditor", "Operator"],
+  recruitment: ["Super Admin", "HR Admin", "Recruiter", "Manager", "Auditor"],
+  performance: ["Super Admin", "HR Admin", "Payroll Admin", "Manager", "Supervisor", "Auditor"],
+  training: ["Super Admin", "HR Admin", "Manager", "Auditor"],
+  assets: ["Super Admin", "HR Admin", "Auditor"],
   ess: APP_ROLES as unknown as AppRole[],
   reports: ["Super Admin", "HR Admin", "Payroll Admin", "Finance Officer", "Auditor", "Manager"],
-  settings: ["Super Admin", "HR Admin", "Payroll Admin"],
-  audit: ["Super Admin", "HR Admin", "Payroll Admin", "Finance Officer", "Auditor"],
-  integrations: ["Super Admin", "HR Admin", "Payroll Admin"],
-  consultancy: ["Super Admin", "HR Admin", "Finance Officer", "Auditor"],
+  settings: ["Super Admin", "HR Admin"],
+  audit: ["Super Admin", "HR Admin", "Auditor"],
+  integrations: ["Super Admin", "HR Admin"],
+  consultancy: ["Super Admin", "Finance Officer", "Auditor"],
+  administration: ["Super Admin", "HR Admin"],
 };
 
 export function roleCanAccessModule(role: AppRole, moduleKey: string) {
   return (moduleAccess[moduleKey] ?? ["Super Admin"]).includes(role);
+}
+
+export function roleShouldUseEssWorkspace(role: AppRole) {
+  return !["Manager", "HR Admin", "Payroll Admin"].includes(role);
 }

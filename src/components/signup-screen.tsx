@@ -1,10 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ApiError } from "@/lib/solva-api";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ApiError, fetchPublicPlans } from "@/lib/solva-api";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+const MODULE_OPTIONS = [
+  "people",
+  "payroll",
+  "leave",
+  "ess",
+  "reports",
+  "administration",
+  "recruitment",
+  "performance",
+  "training",
+  "assets",
+  "integrations",
+] as const;
+
+async function withAuthTimeout<T>(promise: Promise<T>, actionLabel: string) {
+  return await Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(`${actionLabel} timed out. Please try again.`));
+      }, 15000);
+    }),
+  ]);
+}
 
 function parseSignupError(error: unknown) {
   if (error instanceof ApiError) {
@@ -19,13 +44,91 @@ function parseSignupError(error: unknown) {
 }
 
 export function SignupScreen() {
-  const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const [organizationName, setOrganizationName] = useState("");
+  const [employerIdentifier, setEmployerIdentifier] = useState("");
+  const [companyEmail, setCompanyEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [address, setAddress] = useState("");
+  const [adminFullName, setAdminFullName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [country, setCountry] = useState("Kenya");
+  const [timezone, setTimezone] = useState("Africa/Nairobi");
+  const [payrollCurrency, setPayrollCurrency] = useState("KES");
+  const [planId, setPlanId] = useState(searchParams.get("plan") ?? "growth");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [estimatedEmployeeCount, setEstimatedEmployeeCount] = useState("50");
+  const [trialDays, setTrialDays] = useState("14");
+  const [plans, setPlans] = useState<Array<Record<string, unknown>>>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [selectedModules, setSelectedModules] = useState<string[]>(["people", "payroll", "leave", "ess", "reports", "administration"]);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+
+  const activePlan = useMemo(
+    () => plans.find((entry) => String(entry.id ?? "") === planId) ?? plans[0] ?? null,
+    [planId, plans]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPlans() {
+      try {
+        const payload = await fetchPublicPlans();
+        if (!mounted) {
+          return;
+        }
+
+        setPlans(payload.plans);
+        const defaultPlan = payload.plans.find((entry) => String(entry.id ?? "") === (searchParams.get("plan") ?? "growth")) ?? payload.plans[0] ?? null;
+        if (defaultPlan) {
+          setPlanId(String(defaultPlan.id ?? "growth"));
+          const planModules = Array.isArray(defaultPlan.modules)
+            ? defaultPlan.modules.filter((item): item is string => typeof item === "string")
+            : [];
+          setSelectedModules(planModules.length ? planModules : ["people", "payroll", "ess", "reports"]);
+          setTrialDays(String(defaultPlan.trialDays ?? 14));
+        }
+      } catch (error) {
+        if (mounted) {
+          setMessage(parseSignupError(error));
+        }
+      } finally {
+        if (mounted) {
+          setPlansLoading(false);
+        }
+      }
+    }
+
+    void loadPlans();
+
+    return () => {
+      mounted = false;
+    };
+  }, [searchParams]);
+
+  function toggleModule(moduleKey: string) {
+    setSelectedModules((current) =>
+      current.includes(moduleKey) ? current.filter((item) => item !== moduleKey) : [...current, moduleKey]
+    );
+  }
+
+  function handlePlanChange(nextPlanId: string) {
+    setPlanId(nextPlanId);
+    const nextPlan = plans.find((entry) => String(entry.id ?? "") === nextPlanId) ?? null;
+    if (!nextPlan) {
+      return;
+    }
+
+    const planModules = Array.isArray(nextPlan.modules)
+      ? nextPlan.modules.filter((item): item is string => typeof item === "string")
+      : [];
+    setSelectedModules(planModules.length ? planModules : selectedModules);
+    setTrialDays(String(nextPlan.trialDays ?? 14));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,17 +136,30 @@ export function SignupScreen() {
     setMessage("");
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const formData = new FormData();
+      formData.set("organizationName", organizationName);
+      formData.set("employerIdentifier", employerIdentifier);
+      formData.set("companyEmail", companyEmail);
+      formData.set("phone", phone);
+      formData.set("address", address);
+      formData.set("country", country);
+      formData.set("timezone", timezone);
+      formData.set("payrollCurrency", payrollCurrency);
+      formData.set("planId", planId);
+      formData.set("billingCycle", billingCycle);
+      formData.set("estimatedEmployeeCount", estimatedEmployeeCount);
+      formData.set("trialDays", trialDays);
+      formData.set("selectedModules", JSON.stringify(selectedModules));
+      formData.set("adminFullName", adminFullName);
+      formData.set("adminEmail", adminEmail);
+      formData.set("adminPassword", adminPassword);
+      if (logoFile) {
+        formData.set("logo", logoFile);
+      }
+
+      const response = await fetch("/api/auth/employer-signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fullName,
-          email,
-          phone: phone || null,
-          password,
-        }),
+        body: formData,
       });
 
       const payload = (await response.json()) as { error?: string };
@@ -53,17 +169,20 @@ export function SignupScreen() {
       }
 
       const supabase = getSupabaseBrowserClient();
-      const signInResult = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const signInResult = await withAuthTimeout(
+        supabase.auth.signInWithPassword({
+          email: adminEmail,
+          password: adminPassword,
+        }),
+        "Organization sign in"
+      );
 
       if (signInResult.error) {
         throw signInResult.error;
       }
 
-      router.push("/");
-      router.refresh();
+      setMessage("Your organization has been submitted for review. You can sign in, but the workspace will stay in pending approval until a Super Admin activates it.");
+      window.location.assign("/pending-approval");
     } catch (error) {
       setMessage(parseSignupError(error));
       setSubmitting(false);
@@ -73,33 +192,119 @@ export function SignupScreen() {
   return (
     <section className="auth-card">
       <div className="auth-card-header">
-        <p className="section-eyebrow">Create account</p>
-        <h2>Start employee self service</h2>
+        <p className="section-eyebrow">Employer onboarding</p>
+        <h2>Create your organization workspace</h2>
         <p className="section-description">
-          Create an employee-linked ESS account and sign in immediately to your Solva HR workspace.
+          Choose a plan, set up your branded Solva HR organization, create the first admin, and land in your private tenant with a guided launch checklist.
         </p>
       </div>
       <form className="action-form" onSubmit={handleSubmit}>
+        <section className="form-section-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-eyebrow">Plan</p>
+              <h3>Pick your starting plan</h3>
+            </div>
+          </div>
+          {plansLoading ? (
+            <p className="section-description">Loading plans...</p>
+          ) : (
+            <div className="selection-card-grid">
+              {plans.map((plan) => {
+                const isActive = String(plan.id ?? "") === planId;
+                const features = Array.isArray(plan.features) ? plan.features.slice(0, 4) : [];
+                return (
+                  <button
+                    className={`selection-card ${isActive ? "is-active" : ""}`}
+                    key={String(plan.id ?? "")}
+                    onClick={() => handlePlanChange(String(plan.id ?? ""))}
+                    type="button"
+                  >
+                    <strong>{String(plan.name ?? "")}</strong>
+                    <span>{String(plan.monthlyPriceLabel ?? "Custom")}</span>
+                    <small>{String(plan.description ?? "")}</small>
+                    <small>{String(plan.trialDays ?? 14)} day trial</small>
+                    <ul>
+                      {features.map((feature) => (
+                        <li key={String(feature)}>{String(feature)}</li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="form-grid-two">
+            <label>
+              <span>Billing cycle</span>
+              <select onChange={(event) => setBillingCycle(event.target.value === "annual" ? "annual" : "monthly")} value={billingCycle}>
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+              </select>
+            </label>
+            <label>
+              <span>Estimated employees</span>
+              <input min={1} onChange={(event) => setEstimatedEmployeeCount(event.target.value)} type="number" value={estimatedEmployeeCount} />
+            </label>
+          </div>
+          <label>
+            <span>Modules needed at launch</span>
+            <small className="field-helper-text">Pick the modules you want active from day one. Your plan still controls what is available.</small>
+            <div className="selection-pill-grid">
+              {MODULE_OPTIONS.map((moduleKey) => (
+                <button
+                  className={`selection-pill ${selectedModules.includes(moduleKey) ? "is-active" : ""}`}
+                  key={moduleKey}
+                  onClick={() => toggleModule(moduleKey)}
+                  type="button"
+                >
+                  {moduleKey}
+                </button>
+              ))}
+            </div>
+          </label>
+          {activePlan ? (
+            <div className="task-banner">
+              {String(activePlan.name ?? "Plan")} trial for {trialDays} days. {String(activePlan.employeeLimit ?? "Unlimited")} employee guidance and{" "}
+              {activePlan.adminLimit == null ? "unlimited" : String(activePlan.adminLimit)} admin seats on this plan.
+            </div>
+          ) : null}
+        </section>
+        <section className="form-section-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-eyebrow">Organization</p>
+              <h3>Set up your workspace identity</h3>
+            </div>
+          </div>
         <label>
-          <span>Full name</span>
+          <span>Organization name</span>
           <input
-            autoComplete="name"
-            onChange={(event) => setFullName(event.target.value)}
-            placeholder="Jane Njeri"
+            onChange={(event) => setOrganizationName(event.target.value)}
+            placeholder="Northwind Logistics Ltd"
             required
             type="text"
-            value={fullName}
+            value={organizationName}
           />
         </label>
         <label>
-          <span>Email</span>
+          <span>Employer identifier</span>
+          <input
+            onChange={(event) => setEmployerIdentifier(event.target.value.toUpperCase())}
+            placeholder="NWL"
+            type="text"
+            value={employerIdentifier}
+          />
+        </label>
+        <label>
+          <span>Company email</span>
           <input
             autoComplete="email"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="jane@company.com"
+            onChange={(event) => setCompanyEmail(event.target.value)}
+            placeholder="hr@northwind.co.ke"
             required
             type="email"
-            value={email}
+            value={companyEmail}
           />
         </label>
         <label>
@@ -113,19 +318,75 @@ export function SignupScreen() {
           />
         </label>
         <label>
-          <span>Password</span>
+          <span>Address</span>
+          <input
+            onChange={(event) => setAddress(event.target.value)}
+            placeholder="Upper Hill, Nairobi"
+            type="text"
+            value={address}
+          />
+        </label>
+        <label>
+          <span>Country</span>
+          <input onChange={(event) => setCountry(event.target.value)} type="text" value={country} />
+        </label>
+        <label>
+          <span>Timezone</span>
+          <input onChange={(event) => setTimezone(event.target.value)} type="text" value={timezone} />
+        </label>
+        <label>
+          <span>Payroll currency</span>
+          <input onChange={(event) => setPayrollCurrency(event.target.value.toUpperCase())} type="text" value={payrollCurrency} />
+        </label>
+        <label>
+          <span>Organization logo</span>
+          <input accept="image/png,image/jpeg" onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)} type="file" />
+        </label>
+        </section>
+        <section className="form-section-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-eyebrow">Admin</p>
+              <h3>Create the first admin</h3>
+            </div>
+          </div>
+        <label>
+          <span>Admin full name</span>
+          <input
+            autoComplete="name"
+            onChange={(event) => setAdminFullName(event.target.value)}
+            placeholder="Jane Njeri"
+            required
+            type="text"
+            value={adminFullName}
+          />
+        </label>
+        <label>
+          <span>Admin email</span>
+          <input
+            autoComplete="email"
+            onChange={(event) => setAdminEmail(event.target.value)}
+            placeholder="jane@northwind.co.ke"
+            required
+            type="email"
+            value={adminEmail}
+          />
+        </label>
+        <label>
+          <span>Admin password</span>
           <input
             autoComplete="new-password"
             minLength={8}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => setAdminPassword(event.target.value)}
             placeholder="At least 8 characters"
             required
             type="password"
-            value={password}
+            value={adminPassword}
           />
         </label>
+        </section>
         <button className="primary-button" disabled={submitting} type="submit">
-          {submitting ? "Creating account..." : "Create account"}
+          {submitting ? "Creating workspace..." : "Start free trial"}
         </button>
       </form>
       <div className="auth-links">

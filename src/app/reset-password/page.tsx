@@ -10,6 +10,8 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -58,23 +60,41 @@ export default function ResetPasswordPage() {
         <form className="action-form" onSubmit={handleSubmit}>
           <label>
             <span>New password</span>
-            <input
-              autoComplete="new-password"
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
+            <div className="password-input-row">
+              <input
+                autoComplete="new-password"
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                type={showPassword ? "text" : "password"}
+                value={password}
+              />
+              <button
+                className="ghost-button password-visibility-toggle"
+                onClick={() => setShowPassword((current) => !current)}
+                type="button"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </label>
           <label>
             <span>Confirm password</span>
-            <input
-              autoComplete="new-password"
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              type="password"
-              value={confirmPassword}
-            />
+            <div className="password-input-row">
+              <input
+                autoComplete="new-password"
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                required
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+              />
+              <button
+                className="ghost-button password-visibility-toggle"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                type="button"
+              >
+                {showConfirmPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </label>
           <button className="primary-button" disabled={submitting} type="submit">
             {submitting ? "Updating..." : "Update password"}

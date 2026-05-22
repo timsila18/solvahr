@@ -228,6 +228,37 @@ const auditEvents: AuditEvent[] = [
   },
 ];
 
+function buildMockUserAccount(
+  status: "No account" | "Invited" | "Active" | "Suspended",
+  overrides?: Partial<EmployeeRecord["userAccount"]>
+): EmployeeRecord["userAccount"] {
+  return {
+    status,
+    userId: null,
+    role: "Employee",
+    lastLogin: status === "Active" ? "2026-04-21 08:15" : "-",
+    activationState: status === "Active" ? "active" : status === "Invited" ? "invited" : "inactive",
+    ...(overrides ?? {}),
+  };
+}
+
+function buildMockUserAccountDetail(
+  status: "No account" | "Invited" | "Active" | "Suspended",
+  overrides?: Partial<EmployeeProfile["userAccountDetail"]>
+): EmployeeProfile["userAccountDetail"] {
+  const baseAccount = buildMockUserAccount(status, overrides);
+  return {
+    userId: baseAccount.userId,
+    status: baseAccount.status,
+    role: baseAccount.role,
+    lastLogin: baseAccount.lastLogin,
+    activationState: baseAccount.activationState,
+    invitedAt: status === "Invited" ? "2026-04-20 09:00" : "-",
+    invitedBy: status === "No account" ? "-" : "hradmin@solvahr.app",
+    ...(overrides ?? {}),
+  };
+}
+
 const employeeRecords: EmployeeRecord[] = [
   {
     id: "emp-001",
@@ -237,6 +268,10 @@ const employeeRecords: EmployeeRecord[] = [
     branch: "Nairobi HQ",
     employmentType: "Permanent",
     status: "Active",
+    userAccount: buildMockUserAccount("Active", {
+      userId: "user-emp-001",
+      role: "Employee",
+    }),
   },
   {
     id: "emp-018",
@@ -246,6 +281,11 @@ const employeeRecords: EmployeeRecord[] = [
     branch: "Mombasa",
     employmentType: "Probation",
     status: "Review due",
+    userAccount: buildMockUserAccount("Invited", {
+      userId: "user-emp-018",
+      role: "Employee",
+      activationState: "pending_password_setup",
+    }),
   },
   {
     id: "emp-044",
@@ -255,19 +295,37 @@ const employeeRecords: EmployeeRecord[] = [
     branch: "Nairobi HQ",
     employmentType: "Permanent",
     status: "Pending activation",
+    userAccount: buildMockUserAccount("No account"),
   },
 ];
 
 const payrollPackage: PayrollPackage = {
+  runId: "pr-001",
   period: "Apr 2026",
   status: "Pending approval",
+  payrollType: "Full month",
   employeeCount: "1044",
   grossPay: "KES 18.45M",
   netPay: "KES 13.94M",
+  totalDeductions: "KES 4.51M",
+  employerCost: "KES 19.77M",
   paye: "KES 2.48M",
   shif: "KES 507,375",
   nssf: "KES 1,127,520",
   housingLevy: "KES 276,750",
+  pension: "KES 442,500",
+  validationErrors: 7,
+  pendingApprovals: 1,
+  allowedActions: ["close", "reopen"],
+  lifecycle: [
+    { label: "Draft", status: "completed" },
+    { label: "Open", status: "completed" },
+    { label: "Processing", status: "completed" },
+    { label: "Pending Approval", status: "current" },
+    { label: "Approved", status: "upcoming" },
+    { label: "Closed", status: "upcoming" },
+    { label: "Reopened", status: "upcoming" },
+  ],
 };
 
 const employeeProfiles: Record<string, EmployeeProfile> = {
@@ -279,10 +337,15 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     branch: "Nairobi HQ",
     employmentType: "Permanent",
     status: "Active",
+    userAccount: buildMockUserAccount("Active", {
+      userId: "user-emp-001",
+      role: "Employee",
+    }),
     phoneNumber: "0712 340 221",
     companyEmail: "amina.otieno@solvahr.app",
     supervisor: "Grace Wambui",
     costCenter: "HR-NAI-01",
+    nationalId: "30124567",
     kraPin: "A012345678X",
     shifNumber: "SHIF-991204",
     nssfNumber: "NSSF-192022",
@@ -311,6 +374,7 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       {
         title: "Statutory and bank",
         items: [
+          { label: "National ID", value: "30124567" },
           { label: "KRA PIN", value: "A012345678X" },
           { label: "SHIF", value: "SHIF-991204" },
           { label: "NSSF", value: "NSSF-192022" },
@@ -328,6 +392,13 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       { title: "Salary review", detail: "Annual merit adjustment approved by HR and Finance.", date: "2025-07-01" },
       { title: "Document refresh", detail: "Updated statutory and bank records uploaded.", date: "2026-02-11" },
     ],
+    leaveHistory: [],
+    userAccountDetail: buildMockUserAccountDetail("Active", {
+      userId: "user-emp-001",
+      role: "Employee",
+      invitedAt: "2023-03-10 09:00",
+      invitedBy: "superadmin@solvahr.app",
+    }),
   },
   "emp-018": {
     id: "emp-018",
@@ -337,10 +408,16 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     branch: "Mombasa",
     employmentType: "Probation",
     status: "Review due",
+    userAccount: buildMockUserAccount("Invited", {
+      userId: "user-emp-018",
+      role: "Employee",
+      activationState: "pending_password_setup",
+    }),
     phoneNumber: "0708 118 765",
     companyEmail: "brian.mwangi@solvahr.app",
     supervisor: "Kevin Ochieng",
     costCenter: "OPS-MSA-04",
+    nationalId: "33456789",
     kraPin: "A112233445P",
     shifNumber: "SHIF-822104",
     nssfNumber: "NSSF-620911",
@@ -369,6 +446,7 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       {
         title: "Statutory and bank",
         items: [
+          { label: "National ID", value: "33456789" },
           { label: "KRA PIN", value: "A112233445P" },
           { label: "SHIF", value: "SHIF-822104" },
           { label: "NSSF", value: "NSSF-620911" },
@@ -385,6 +463,14 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       { title: "Joined company", detail: "Onboarded into Mombasa distribution team.", date: "2026-01-10" },
       { title: "Probation review scheduled", detail: "Supervisor review meeting set for next month.", date: "2026-04-03" },
     ],
+    leaveHistory: [],
+    userAccountDetail: buildMockUserAccountDetail("Invited", {
+      userId: "user-emp-018",
+      role: "Employee",
+      activationState: "pending_password_setup",
+      invitedAt: "2026-04-18 11:20",
+      invitedBy: "hradmin@solvahr.app",
+    }),
   },
   "emp-044": {
     id: "emp-044",
@@ -394,10 +480,12 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
     branch: "Nairobi HQ",
     employmentType: "Permanent",
     status: "Pending activation",
+    userAccount: buildMockUserAccount("No account"),
     phoneNumber: "0722 501 640",
     companyEmail: "mercy.njeri@solvahr.app",
     supervisor: "David Karanja",
     costCenter: "FIN-NAI-02",
+    nationalId: "35678124",
     kraPin: "A556677889W",
     shifNumber: "SHIF-420210",
     nssfNumber: "NSSF-113904",
@@ -426,6 +514,7 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       {
         title: "Statutory and bank",
         items: [
+          { label: "National ID", value: "35678124" },
           { label: "KRA PIN", value: "A556677889W" },
           { label: "SHIF", value: "SHIF-420210" },
           { label: "NSSF", value: "NSSF-113904" },
@@ -443,6 +532,8 @@ const employeeProfiles: Record<string, EmployeeProfile> = {
       { title: "Payroll profile staged", detail: "Payroll identifiers captured pending final activation.", date: "2026-04-02" },
       { title: "Activation awaiting review", detail: "Supervisor sign-off still pending.", date: "2026-04-21" },
     ],
+    leaveHistory: [],
+    userAccountDetail: buildMockUserAccountDetail("No account"),
   },
 };
 
@@ -490,32 +581,40 @@ const payrollValidationIssues: PayrollValidationIssue[] = [
     title: "Missing bank details",
     detail: "3 employees have approved payroll results but no active bank destination.",
     severity: "critical",
+    category: "banking",
     owner: "Payroll Admin",
     status: "Needs correction",
+    blocker: true,
   },
   {
     id: "pv-002",
     title: "SHIF mismatch",
     detail: "1 employee has gross pay but an out-of-range SHIF contribution after arrears upload.",
     severity: "warning",
+    category: "statutory",
     owner: "Payroll Analyst",
     status: "Review formula",
+    blocker: false,
   },
   {
     id: "pv-003",
     title: "Negative net pay",
     detail: "2 employees exceeded net pay due to loan and checkoff deductions.",
     severity: "warning",
+    category: "computation",
     owner: "Finance Officer",
     status: "Escalated",
+    blocker: false,
   },
   {
     id: "pv-004",
     title: "Exited employee in draft",
     detail: "1 exited employee remains in the current payroll snapshot and needs exclusion.",
     severity: "critical",
+    category: "master_data",
     owner: "HR Admin",
     status: "Awaiting HR update",
+    blocker: true,
   },
 ];
 
@@ -548,27 +647,42 @@ const payrollApprovalStages: PayrollApprovalStage[] = [
 
 const payrollRunHistory: PayrollRunHistoryItem[] = [
   {
+    runId: "pr-001",
     period: "Apr 2026",
     payrollType: "Full month",
     status: "Pending approval",
+    employeeCount: "1044",
     grossPay: "KES 18.45M",
     netPay: "KES 13.94M",
+    totalDeductions: "KES 4.51M",
+    employerCost: "KES 19.77M",
+    validationErrors: 7,
     processedAt: "2026-04-21 08:58",
   },
   {
+    runId: "pr-000",
     period: "Mar 2026",
     payrollType: "Full month",
     status: "Closed",
+    employeeCount: "1038",
     grossPay: "KES 18.20M",
     netPay: "KES 13.71M",
+    totalDeductions: "KES 4.49M",
+    employerCost: "KES 19.53M",
+    validationErrors: 0,
     processedAt: "2026-03-31 17:24",
   },
   {
+    runId: "pr-bonus-001",
     period: "Mar 2026",
     payrollType: "Bonus payroll",
     status: "Closed",
+    employeeCount: "410",
     grossPay: "KES 2.11M",
     netPay: "KES 1.64M",
+    totalDeductions: "KES 470K",
+    employerCost: "KES 2.19M",
+    validationErrors: 0,
     processedAt: "2026-03-20 14:06",
   },
 ];
@@ -576,14 +690,18 @@ const payrollRunHistory: PayrollRunHistoryItem[] = [
 const payrollExportHistory: PayrollExportHistoryItem[] = [
   {
     id: "pe-001",
+    exportType: "paye_report",
     label: "PAYE support schedule",
+    fileName: "paye-support-schedule-apr-2026.csv",
     actor: "payrolladmin@solvahr.app",
     status: "Ready",
     generatedAt: "2026-04-21 08:42",
   },
   {
     id: "pe-002",
+    exportType: "net_to_bank",
     label: "Net-to-bank export",
+    fileName: "net-to-bank-apr-2026.csv",
     actor: "finance@solvahr.app",
     status: "Ready",
     generatedAt: "2026-04-21 09:02",
@@ -656,12 +774,71 @@ export function getPayrollVariance() {
 
 export function getPayrollProcessData(): PayrollProcessData {
   return {
+    currentRunId: payrollPackage.runId,
+    status: payrollPackage.status,
+    paymentMode: "BANK",
+    primaryPaymentExport: "net_to_bank",
+    summary: {
+      employees: 1044,
+      grossPay: payrollPackage.grossPay,
+      netPay: payrollPackage.netPay,
+      totalDeductions: payrollPackage.totalDeductions,
+      employerCost: payrollPackage.employerCost,
+      warnings: 2,
+      blockers: 2,
+      pendingApprovals: payrollPackage.pendingApprovals,
+    },
+    warningSummary: {
+      missingKraPins: 1,
+      missingMpesaPhones: 0,
+      missingShifNumbers: 1,
+      missingNssfNumbers: 1,
+      missingHelbNumbers: 0,
+      missingNationalIds: 0,
+      missingSalaries: 0,
+      missingPaymentDestinations: 0,
+    },
     validations: [...payrollValidationIssues],
     approvals: [...payrollApprovalStages],
     history: [...payrollRunHistory],
     exports: [...payrollExportHistory].sort((left, right) =>
       right.generatedAt.localeCompare(left.generatedAt)
     ),
+    reviewHighlights: [
+      { label: "Gross pay variance", detail: "+KES 250,000 vs Mar 2026", tone: "warning" },
+      { label: "Net pay variance", detail: "+KES 230,000 vs Mar 2026", tone: "positive" },
+      { label: "New employees", detail: "12 new employees entered this run.", tone: "positive" },
+      { label: "Salary changes", detail: "9 payroll profiles changed salary.", tone: "warning" },
+    ],
+    employeeRows: [
+      {
+        id: "pe-emp-001",
+        employeeNumber: "SOL-001",
+        fullName: "Amina Otieno",
+        department: "People Operations",
+        branch: "Nairobi HQ",
+        grossPay: "KES 214,800",
+        netPay: "KES 161,990",
+        taxableIncome: "KES 205,098",
+        overtime: "KES 0",
+        unpaidLeaveDeduction: "KES 0",
+        warnings: [],
+      },
+      {
+        id: "pe-emp-018",
+        employeeNumber: "SOL-018",
+        fullName: "Brian Mwangi",
+        department: "Distribution",
+        branch: "Mombasa",
+        grossPay: "KES 148,300",
+        netPay: "KES 108,120",
+        taxableIncome: "KES 141,996",
+        overtime: "KES 8,200",
+        unpaidLeaveDeduction: "KES 0",
+        warnings: ["High overtime volume"],
+      },
+    ],
+    availableActions: ["send_for_approval"],
   };
 }
 
@@ -729,6 +906,7 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
     branch: payload.branch,
     employmentType: payload.employmentType,
     status: "Pending activation",
+    userAccount: buildMockUserAccount("No account"),
   };
 
   employeeRecords.unshift(record);
@@ -738,6 +916,7 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
     companyEmail: `${payload.fullName.toLowerCase().replace(/\s+/g, ".")}@solvahr.app`,
     supervisor: "Pending assignment",
     costCenter: "NEW-CC-01",
+    nationalId: "PENDING",
     kraPin: "PENDING",
     shifNumber: "PENDING",
     nssfNumber: "PENDING",
@@ -766,6 +945,7 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
       {
         title: "Statutory and bank",
         items: [
+          { label: "National ID", value: "PENDING" },
           { label: "KRA PIN", value: "PENDING" },
           { label: "SHIF", value: "PENDING" },
           { label: "NSSF", value: "PENDING" },
@@ -780,6 +960,8 @@ export function createEmployeeRecord(payload: EmployeeRecordPayload) {
     movementHistory: [
       { title: "Master record created", detail: `${payload.actorRole} added the employee record.`, date: "2026-04-21" },
     ],
+    leaveHistory: [],
+    userAccountDetail: buildMockUserAccountDetail("No account"),
   };
   logAuditEvent({
     moduleKey: "people",
@@ -1003,7 +1185,9 @@ export function recordPayrollExport(payload: PayrollExportPayload) {
 
   const exportRecord: PayrollExportHistoryItem = {
     id: `pe-${String(payrollExportHistory.length + 1).padStart(3, "0")}`,
+    exportType: payload.exportType,
     label: exportLabels[payload.exportType],
+    fileName: `${payload.exportType}-${payrollPackage.period.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`,
     actor: payload.actorEmail,
     status: "Ready",
     generatedAt: nowLabel(),

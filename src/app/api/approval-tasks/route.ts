@@ -9,9 +9,21 @@ import {
   createTrainingRequest,
   listApprovalTasks,
 } from "@/lib/database";
+import { getCurrentUserProfile } from "@/lib/session";
+
+async function assertNonEmployeeAccess() {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  if (profile.role === "Employee") {
+    throw new Error("forbidden");
+  }
+}
 
 export async function GET() {
   try {
+    await assertNonEmployeeAccess();
     return NextResponse.json({ tasks: await listApprovalTasks() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
@@ -22,6 +34,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await assertNonEmployeeAccess();
     const body = (await request.json()) as
     | {
         kind: "employee_activation";

@@ -40,6 +40,97 @@ async function readJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+type PayrollExportType =
+  | "wagebill_report"
+  | "earnings_deductions_analysis"
+  | "monthly_deduction_posting_list"
+  | "net_to_bank"
+  | "net_to_mpesa"
+  | "paye_report"
+  | "nssf_report"
+  | "shif_report"
+  | "helb_report"
+  | "payroll_register"
+  | "p9_forms"
+  | "housing_levy_report";
+
+export function fetchPublicPlans() {
+  return readJson<{ plans: Array<Record<string, unknown>> }>("/api/public/plans", {
+    cache: "no-store",
+  });
+}
+
+export function createPublicLead(input: {
+  leadType: "contact_sales" | "book_demo";
+  companyName: string;
+  contactPerson: string;
+  email: string;
+  phone?: string;
+  employeeCount?: number;
+  modules?: string[];
+  preferredDate?: string;
+  country?: string;
+  notes?: string;
+}) {
+  return readJson<{ lead: { id: string; status: string } }>("/api/public/leads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchBillingDashboard() {
+  return readJson<{ billing: Record<string, unknown> }>("/api/admin/billing", {
+    cache: "no-store",
+  });
+}
+
+export function updateBillingSubscription(input: {
+  planId: string;
+  billingCycle?: "monthly" | "annual";
+  selectedModules?: string[];
+}) {
+  return readJson<{ billing: Record<string, unknown> }>("/api/admin/billing", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchOnboardingDashboard() {
+  return readJson<{ onboarding: Record<string, unknown> }>("/api/admin/onboarding", {
+    cache: "no-store",
+  });
+}
+
+export function updateOnboardingDashboard(input: {
+  completedStep?: string;
+  currentStep?: string;
+}) {
+  return readJson<{ onboarding: Record<string, unknown> }>("/api/admin/onboarding", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchSaasHQDashboard() {
+  return readJson<{ hq: Record<string, unknown> }>("/api/admin/saas-hq", {
+    cache: "no-store",
+  });
+}
+
+export function reviewEmployerRegistration(
+  companyId: string,
+  input: { action: "approve" | "reject"; reason?: string }
+) {
+  return readJson<{ result: Record<string, unknown> }>(`/api/admin/employer-registrations/${companyId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export function fetchPlatformSnapshot() {
   return readJson<PlatformSnapshot>("/api/platform", { cache: "no-store" });
 }
@@ -185,7 +276,7 @@ export function createAssetRequest(input: {
 
 export function updateApprovalTask(
   taskId: string,
-  input: { action: "approve" | "reject"; actorEmail: string; actorRole: string }
+  input: { action: "approve" | "reject"; actorEmail: string; actorRole: string; comment?: string }
 ) {
   return readJson<ApprovalTask>(`/api/approval-tasks/${taskId}`, {
     method: "PATCH",
@@ -220,13 +311,13 @@ export function createEmployeeRecord(input: {
 }
 
 export function fetchPayrollPackage() {
-  return readJson<{ payroll: PayrollPackage }>("/api/payroll/package", {
+  return readJson<{ payroll: PayrollPackage | null }>("/api/payroll/package", {
     cache: "no-store",
   });
 }
 
 export function createPayrollExport(input: {
-  exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms";
+  exportType: PayrollExportType;
   actorEmail: string;
   actorRole: string;
 }) {
@@ -246,8 +337,45 @@ export function fetchEmployeeProfile(employeeId: string) {
   });
 }
 
+export function createEmployeeUserAccount(employeeId: string, role = "Employee") {
+  return readJson<{ result: Record<string, unknown> }>(`/api/people/employees/${employeeId}/user-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function createEmployeeUserAccountsBulk(employeeIds: string[], role = "Employee") {
+  return readJson<{ result: Record<string, unknown> }>("/api/people/employees/user-accounts/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeIds, role }),
+  });
+}
+
+export function runAdminUserLifecycleAction(
+  userId: string,
+  action:
+    | "activate"
+    | "suspend"
+    | "deactivate"
+    | "reactivate"
+    | "resend_invite"
+    | "reset_password"
+    | "set_temporary_password"
+    | "revoke_invite"
+    | "force_sign_out",
+  options?: { temporaryPassword?: string | null }
+) {
+  return readJson<{ result: Record<string, unknown> }>(`/api/admin/users/${userId}/actions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, temporaryPassword: options?.temporaryPassword ?? null }),
+  });
+}
+
 export function fetchPayrollReview() {
-  return readJson<{ payroll: PayrollPackage; variance: PayrollVarianceItem[] }>(
+  return readJson<{ payroll: PayrollPackage | null; variance: PayrollVarianceItem[] }>(
     "/api/payroll/review",
     {
       cache: "no-store",
@@ -262,7 +390,7 @@ export function fetchPayrollProcess() {
 }
 
 export function getPayrollExportUrl(
-  exportType: "net_to_bank" | "paye_report" | "payroll_register" | "p9_forms",
+  exportType: PayrollExportType,
   actorEmail: string,
   actorRole: string
 ) {

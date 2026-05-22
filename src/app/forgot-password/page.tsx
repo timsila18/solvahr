@@ -3,8 +3,17 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
-import { getAuthRedirectUrl } from "@/lib/supabase/env";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+async function withAuthTimeout<T>(promise: Promise<T>, actionLabel: string) {
+  return await Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(`${actionLabel} timed out. Please try again.`));
+      }, 15000);
+    }),
+  ]);
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -16,13 +25,27 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     setMessage("");
 
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getAuthRedirectUrl(),
-    });
+    try {
+      const response = await withAuthTimeout(
+        fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+          }),
+        }),
+        "Reset link request"
+      );
 
-    setMessage(error ? error.message : "Password reset link sent. Check your email.");
-    setSubmitting(false);
+      const payload = (await response.json()) as { error?: string; message?: string };
+      setMessage(payload.error ?? payload.message ?? "Password reset link sent. Check your email.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "We could not send the reset link right now.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

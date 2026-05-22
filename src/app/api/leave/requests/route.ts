@@ -16,8 +16,16 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       employeeName: string;
       leaveType: string;
-      days: string;
       startDate: string;
+      endDate?: string;
+      days?: string;
+      reason?: string;
+      requestCategory?: string;
+      leaveAddress?: string;
+      contactPhone?: string;
+      cellPhone?: string;
+      relievingOfficer?: string;
+      attachmentNote?: string;
     };
 
     return NextResponse.json(
@@ -26,6 +34,14 @@ export async function POST(request: Request) {
         leaveType: body.leaveType,
         days: body.days,
         startDate: body.startDate,
+        endDate: body.endDate,
+        reason: body.reason,
+        requestCategory: body.requestCategory,
+        leaveAddress: body.leaveAddress,
+        contactPhone: body.contactPhone,
+        cellPhone: body.cellPhone,
+        relievingOfficer: body.relievingOfficer,
+        attachmentNote: body.attachmentNote,
       }),
       { status: 201 }
     );

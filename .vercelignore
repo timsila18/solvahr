@@ -1,0 +1,17 @@
+.git
+.vercel
+.venv-docling
+node_modules
+.next
+.next-build-verify
+*.log
+*.tmp
+tmp*
+build-check.log
+openai-test.json
+openai-test-json.json
+auth127.txt
+authlocal.txt
+docs/app-directory-screenshots
+solva_hr_apk
+solva_hr_mobile

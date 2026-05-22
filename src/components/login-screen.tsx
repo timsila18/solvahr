@@ -1,43 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useState } from "react";
 
-export function LoginScreen() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = useMemo(() => searchParams.get("redirectTo") ?? "/", [searchParams]);
-  const inboundMessage = useMemo(() => searchParams.get("message") ?? "", [searchParams]);
+async function withAuthTimeout<T>(promise: Promise<T>, actionLabel: string) {
+  return await Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(`${actionLabel} timed out. Please try again.`));
+      }, 15000);
+    }),
+  ]);
+}
+
+export function LoginScreen({
+  inboundMessage = "",
+  redirectTo = "/",
+}: {
+  inboundMessage?: string;
+  redirectTo?: string;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(inboundMessage);
-
-  useEffect(() => {
-    setMessage(inboundMessage);
-  }, [inboundMessage]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setMessage("");
 
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const response = await withAuthTimeout(
+        fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }),
+        "Sign in"
+      );
 
-    if (error) {
-      setMessage(error.message);
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setMessage(payload.error ?? "We could not sign you in right now.");
+        setSubmitting(false);
+        return;
+      }
+
+      window.location.assign(redirectTo);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "We could not sign you in right now.");
       setSubmitting(false);
-      return;
     }
-
-    router.push(redirectTo);
-    router.refresh();
   }
 
   return (
@@ -63,14 +85,23 @@ export function LoginScreen() {
         </label>
         <label>
           <span>Password</span>
-          <input
-            autoComplete="current-password"
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter your password"
-            required
-            type="password"
-            value={password}
-          />
+          <div className="password-input-row">
+            <input
+              autoComplete="current-password"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
+              required
+              type={showPassword ? "text" : "password"}
+              value={password}
+            />
+            <button
+              className="ghost-button password-visibility-toggle"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </label>
         <button className="primary-button" disabled={submitting} type="submit">
           {submitting ? "Signing in..." : "Sign in"}
@@ -78,7 +109,7 @@ export function LoginScreen() {
       </form>
       <div className="auth-links">
         <Link href="/forgot-password">Forgot password?</Link>
-        <Link href="/signup">Create ESS account</Link>
+        <Link href="/signup">Register organization</Link>
       </div>
       <div className="auth-role-strip">
         <span>Super Admin</span>

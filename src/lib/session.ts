@@ -2,6 +2,19 @@ import { redirect } from "next/navigation";
 import { normalizeRole, type AuthUserProfile } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function safeString(value: unknown, fallback = "") {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+
+  if (value == null) {
+    return fallback;
+  }
+
+  return String(value).trim() || fallback;
+}
+
 export async function getCurrentSession() {
   const supabase = await createSupabaseServerClient();
   return supabase.auth.getSession();
@@ -25,6 +38,13 @@ export async function getCurrentUserProfile() {
     .eq("id", user.id)
     .single();
 
+  const metadataStatus =
+    typeof user.app_metadata.status === "string"
+      ? user.app_metadata.status
+      : typeof user.user_metadata.status === "string"
+        ? user.user_metadata.status
+        : "active";
+
   if (error || !data) {
     return {
       id: user.id,
@@ -37,13 +57,17 @@ export async function getCurrentUserProfile() {
       branch_id: null,
       department_id: null,
       last_login: null,
-      status: "active",
+      status: metadataStatus,
     } satisfies AuthUserProfile;
   }
 
   return {
     ...data,
     role: normalizeRole(data.role),
+    status:
+      safeString(data.status).toLowerCase() === "pending_approval" || metadataStatus === "pending_approval"
+        ? "pending_approval"
+        : safeString(data.status, metadataStatus),
   } satisfies AuthUserProfile;
 }
 

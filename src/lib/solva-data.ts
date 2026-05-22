@@ -57,23 +57,38 @@ export type ModuleSpec = {
 
 export type ApprovalTask = {
   id: string;
-  kind:
-    | "employee_activation"
-    | "payroll_approval"
-    | "leave_request"
-    | "requisition_approval"
-    | "profile_update"
-    | "training_request"
-    | "asset_request";
+  kind: string;
   moduleKey: string;
+  entityId?: string;
+  employeeId?: string;
+  requestType?: string;
   title: string;
   description: string;
   ownerRole: string;
+  employee?: string;
+  department?: string;
+  leaveType?: string;
+  requestCategory?: string;
+  requestedDays?: number;
+  startDate?: string;
+  endDate?: string;
+  leaveBalance?: number;
+  accruedLeave?: number;
+  takenLeave?: number;
+  pendingLeave?: number;
+  balanceAfterApproval?: number;
+  latestComment?: string;
+  leaveStatus?: string;
   requestedBy: string;
+  requestedByName?: string;
   requestedByRole: string;
   status: "pending" | "approved" | "rejected";
   stage: string;
   due: string;
+  submittedDate?: string;
+  priority?: string;
+  pendingApprover?: string;
+  linkHref?: string;
   updatedAt: string;
 };
 
@@ -83,7 +98,10 @@ export type AuditEvent = {
   category: string;
   action: string;
   actorEmail: string;
+  actorName?: string;
   actorRole: string;
+  actorTitle?: string;
+  actorDepartment?: string;
   subject: string;
   outcome: string;
   timestamp: string;
@@ -97,25 +115,54 @@ export type EmployeeRecord = {
   branch: string;
   employmentType: string;
   status: string;
+  salaryStopActive?: boolean;
+  salaryStopReason?: string;
+  salaryStopEffectiveDate?: string;
+  userAccount: {
+    status: "No account" | "Invited" | "Active" | "Suspended";
+    userId: string | null;
+    role: string;
+    lastLogin: string;
+    activationState: string;
+  };
 };
 
 export type PayrollPackage = {
+  runId: string;
   period: string;
   status: string;
+  payrollType: string;
   employeeCount: string;
   grossPay: string;
   netPay: string;
+  totalDeductions: string;
+  employerCost: string;
   paye: string;
   shif: string;
   nssf: string;
   housingLevy: string;
+  pension: string;
+  validationErrors: number;
+  pendingApprovals: number;
+  allowedActions: string[];
+  lifecycle: Array<{
+    label: string;
+    status: "completed" | "current" | "upcoming";
+  }>;
 };
 
 export type EmployeeProfile = EmployeeRecord & {
+  branchId?: string | null;
+  supervisorEmployeeId?: string | null;
   phoneNumber: string;
   companyEmail: string;
+  profilePhoto?: string;
   supervisor: string;
   costCenter: string;
+  currentGrossPay?: number;
+  gender?: string;
+  dateOfBirth?: string;
+  nationalId: string;
   kraPin: string;
   shifNumber: string;
   nssfNumber: string;
@@ -127,16 +174,39 @@ export type EmployeeProfile = EmployeeRecord & {
     items: Array<{ label: string; value: string }>;
   }>;
   documentSummary: Array<{
+    id?: string;
     name: string;
     category: string;
+    documentType?: string;
     status: string;
     expiry: string;
+    uploadedAt?: string;
   }>;
   movementHistory: Array<{
+    id?: string;
     title: string;
     detail: string;
     date: string;
   }>;
+  leaveHistory: Array<{
+    id: string;
+    leaveType: string;
+    requestCategory: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    status: string;
+    createdAt: string;
+  }>;
+  userAccountDetail: {
+    userId: string | null;
+    status: "No account" | "Invited" | "Active" | "Suspended";
+    role: string;
+    lastLogin: string;
+    activationState: string;
+    invitedAt: string;
+    invitedBy: string;
+  };
 };
 
 export type PayrollVarianceItem = {
@@ -152,8 +222,18 @@ export type PayrollValidationIssue = {
   title: string;
   detail: string;
   severity: "positive" | "warning" | "critical";
+  category: string;
   owner: string;
   status: string;
+  blocker: boolean;
+  employeeId?: string;
+  employeeName?: string;
+  employeeNumber?: string;
+  department?: string;
+  branch?: string;
+  missingField?: string;
+  affectedReport?: string;
+  suggestedAction?: string;
 };
 
 export type PayrollApprovalStage = {
@@ -166,38 +246,118 @@ export type PayrollApprovalStage = {
 };
 
 export type PayrollRunHistoryItem = {
+  runId: string;
   period: string;
   payrollType: string;
   status: string;
+  employeeCount: string;
   grossPay: string;
   netPay: string;
+  totalDeductions: string;
+  employerCost: string;
+  validationErrors: number;
   processedAt: string;
 };
 
 export type PayrollExportHistoryItem = {
   id: string;
+  exportType: string;
   label: string;
+  fileName: string;
   actor: string;
   status: string;
   generatedAt: string;
 };
 
 export type PayrollProcessData = {
+  currentRunId: string;
+  status: string;
+  paymentMode: "MPESA" | "BANK";
+  primaryPaymentExport: "net_to_mpesa" | "net_to_bank";
+  summary: {
+    employees: number;
+    grossPay: string;
+    netPay: string;
+    totalDeductions: string;
+    employerCost: string;
+    warnings: number;
+    blockers: number;
+    pendingApprovals: number;
+  };
+  warningSummary: {
+    missingKraPins: number;
+    missingMpesaPhones: number;
+    missingShifNumbers: number;
+    missingNssfNumbers: number;
+    missingHelbNumbers: number;
+    missingNationalIds: number;
+    missingSalaries: number;
+    missingPaymentDestinations: number;
+  };
   validations: PayrollValidationIssue[];
   approvals: PayrollApprovalStage[];
   history: PayrollRunHistoryItem[];
   exports: PayrollExportHistoryItem[];
+  reviewHighlights: Array<{
+    label: string;
+    detail: string;
+    tone: "default" | "positive" | "warning" | "critical";
+  }>;
+  employeeRows: Array<{
+    id: string;
+    employeeNumber: string;
+    fullName: string;
+    phone?: string;
+    department: string;
+    branch: string;
+    grossPay: string;
+    netPay: string;
+    grossMonthlyPayWouldHaveBeen?: string;
+    actualTotalGrossMonthPay?: string;
+    thirtiethNetPayWouldHaveBeen?: string;
+    actualThirtiethNetPay?: string;
+    taxableIncome: string;
+    overtime: string;
+    unpaidLeaveDeduction: string;
+    warnings: string[];
+  }>;
+  availableActions: string[];
+  closeChecklist?: Array<{
+    key: string;
+    label: string;
+    status: "ready" | "attention" | "pending";
+    detail: string;
+  }>;
+  closeReadiness?: {
+    ready: boolean;
+    summary: string;
+  };
 };
 
 export type PlatformSnapshot = {
   generatedAt: string;
   loginProfiles: typeof loginProfiles;
   modules: ModuleSpec[];
+  currentUser?: {
+    fullName: string;
+    email: string;
+    role: string;
+  };
+  workspace: {
+    name: string;
+    detail: string;
+    logoUrl?: string | null;
+    logoMark?: string;
+    shortName?: string;
+    welcomeMessage?: string;
+    poweredByLabel?: string;
+  };
   featured: {
     title: string;
     summary: string;
     approvals: Array<{ item: string; owner: string; status: string; due: string }>;
     announcements: Array<{ title: string; audience: string; time: string }>;
+    insights?: Array<{ title: string; detail: string; tone?: Metric["tone"] }>;
   };
 };
 
@@ -251,15 +411,15 @@ export const modules: ModuleSpec[] = [
   },
   {
     key: "people",
-    title: "People",
-    shortTitle: "People",
+    title: "Staff Register",
+    shortTitle: "Staff",
     icon: "PE",
     summary:
       "Digital employee records, movement history, structure management, document control, and lifecycle operations.",
     tagline: "A complete employee file, not a pile of disconnected HR screens.",
     items: [
-      "Employee Directory",
-      "Employee Profiles",
+      "Staff Register",
+      "Staff Profiles",
       "Departments",
       "Branches",
       "Designations",
@@ -321,6 +481,7 @@ export const modules: ModuleSpec[] = [
       "Loan & Checkoff Management",
       "Casual Payroll",
       "Payroll Reports",
+      "Payroll Validation Warnings",
       "Payroll Audit Trail",
       "Payroll Settings",
     ],
@@ -356,15 +517,20 @@ export const modules: ModuleSpec[] = [
       "Leave Dashboard",
       "Leave Requests",
       "Leave Calendar",
-      "Leave Policies",
       "Leave Balances",
-      "Attendance",
-      "Biometrics",
+      "Leave Policies",
+      "Attendance Dashboard",
+      "Daily Attendance",
       "Shift Scheduling",
       "Timesheets",
       "Overtime",
+      "Late Coming & Absenteeism",
       "Holidays",
       "Weekend Rules",
+      "Biometric / Device Integrations",
+      "Approvals Inbox",
+      "Reports",
+      "Settings",
     ],
     heroStats: [
       { label: "Leave requests", value: "26", hint: "8 awaiting supervisor approval" },
@@ -436,21 +602,23 @@ export const modules: ModuleSpec[] = [
     tagline: "Performance management that supports real business decisions, not annual paperwork.",
     items: [
       "KPIs",
-      "Appraisals",
       "Goals",
+      "Appraisals",
       "Performance Reviews",
       "Performance Improvement Plans",
-      "Promotions",
+      "Promotion Cases",
       "Succession Planning",
       "Talent Matrix",
+      "Performance Reports",
+      "Performance Settings",
     ],
     heroStats: [
-      { label: "Q2 completion", value: "73%", hint: "Reviews and appraisals in progress" },
-      { label: "PIPs active", value: "11", hint: "Needs HR follow-through", tone: "warning" },
-      { label: "Promotion cases", value: "9", hint: "Awaiting calibration" },
-      { label: "Successor coverage", value: "68%", hint: "Critical-role coverage" },
+      { label: "Q2 completion", value: "--", hint: "Live review progress appears here" },
+      { label: "Reviews in progress", value: "--", hint: "No fake counts in this workspace" },
+      { label: "PIPs active", value: "--", hint: "Current PIP workload" },
+      { label: "Successor coverage", value: "--", hint: "Critical-role continuity coverage" },
     ],
-    quickActions: ["Launch appraisal cycle", "Create KPI", "Open talent matrix", "Review promotion case"],
+    quickActions: ["Launch appraisal cycle", "Create KPI", "Create goal", "Generate performance report"],
     highlights: [
       "Performance should link to probation, promotions, training, and succession readiness.",
       "Managers need clear progress, not a vague annual form buried in settings.",
@@ -458,10 +626,10 @@ export const modules: ModuleSpec[] = [
     ],
     chartTitle: "Performance distribution",
     chartData: [
-      { label: "Exceeding", value: 22, display: "22% top performers" },
-      { label: "Strong", value: 41, display: "41% strong performers" },
-      { label: "Stable", value: 28, display: "28% stable performers" },
-      { label: "At risk", value: 9, display: "9% at risk" },
+      { label: "Excellent", value: 0, display: "No data yet" },
+      { label: "Good", value: 0, display: "Pending setup" },
+      { label: "Fair", value: 0, display: "Pending setup" },
+      { label: "At risk", value: 0, display: "Pending setup" },
     ],
   },
   {
@@ -541,22 +709,23 @@ export const modules: ModuleSpec[] = [
     shortTitle: "ESS",
     icon: "ES",
     summary:
-      "Personal employee workspace for payslips, leave, attendance, appraisals, assets, documents, and requests.",
+      "Personal employee workspace for payslips, leave, attendance, profile updates, documents, and requests.",
     tagline: "Self service should feel useful, fast, and trustworthy on phone or desktop.",
     items: [
       "My Dashboard",
-      "My Profile",
-      "My Payslips",
-      "My P9 Forms",
       "My Leave",
-      "My Attendance",
-      "My Requests",
+      "My Payslips",
       "My Documents",
-      "My Assets",
-      "My Loans",
-      "My Appraisals",
-      "My Training",
       "My Notifications",
+      "My Profile",
+      "My Attendance",
+      "Issued Documents",
+      "Company Documents",
+      "My Performance",
+      "My Complaints",
+      "My Loans & Deductions",
+      "My Requests",
+      "My Settings",
     ],
     heroStats: [
       { label: "Portal adoption", value: "87%", hint: "Monthly active employee usage" },
@@ -564,7 +733,7 @@ export const modules: ModuleSpec[] = [
       { label: "Payslip views", value: "1,204", hint: "Current month" },
       { label: "Unread notices", value: "312", hint: "Announcements and workflow messages" },
     ],
-    quickActions: ["Download payslip", "Apply leave", "Update profile", "View appraisal"],
+    quickActions: ["Download payslip", "Apply leave", "Update profile", "View performance"],
     highlights: [
       "Employees can view payslips, P9 forms, leave balances, attendance, loans, assets, and learning records.",
       "Self service should reduce manual HR work, not create more clarification calls.",
@@ -587,16 +756,25 @@ export const modules: ModuleSpec[] = [
       "Cross-module reporting, analytics, board packs, compliance output, and custom report building.",
     tagline: "One reporting layer for HR, payroll, operations, and consultancy work.",
     items: [
+      "Executive Dashboard",
+      "Operations Health Center",
       "HR Reports",
       "Payroll Reports",
       "Leave Reports",
+      "Attendance Reports",
       "Recruitment Reports",
       "Performance Reports",
       "Training Reports",
-      "Assets Reports",
+      "Asset Reports",
       "Compliance Reports",
-      "Executive Reports",
+      "Branch Reports",
+      "Department Reports",
+      "Consultancy Reports",
+      "Saved Reports",
+      "Scheduled Reports",
       "Custom Report Builder",
+      "Export History",
+      "Audit & Report Access Logs",
     ],
     heroStats: [
       { label: "Saved templates", value: "42", hint: "Reusable report definitions" },
@@ -616,6 +794,58 @@ export const modules: ModuleSpec[] = [
       { label: "HR", value: 22, display: "22% HR reports" },
       { label: "Compliance", value: 18, display: "18% compliance reports" },
       { label: "Executive", value: 16, display: "16% executive reports" },
+    ],
+  },
+  {
+    key: "administration",
+    title: "Administration",
+    shortTitle: "Admin",
+    icon: "AD",
+    summary:
+      "User management, role governance, company setup, security controls, workflows, sessions, imports, and operational oversight.",
+    tagline: "The operational control plane for onboarding, governance, and production readiness.",
+    items: [
+      "Admin Dashboard",
+      "User Management",
+      "Role Management",
+      "Permissions Matrix",
+      "Company Settings",
+      "Billing & Subscription",
+      "Company Onboarding",
+      "Branch Management",
+      "Department Management",
+      "Designations",
+      "Job Grades",
+      "Payroll Groups",
+      "Approval Workflow Settings",
+      "Notification Settings",
+      "Security Settings",
+      "Login Sessions",
+      "Access Logs",
+      "Audit Oversight",
+      "System Health",
+      "Data Imports",
+      "SaaS HQ",
+      "Support & Recovery",
+    ],
+    heroStats: [
+      { label: "Managed users", value: "128", hint: "Across all active roles" },
+      { label: "Trial tenants", value: "9", hint: "Organizations still onboarding", tone: "warning" },
+      { label: "Security posture", value: "Healthy", hint: "Session, password, and audit controls in place" },
+      { label: "Admin actions today", value: "24", hint: "User lifecycle, settings, and workflow changes" },
+    ],
+    quickActions: ["Invite user", "Review permissions", "Manage billing", "Check system health"],
+    highlights: [
+      "Administration should make onboarding and control easy without making governance vague.",
+      "This layer keeps user lifecycle, permissions, approvals, and settings accountable in one place.",
+      "Commercial operations like plans, trials, and onboarding should feel just as clear as HR operations.",
+    ],
+    chartTitle: "Admin focus areas",
+    chartData: [
+      { label: "Users", value: 34, display: "34% user operations" },
+      { label: "Permissions", value: 24, display: "24% governance work" },
+      { label: "Onboarding", value: 22, display: "22% client activation" },
+      { label: "Billing", value: 20, display: "20% billing and oversight" },
     ],
   },
   {
@@ -788,6 +1018,12 @@ export function getPlatformSnapshot(): PlatformSnapshot {
     generatedAt: "2026-04-21T09:00:00+03:00",
     loginProfiles,
     modules,
+    workspace: {
+      name: "Solva HR Workspace",
+      detail: "Live HR and payroll operations",
+      logoUrl: null,
+      logoMark: "S",
+    },
     featured: {
       title: "Solva HR Operating Snapshot",
       summary:
@@ -881,7 +1117,7 @@ const pageOverrides: Record<string, Omit<PageSpec, "title">> = {
       ],
     },
   },
-  "people:employee-directory": {
+  "people:staff-register": {
     description:
       "Complete staff register with department, branch, employment type, payroll linkage, and verification status.",
     metrics: [

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Solva HR</string>
+    <string name="app_subtitle">Secure workplace banking-style workspace</string>
+    <string name="quick_status_label">Current view</string>
+    <string name="loading_workspace">Opening workspace…</string>
+    <string name="secure_workspace">My Dashboard</string>
+    <string name="connection_ready">LIVE</string>
+    <string name="offline_title">Could not reach Solva HR</string>
+    <string name="offline_message">Check internet access, then tap retry to reopen the workspace.</string>
+    <string name="retry">Retry</string>
+    <string name="action_home">Home</string>
+    <string name="action_back">Back</string>
+    <string name="action_refresh">Reload</string>
+    <string name="action_share">Share</string>
+    <string name="action_browser">Open</string>
+</resources>

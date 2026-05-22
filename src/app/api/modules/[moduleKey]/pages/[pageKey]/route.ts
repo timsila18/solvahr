@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { roleCanAccessModule } from "@/lib/auth";
 import { buildPageFromDatabase } from "@/lib/database";
+import { getCurrentUserProfile } from "@/lib/session";
 import { getModuleByKey } from "@/lib/solva-data";
 
 export async function GET(
@@ -22,6 +24,17 @@ export async function GET(
   }
 
   try {
+    const profile = await getCurrentUserProfile();
+    if (!profile) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    if (profile.role === "Employee" && module.key !== "ess") {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    if (!roleCanAccessModule(profile.role, module.key)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
     return NextResponse.json(await buildPageFromDatabase(module, item));
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";

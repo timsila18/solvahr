@@ -1,5 +1,12 @@
 function readEnv(name: string) {
-  const value = process.env[name];
+  const value =
+    name === "NEXT_PUBLIC_SUPABASE_URL"
+      ? process.env.NEXT_PUBLIC_SUPABASE_URL
+      : name === "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+        ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        : name === "SUPABASE_SERVICE_ROLE_KEY"
+          ? process.env.SUPABASE_SERVICE_ROLE_KEY
+          : process.env[name];
 
   if (!value) {
     throw new Error(`Missing environment variable: ${name}`);
@@ -7,6 +14,8 @@ function readEnv(name: string) {
 
   return value;
 }
+
+export type AppEnvironment = "development" | "staging" | "production";
 
 export function getSupabaseUrl() {
   return readEnv("NEXT_PUBLIC_SUPABASE_URL");
@@ -32,6 +41,30 @@ export function getAuthCallbackUrl(next = "/reset-password") {
 
 export function getAuthRedirectUrl() {
   return process.env.NEXT_PUBLIC_SUPABASE_AUTH_REDIRECT_URL ?? getAuthCallbackUrl();
+}
+
+export function getAppEnvironment(): AppEnvironment {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_ENV ??
+    process.env.APP_ENV ??
+    process.env.VERCEL_ENV ??
+    process.env.NODE_ENV ??
+    "development";
+  const normalized = raw.toLowerCase();
+
+  if (normalized === "production") {
+    return "production";
+  }
+
+  if (normalized === "preview" || normalized === "staging") {
+    return "staging";
+  }
+
+  return "development";
+}
+
+export function isProductionEnvironment() {
+  return getAppEnvironment() === "production";
 }
 
 export function getStorageBucketNames() {

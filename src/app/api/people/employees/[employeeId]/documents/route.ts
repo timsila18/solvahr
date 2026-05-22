@@ -1,11 +1,24 @@
 import { NextResponse } from "next/server";
+import { roleCanAccessPeople } from "@/lib/auth";
 import { listEmployeeDocuments, uploadEmployeeDocument } from "@/lib/database";
+import { getCurrentUserProfile } from "@/lib/session";
+
+async function assertPeopleAdminAccess() {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  if (!roleCanAccessPeople(profile.role)) {
+    throw new Error("forbidden");
+  }
+}
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ employeeId: string }> }
 ) {
   try {
+    await assertPeopleAdminAccess();
     const { employeeId } = await context.params;
     return NextResponse.json({ documents: await listEmployeeDocuments(employeeId) });
   } catch (error) {
@@ -20,6 +33,7 @@ export async function POST(
   context: { params: Promise<{ employeeId: string }> }
 ) {
   try {
+    await assertPeopleAdminAccess();
     const { employeeId } = await context.params;
     const formData = await request.formData();
     const category = String(formData.get("category") ?? "");

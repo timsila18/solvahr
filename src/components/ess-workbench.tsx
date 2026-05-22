@@ -2884,7 +2884,12 @@ export function EssWorkbench({
         </div>
         <div className="mini-list queue-list">
           {state.data?.length ? (
-            state.data.map((item) => (
+            state.data.map((item) => {
+              const employeeCanStillEdit =
+                item.workflowMode === "robot_cafe_simple" &&
+                (item.status === "self_review_pending" || item.status === "supervisor_review_pending");
+
+              return (
               <article key={item.id}>
                 <strong>
                   {item.metricLabel || item.reviewCycle} | {item.weekLabel || item.reviewPeriod}
@@ -2915,13 +2920,13 @@ export function EssWorkbench({
                     <p className="section-description">
                       {item.finalDecision
                         ? `Final outcome: ${item.finalDecision}`
-                        : item.canSelfReview
+                        : employeeCanStillEdit
                           ? item.status === "supervisor_review_pending"
                             ? "Your supervisor is reviewing this appraisal. You can still update your self-review until it is forwarded to GM."
                             : "Your self-review is needed before your supervisor can continue."
                           : `Current stage: ${item.status}`}
                     </p>
-                    {item.canSelfReview ? (
+                    {employeeCanStillEdit ? (
                       <div className="action-form compact-form">
                         <label>
                           <span>What went well during this period?</span>
@@ -3091,7 +3096,8 @@ export function EssWorkbench({
                   </div>
                 ) : null}
               </article>
-            ))
+              );
+            })
           ) : (
             <SectionMessage text="No performance records are available yet." />
           )}

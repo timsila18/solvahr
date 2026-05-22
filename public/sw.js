@@ -1,4 +1,4 @@
-const CACHE_NAME = "solva-hr-shell-v1";
+const CACHE_NAME = "solva-hr-shell-v2";
 const STATIC_ROUTES = ["/", "/login", "/tools", "/insights", "/guided-setup"];
 
 self.addEventListener("install", (event) => {

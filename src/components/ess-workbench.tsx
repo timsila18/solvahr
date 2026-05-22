@@ -1177,7 +1177,8 @@ export function EssWorkbench({
 
   async function handleSelfReviewSubmit(reviewId: string) {
     const appraisal = appraisalsState.data?.find((item) => item.id === reviewId) ?? null;
-    const isResubmittingToSupervisor = appraisal?.status === "supervisor_review_pending";
+    const appraisalStatus = (appraisal?.status ?? "").trim().toLowerCase();
+    const isResubmittingToSupervisor = appraisalStatus === "supervisor_review_pending";
     const confirmationMessage = isResubmittingToSupervisor
       ? "Are you sure you want to update and resubmit this appraisal to your supervisor? Your latest answers will replace the earlier self-review."
       : "Are you sure you want to submit this appraisal to your supervisor?";
@@ -2885,9 +2886,10 @@ export function EssWorkbench({
         <div className="mini-list queue-list">
           {state.data?.length ? (
             state.data.map((item) => {
+              const normalizedStatus = (item.status ?? "").trim().toLowerCase();
               const employeeCanStillEdit =
                 item.workflowMode === "robot_cafe_simple" &&
-                (item.status === "self_review_pending" || item.status === "supervisor_review_pending");
+                (normalizedStatus === "self_review_pending" || normalizedStatus === "supervisor_review_pending");
 
               return (
               <article key={item.id}>
@@ -2921,7 +2923,7 @@ export function EssWorkbench({
                       {item.finalDecision
                         ? `Final outcome: ${item.finalDecision}`
                         : employeeCanStillEdit
-                          ? item.status === "supervisor_review_pending"
+                          ? normalizedStatus === "supervisor_review_pending"
                             ? "Your supervisor is reviewing this appraisal. You can still update your self-review until it is forwarded to GM."
                             : "Your self-review is needed before your supervisor can continue."
                           : `Current stage: ${item.status}`}
@@ -3031,7 +3033,7 @@ export function EssWorkbench({
                         >
                           {busyAction === `self-review-${item.id}`
                             ? "Submitting..."
-                            : item.status === "supervisor_review_pending"
+                            : normalizedStatus === "supervisor_review_pending"
                               ? "Update self-review"
                               : "Submit self-review"}
                         </button>

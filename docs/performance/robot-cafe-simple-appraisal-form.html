@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Robot Cafe & Bistro Simple Appraisal Form</title>
+    <style>
+      :root {
+        --brand: #0d3b78;
+        --brand-deep: #08284f;
+        --brand-soft: #edf4fd;
+        --brand-line: #cbdcf1;
+        --brand-accent: #2a6fdb;
+        --ink: #162539;
+        --muted: #5c6f88;
+        --panel: #f8fbff;
+        --white: #ffffff;
+        --good: #dff3e4;
+        --good-ink: #1d6a39;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ddeaf8;
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      body {
+        font-size: 10pt;
+        line-height: 1.45;
+      }
+
+      .page {
+        width: 100%;
+        min-height: 272mm;
+        background:
+          radial-gradient(circle at top right, rgba(42, 111, 219, 0.12), transparent 23%),
+          radial-gradient(circle at bottom left, rgba(13, 59, 120, 0.08), transparent 20%),
+          linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+        border: 1px solid #d4e3f5;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .page + .page {
+        page-break-before: always;
+      }
+
+      .wrap {
+        padding: 15mm 15mm 13mm;
+        position: relative;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 104px 1fr 205px;
+        gap: 16px;
+        align-items: stretch;
+        margin-bottom: 14px;
+      }
+
+      .brand-rail {
+        background: linear-gradient(180deg, var(--brand) 0%, var(--brand-deep) 100%);
+        color: var(--white);
+        border-radius: 14px;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 172px;
+        box-shadow: 0 14px 28px rgba(8, 40, 79, 0.14);
+      }
+
+      .brand-badge {
+        width: 62px;
+        height: 62px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.14);
+        font-size: 20pt;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+
+      .brand-rail small {
+        display: block;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 8.2pt;
+      }
+
+      .hero-main {
+        padding: 6px 0;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 8px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #edf4fd;
+        border: 1px solid #d9e7f8;
+        color: var(--brand);
+        font-size: 8.5pt;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 25pt;
+        line-height: 1.04;
+        color: var(--brand-deep);
+      }
+
+      .subtitle {
+        margin: 0 0 10px;
+        font-size: 11.3pt;
+        color: var(--muted);
+      }
+
+      .hero-main p {
+        margin: 0;
+        color: #42546d;
+      }
+
+      .summary-card {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--brand-line);
+        border-radius: 14px;
+        padding: 14px 14px 12px;
+        box-shadow: 0 10px 24px rgba(22, 37, 57, 0.06);
+      }
+
+      .summary-card h2,
+      .panel h2,
+      .section h2 {
+        margin: 0 0 8px;
+        font-size: 11pt;
+        color: var(--brand);
+      }
+
+      .meta-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .meta-item strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 8.2pt;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .meta-item span {
+        display: block;
+        font-weight: 600;
+      }
+
+      .strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .pill {
+        background: var(--panel);
+        border: 1px solid var(--brand-line);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
+
+      .pill strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 8.1pt;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .pill span {
+        display: block;
+        font-size: 11pt;
+        font-weight: 700;
+      }
+
+      .pill.outcome {
+        background: linear-gradient(180deg, #ebfff0 0%, #dff3e4 100%);
+        border-color: #b9e0c4;
+      }
+
+      .pill.outcome span {
+        color: var(--good-ink);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 0.94fr 1.3fr;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+
+      .panel,
+      .section {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid var(--brand-line);
+        border-radius: 14px;
+        padding: 12px 13px;
+      }
+
+      .panel p,
+      .section p {
+        margin: 0 0 9px;
+      }
+
+      .answer {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e5eef9;
+      }
+
+      .answer:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .answer strong,
+      .mini-block strong,
+      .note strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--brand-deep);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 4px;
+      }
+
+      th,
+      td {
+        padding: 8px 9px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid #dfe9f7;
+      }
+
+      th {
+        background: #eef5fd;
+        color: var(--brand-deep);
+        font-size: 8.4pt;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      td.score {
+        width: 58px;
+        text-align: center;
+        font-weight: 700;
+        color: var(--brand);
+      }
+
+      .comment-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .mini-block {
+        background: var(--panel);
+        border: 1px solid #dce8f6;
+        border-radius: 12px;
+        padding: 11px 12px;
+        min-height: 96px;
+      }
+
+      .section {
+        margin-bottom: 12px;
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 12px;
+      }
+
+      .note {
+        padding: 10px 11px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #edf4fd 0%, #e6f0fc 100%);
+        border: 1px solid #d1e0f5;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .action-box {
+        background: #fff;
+        border: 1px solid #d8e5f5;
+        border-radius: 12px;
+        padding: 10px 11px;
+      }
+
+      .signatures {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .signature-card {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #d9e6f6;
+        border-radius: 14px;
+        padding: 12px 12px 11px;
+      }
+
+      .signature-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 8.3pt;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .sig-mark {
+        display: inline-block;
+        margin-bottom: 6px;
+        font-family: "Segoe Script", "Brush Script MT", cursive;
+        font-size: 20pt;
+        color: var(--brand-accent);
+        line-height: 1;
+      }
+
+      .sig-name {
+        display: block;
+        font-weight: 700;
+      }
+
+      .sig-title,
+      .sig-date {
+        display: block;
+        color: var(--muted);
+        font-size: 9pt;
+      }
+
+      .footer {
+        margin-top: 14px;
+        padding-top: 10px;
+        border-top: 1px solid #d7e5f6;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 8.7pt;
+      }
+
+      .brandline {
+        color: var(--brand-deep);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="wrap">
+        <section class="hero">
+          <aside class="brand-rail">
+            <div class="brand-badge">RC</div>
+            <div>
+              <small>Robot Cafe &amp; Bistro</small>
+              <small>Simple appraisal workflow draft</small>
+            </div>
+          </aside>
+
+          <div class="hero-main">
+            <div class="eyebrow">Final Appraisal Format</div>
+            <h1>Performance Appraisal</h1>
+            <p class="subtitle">Simple employee -> supervisor -> GM review with one clean final document.</p>
+            <p>
+              This is the proposed downloadable appraisal form for Robot Cafe &amp; Bistro before full workflow wiring
+              inside Solva HR.
+            </p>
+          </div>
+
+          <aside class="summary-card">
+            <h2>Document Intent</h2>
+            <div class="meta-list">
+              <div class="meta-item">
+                <strong>Purpose</strong>
+                <span>Short operational appraisal with a formal final record</span>
+              </div>
+              <div class="meta-item">
+                <strong>Participants</strong>
+                <span>Employee, Supervisor, General Manager</span>
+              </div>
+              <div class="meta-item">
+                <strong>Sign-off</strong>
+                <span>Auto-generated like HR letters</span>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="strip">
+          <div class="pill">
+            <strong>Employee</strong>
+            <span>Dicktamba Nyakundi Siko</span>
+          </div>
+          <div class="pill">
+            <strong>Designation</strong>
+            <span>Front of House Attendant</span>
+          </div>
+          <div class="pill">
+            <strong>Appraisal Period</strong>
+            <span>Q2 2026</span>
+          </div>
+          <div class="pill outcome">
+            <strong>Final Outcome</strong>
+            <span>Performing Well</span>
+          </div>
+        </section>
+
+        <section class="layout">
+          <article class="panel">
+            <h2>Employee Self-Review</h2>
+
+            <div class="answer">
+              <strong>What went well during this period?</strong>
+              <p>
+                I maintained a positive customer service attitude during busy periods, handled guest seating and service
+                requests more confidently, and improved coordination with the kitchen during peak hours.
+              </p>
+            </div>
+
+            <div class="answer">
+              <strong>What challenges did you face?</strong>
+              <p>
+                Weekend rushes sometimes made order follow-up difficult, especially when several tables arrived at once
+                and support cover was limited.
+              </p>
+            </div>
+
+            <div class="answer">
+              <strong>What support or training would help you perform better?</strong>
+              <p>
+                Refresher coaching on service recovery, upselling, and faster handover between floor and kitchen teams
+                would help me perform even better.
+              </p>
+            </div>
+          </article>
+
+          <article class="panel">
+            <h2>Supervisor Review</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Observation</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Punctuality</td>
+                  <td>Reports on time consistently and supports shift readiness well.</td>
+                  <td class="score">4</td>
+                </tr>
+                <tr>
+                  <td>Teamwork</td>
+                  <td>Works well with service and kitchen teams and communicates clearly during handovers.</td>
+                  <td class="score">4</td>
+                </tr>
+                <tr>
+                  <td>Service / Quality of Work</td>
+                  <td>Maintains a good guest-facing attitude and follows service standards with care.</td>
+                  <td class="score">4</td>
+                </tr>
+                <tr>
+                  <td>Discipline / Reliability</td>
+                  <td>Reliable in assigned tasks and responsive when corrected.</td>
+                  <td class="score">4</td>
+                </tr>
+                <tr>
+                  <td>Role Delivery / Job Knowledge</td>
+                  <td>Understands the service flow well and continues to improve in busy-floor control.</td>
+                  <td class="score">3</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="comment-grid">
+              <div class="mini-block">
+                <strong>Strengths Observed</strong>
+                Calm customer handling, consistency in service, and better coordination with teammates.
+              </div>
+              <div class="mini-block">
+                <strong>Areas to Improve</strong>
+                Faster response during rush periods and stronger confidence in service recovery.
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="section">
+          <h2>Supervisor Recommendation</h2>
+          <p>
+            Employee is performing well and should continue in role with targeted coaching on handling rush pressure,
+            upselling, and guest issue resolution.
+          </p>
+        </section>
+
+        <div class="footer">
+          <span>Prepared in the proposed simple Robot Cafe appraisal format.</span>
+          <span class="brandline">Solva HR</span>
+        </div>
+      </div>
+    </main>
+
+    <main class="page">
+      <div class="wrap">
+        <section class="section-grid">
+          <article class="section">
+            <h2>General Manager Final Review</h2>
+            <p>
+              The employee has shown stable service performance and a positive service attitude. Supervisor feedback is
+              consistent with observed improvement in guest handling and teamwork. The employee should remain on normal
+              performance track with light coaching rather than any formal intervention.
+            </p>
+
+            <div class="note">
+              <strong>GM Management Remark</strong>
+              Keep building floor confidence and service rhythm. Candidate is dependable and has potential for stronger
+              front-of-house responsibility if improvement continues.
+            </div>
+          </article>
+
+          <aside class="section">
+            <h2>Decision Summary</h2>
+            <div class="meta-list">
+              <div class="meta-item">
+                <strong>Final Outcome</strong>
+                <span>Performing Well</span>
+              </div>
+              <div class="meta-item">
+                <strong>Recommended Action</strong>
+                <span>Coaching and service sharpening</span>
+              </div>
+              <div class="meta-item">
+                <strong>Review Status</strong>
+                <span>Approved by General Manager</span>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="section">
+          <h2>Agreed Next Actions</h2>
+          <div class="actions">
+            <div class="action-box">
+              <strong>Training</strong>
+              Short refresher on service recovery and handling complaints.
+            </div>
+            <div class="action-box">
+              <strong>Coaching</strong>
+              Supervisor to monitor rush-period floor control over the next cycle.
+            </div>
+            <div class="action-box">
+              <strong>Follow-Up</strong>
+              Review progress in the next appraisal cycle.
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Employee Acknowledgement</h2>
+          <p>
+            I confirm that I have reviewed the contents of this appraisal and that the outcome and comments have been
+            shared with me.
+          </p>
+        </section>
+
+        <section class="signatures">
+          <article class="signature-card">
+            <strong>Employee Acknowledgement</strong>
+            <span class="sig-mark">D.N.S.</span>
+            <span class="sig-name">Dicktamba Nyakundi Siko</span>
+            <span class="sig-title">Employee</span>
+            <span class="sig-date">Date: 22 May 2026</span>
+          </article>
+
+          <article class="signature-card">
+            <strong>Supervisor Sign-Off</strong>
+            <span class="sig-mark">C.W.</span>
+            <span class="sig-name">Cyril Wambanda</span>
+            <span class="sig-title">Supervisor</span>
+            <span class="sig-date">Date: 22 May 2026</span>
+          </article>
+
+          <article class="signature-card">
+            <strong>General Manager Sign-Off</strong>
+            <span class="sig-mark">R.C.G.M.</span>
+            <span class="sig-name">[General Manager Name]</span>
+            <span class="sig-title">General Manager - Robot Cafe &amp; Bistro</span>
+            <span class="sig-date">Date: 22 May 2026</span>
+          </article>
+        </section>
+
+        <div class="footer">
+          <span>
+            Future live version: signatories should auto-populate from the same tenant-aware signature logic used in
+            Solva HR HR letters.
+          </span>
+          <span class="brandline">Generated draft format by Solva HR</span>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

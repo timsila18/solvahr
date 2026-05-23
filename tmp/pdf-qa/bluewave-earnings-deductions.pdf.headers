@@ -1,0 +1,15 @@
+HTTP/1.1 200 OK
+Age: 0
+Cache-Control: public, max-age=0, must-revalidate
+Content-Disposition: attachment; filename="earnings-deductions-analysis-apr-2026.pdf"
+Content-Type: application/pdf
+Date: Fri, 24 Apr 2026 04:15:52 GMT
+Server: Vercel
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Matched-Path: /api/payroll/exports/[exportType]
+X-Robots-Tag: noindex
+X-Vercel-Cache: MISS
+X-Vercel-Enable-Rewrite-Caching: 1
+X-Vercel-Id: cpt1::iad1::xccn4-1777004150970-a43d519bac3c
+Transfer-Encoding: chunked
+

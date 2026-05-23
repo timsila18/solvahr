@@ -1,0 +1,12 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/cv-service/cleanup/route.js")
+R.c("server/chunks/[root-of-the-server]__077hzd-._.js")
+R.c("server/chunks/node_modules_next_11synfn._.js")
+R.c("server/chunks/[root-of-the-server]__0p3fo6l._.js")
+R.c("server/chunks/_0p6-xjp._.js")
+R.c("server/chunks/node_modules_pako_0gctttk._.js")
+R.c("server/chunks/_0bc78jt._.js")
+R.c("server/chunks/node_modules_xlsx_xlsx_mjs_0eepc5h._.js")
+R.c("server/chunks/node_modules_@supabase_supabase-js_dist_index_mjs_0hp37pu._.js")
+R.c("server/chunks/_next-internal_server_app_api_admin_cv-service_cleanup_route_actions_0..0m6t.js")
+R.m(46318)
+module.exports=R.m(46318).exports

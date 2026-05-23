@@ -1,0 +1,3 @@
+{
+  "/api/leave/approval-queue/route": "app/api/leave/approval-queue/route.js"
+}

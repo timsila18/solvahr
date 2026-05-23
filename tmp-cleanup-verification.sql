@@ -1,0 +1,10 @@
+delete from public.approval_tasks where id in ('952f2c44-d721-4752-95e0-6b8f268e94fe','acdb73d6-176c-44d9-895c-ebc22d2638d3');
+delete from public.performance_report_exports where review_id = '9c463a21-1e8e-4471-a910-0b0fd4f29384';
+delete from public.appraisal_comments where review_id = '9c463a21-1e8e-4471-a910-0b0fd4f29384';
+delete from public.appraisal_review_items where review_id = '9c463a21-1e8e-4471-a910-0b0fd4f29384';
+delete from public.appraisal_reviews where id = '9c463a21-1e8e-4471-a910-0b0fd4f29384';
+delete from public.appraisal_cycles where id = 'a07b6715-b07f-42c2-b200-2d6c4c1f9fd0';
+delete from public.performance_work_plans where id = '59b81dae-8468-466e-a683-2d8ee2db1b35';
+delete from public.performance_goals where id = 'eb50b5f9-d178-4012-8415-9453e9fa470a';
+delete from public.performance_kpis where id = '431f0d2a-2c23-4ef2-819f-276eccc51809';
+delete from public.training_requests where notes like '%appraisal review 9c463a21-1e8e-4471-a910-0b0fd4f29384%';

@@ -27,6 +27,14 @@ The following parts are now wired to Supabase instead of in-memory mock state:
 - Supabase PostgreSQL
 - Supabase Storage
 
+## Planning Docs
+
+Current planning references:
+
+- [Stabilization Checklist](./docs/stabilization-checklist.md)
+- [Administration Layer Notes](./docs/administration-layer.md)
+- [Enterprise Roadmap](./docs/enterprise-roadmap.md)
+
 ## Environment Variables
 
 Create `.env.local` with:

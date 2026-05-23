@@ -1,0 +1,12 @@
+var R=require("../../../../../../chunks/[turbopack]_runtime.js")("server/app/api/admin/cv-service/orders/[orderId]/route.js")
+R.c("server/chunks/[root-of-the-server]__09q9zsy._.js")
+R.c("server/chunks/node_modules_next_11synfn._.js")
+R.c("server/chunks/[root-of-the-server]__0p3fo6l._.js")
+R.c("server/chunks/_0p6-xjp._.js")
+R.c("server/chunks/node_modules_pako_0gctttk._.js")
+R.c("server/chunks/_0bc78jt._.js")
+R.c("server/chunks/node_modules_xlsx_xlsx_mjs_0eepc5h._.js")
+R.c("server/chunks/node_modules_@supabase_supabase-js_dist_index_mjs_0hp37pu._.js")
+R.c("server/chunks/0zjb_server_app_api_admin_cv-service_orders_[orderId]_route_actions_0mdp-j7.js")
+R.m(68720)
+module.exports=R.m(68720).exports

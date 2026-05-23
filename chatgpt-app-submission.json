@@ -1,0 +1,160 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Solva HR",
+    "subtitle": "Review HR ops data",
+    "description": "Solva HR helps HR and payroll teams look up employee work profiles, review pending approvals, inspect payroll run summaries, and check leave balances across tenant workspaces without changing live records.",
+    "category": "BUSINESS"
+  },
+  "tools": {
+    "list_companies": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists company records and returns their names, slugs, and statuses without changing stored data.",
+        "open_world_justification": "Only reads private Solva HR tenant data and does not post to public websites or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, or trigger irreversible actions."
+      }
+    },
+    "search_employees": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only searches employee records and returns a light work-profile summary without editing the employee file.",
+        "open_world_justification": "Only reads internal HR data and does not publish or send information outside the tenant workspace.",
+        "destructive_justification": "Does not modify employee records or perform irreversible actions."
+      }
+    },
+    "get_employee_profile": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves one employee's profile details and latest payroll snapshot without changing payroll or personnel data.",
+        "open_world_justification": "Only reads private workspace data and does not transmit it to public or third-party systems.",
+        "destructive_justification": "Does not update the employee file, payroll run, or approvals."
+      }
+    },
+    "list_pending_approvals": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists pending approval tasks and requester context so users can review what still needs action.",
+        "open_world_justification": "Only reads approval workflow data inside Solva HR and does not send approvals or notifications externally.",
+        "destructive_justification": "Does not approve, reject, delete, or otherwise change task state."
+      }
+    },
+    "get_payroll_run_summary": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only returns summary totals for an existing payroll run and does not process or reopen payroll.",
+        "open_world_justification": "Only reads private payroll data from Solva HR and does not publish or submit it elsewhere.",
+        "destructive_justification": "Does not alter payroll values, deductions, or run status."
+      }
+    },
+    "get_leave_balance_summary": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only retrieves leave balances and recent leave requests for one employee without creating or editing leave records.",
+        "open_world_justification": "Only reads leave data in the private tenant workspace and does not write to public or external systems.",
+        "destructive_justification": "Does not change leave balances, requests, or approval outcomes."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "List tenant workspaces available in Solva HR.",
+      "user_prompt": "Show me the companies currently set up in Solva HR.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_companies",
+      "expected_output": "Returns the available company names, slugs, and statuses so the user can choose a tenant workspace.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Find an employee by name inside Robot Cafe & Bistro.",
+      "user_prompt": "Find Dickson Ndirangu in Robot Cafe & Bistro and show me his department and branch.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search_employees",
+      "expected_output": "Returns the matching employee record with work-profile fields such as designation, department, branch, and status.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect one employee profile with latest payroll context.",
+      "user_prompt": "Get the work profile for employee RC-048 in Robot Cafe & Bistro.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_employee_profile",
+      "expected_output": "Returns the employee's profile summary, supervisor, and latest payroll snapshot without exposing edit controls.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Review pending approvals for a specific tenant.",
+      "user_prompt": "What pending approvals are waiting in Robot Cafe & Bistro right now?",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_pending_approvals",
+      "expected_output": "Returns pending approval tasks with module, owner role, stage, requester context, and created time.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Summarize the latest payroll run for a tenant.",
+      "user_prompt": "Show me the latest payroll run summary for Robot Cafe & Bistro.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_payroll_run_summary",
+      "expected_output": "Returns the latest payroll run totals including gross pay, net pay, statutory totals, deductions, and run status.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Check leave balances for an employee.",
+      "user_prompt": "Show the leave balance summary for employee RC-048 in Robot Cafe & Bistro.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_leave_balance_summary",
+      "expected_output": "Returns current leave balances and recent pending or approved leave requests for the selected employee.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated weather requests.",
+      "user_prompt": "Will it rain in Nairobi tomorrow afternoon?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because weather forecasting is outside Solva HR's supported workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for editing or sending email requests the tools do not support.",
+      "user_prompt": "Send an email to all staff telling them payroll has closed.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because these tools do not send messages or perform outbound communications.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for state-changing payroll actions not exposed by the server.",
+      "user_prompt": "Approve the pending leave request and run month-end payroll now.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the current MCP surface is read-only and cannot approve tasks or process payroll.",
+      "expected_output_url": null
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+{
+  "/api/people/employees/[employeeId]/action-messages/route": "app/api/people/employees/[employeeId]/action-messages/route.js"
+}

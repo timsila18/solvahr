@@ -1,0 +1,3 @@
+{
+  "/api/public/cv-service/orders/[orderId]/payment-test/route": "app/api/public/cv-service/orders/[orderId]/payment-test/route.js"
+}

@@ -1,0 +1,1 @@
+{"model":"gpt-5.4-mini","messages":[{"role":"system","content":"Return ok."},{"role":"user","content":"Say ok."}],"max_completion_tokens":20}

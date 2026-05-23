@@ -1,0 +1,1 @@
+{"model":"gpt-5.4-mini","temperature":0.35,"max_completion_tokens":200,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":"Return only valid JSON with {\"ok\":true}."},{"role":"user","content":"Say ok as JSON."}]}

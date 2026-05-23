@@ -1,0 +1,1302 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/.well-known/[...slug]",
+      "regex": "^/\\.well\\-known/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPslug": "nxtPslug"
+      },
+      "namedRegex": "^/\\.well\\-known/(?<nxtPslug>.+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/cv-service/orders/[orderId]",
+      "regex": "^/api/admin/cv\\-service/orders/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPorderId": "nxtPorderId"
+      },
+      "namedRegex": "^/api/admin/cv\\-service/orders/(?<nxtPorderId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/employer-registrations/[companyId]",
+      "regex": "^/api/admin/employer\\-registrations/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPcompanyId": "nxtPcompanyId"
+      },
+      "namedRegex": "^/api/admin/employer\\-registrations/(?<nxtPcompanyId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/roles/[roleKey]",
+      "regex": "^/api/admin/roles/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtProleKey": "nxtProleKey"
+      },
+      "namedRegex": "^/api/admin/roles/(?<nxtProleKey>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users/[userId]",
+      "regex": "^/api/admin/users/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPuserId": "nxtPuserId"
+      },
+      "namedRegex": "^/api/admin/users/(?<nxtPuserId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users/[userId]/actions",
+      "regex": "^/api/admin/users/([^/]+?)/actions(?:/)?$",
+      "routeKeys": {
+        "nxtPuserId": "nxtPuserId"
+      },
+      "namedRegex": "^/api/admin/users/(?<nxtPuserId>[^/]+?)/actions(?:/)?$"
+    },
+    {
+      "page": "/api/approval-tasks/[taskId]",
+      "regex": "^/api/approval\\-tasks/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtaskId": "nxtPtaskId"
+      },
+      "namedRegex": "^/api/approval\\-tasks/(?<nxtPtaskId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/assets/[assetId]",
+      "regex": "^/api/assets/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPassetId": "nxtPassetId"
+      },
+      "namedRegex": "^/api/assets/(?<nxtPassetId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/ess/company-documents/[documentId]",
+      "regex": "^/api/ess/company\\-documents/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPdocumentId": "nxtPdocumentId"
+      },
+      "namedRegex": "^/api/ess/company\\-documents/(?<nxtPdocumentId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/ess/complaints/[complaintId]",
+      "regex": "^/api/ess/complaints/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPcomplaintId": "nxtPcomplaintId"
+      },
+      "namedRegex": "^/api/ess/complaints/(?<nxtPcomplaintId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/ess/documents/[documentId]",
+      "regex": "^/api/ess/documents/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPdocumentId": "nxtPdocumentId"
+      },
+      "namedRegex": "^/api/ess/documents/(?<nxtPdocumentId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/ess/notifications/[notificationId]",
+      "regex": "^/api/ess/notifications/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPnotificationId": "nxtPnotificationId"
+      },
+      "namedRegex": "^/api/ess/notifications/(?<nxtPnotificationId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/leave/approval-queue/[taskId]",
+      "regex": "^/api/leave/approval\\-queue/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtaskId": "nxtPtaskId"
+      },
+      "namedRegex": "^/api/leave/approval\\-queue/(?<nxtPtaskId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/leave/forms/[requestId]",
+      "regex": "^/api/leave/forms/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPrequestId": "nxtPrequestId"
+      },
+      "namedRegex": "^/api/leave/forms/(?<nxtPrequestId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/leave/requests/[requestId]",
+      "regex": "^/api/leave/requests/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPrequestId": "nxtPrequestId"
+      },
+      "namedRegex": "^/api/leave/requests/(?<nxtPrequestId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/lookups/[table]",
+      "regex": "^/api/lookups/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtable": "nxtPtable"
+      },
+      "namedRegex": "^/api/lookups/(?<nxtPtable>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/lookups/[table]/[recordId]",
+      "regex": "^/api/lookups/([^/]+?)/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtable": "nxtPtable",
+        "nxtPrecordId": "nxtPrecordId"
+      },
+      "namedRegex": "^/api/lookups/(?<nxtPtable>[^/]+?)/(?<nxtPrecordId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[moduleKey]",
+      "regex": "^/api/modules/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPmoduleKey": "nxtPmoduleKey"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPmoduleKey>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[moduleKey]/pages/[pageKey]",
+      "regex": "^/api/modules/([^/]+?)/pages/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPmoduleKey": "nxtPmoduleKey",
+        "nxtPpageKey": "nxtPpageKey"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPmoduleKey>[^/]+?)/pages/(?<nxtPpageKey>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/additions/[additionId]",
+      "regex": "^/api/payroll/additions/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPadditionId": "nxtPadditionId"
+      },
+      "namedRegex": "^/api/payroll/additions/(?<nxtPadditionId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/day-deductions/[deductionId]",
+      "regex": "^/api/payroll/day\\-deductions/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPdeductionId": "nxtPdeductionId"
+      },
+      "namedRegex": "^/api/payroll/day\\-deductions/(?<nxtPdeductionId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/exports/[exportType]",
+      "regex": "^/api/payroll/exports/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPexportType": "nxtPexportType"
+      },
+      "namedRegex": "^/api/payroll/exports/(?<nxtPexportType>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/payslips/[employeeId]",
+      "regex": "^/api/payroll/payslips/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/payroll/payslips/(?<nxtPemployeeId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/periods/[periodId]",
+      "regex": "^/api/payroll/periods/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPperiodId": "nxtPperiodId"
+      },
+      "namedRegex": "^/api/payroll/periods/(?<nxtPperiodId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]",
+      "regex": "^/api/people/employees/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]/action-messages",
+      "regex": "^/api/people/employees/([^/]+?)/action\\-messages(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)/action\\-messages(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]/documents",
+      "regex": "^/api/people/employees/([^/]+?)/documents(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)/documents(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]/documents/[documentId]",
+      "regex": "^/api/people/employees/([^/]+?)/documents/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId",
+        "nxtPdocumentId": "nxtPdocumentId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)/documents/(?<nxtPdocumentId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]/hr-documents",
+      "regex": "^/api/people/employees/([^/]+?)/hr\\-documents(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)/hr\\-documents(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/[employeeId]/user-account",
+      "regex": "^/api/people/employees/([^/]+?)/user\\-account(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/api/people/employees/(?<nxtPemployeeId>[^/]+?)/user\\-account(?:/)?$"
+    },
+    {
+      "page": "/api/performance/reports/[reviewId]",
+      "regex": "^/api/performance/reports/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPreviewId": "nxtPreviewId"
+      },
+      "namedRegex": "^/api/performance/reports/(?<nxtPreviewId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/performance/reviews/[reviewId]",
+      "regex": "^/api/performance/reviews/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPreviewId": "nxtPreviewId"
+      },
+      "namedRegex": "^/api/performance/reviews/(?<nxtPreviewId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/orders/[orderId]",
+      "regex": "^/api/public/cv\\-service/orders/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPorderId": "nxtPorderId"
+      },
+      "namedRegex": "^/api/public/cv\\-service/orders/(?<nxtPorderId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/orders/[orderId]/downloads/[format]",
+      "regex": "^/api/public/cv\\-service/orders/([^/]+?)/downloads/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPorderId": "nxtPorderId",
+        "nxtPformat": "nxtPformat"
+      },
+      "namedRegex": "^/api/public/cv\\-service/orders/(?<nxtPorderId>[^/]+?)/downloads/(?<nxtPformat>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/orders/[orderId]/generate",
+      "regex": "^/api/public/cv\\-service/orders/([^/]+?)/generate(?:/)?$",
+      "routeKeys": {
+        "nxtPorderId": "nxtPorderId"
+      },
+      "namedRegex": "^/api/public/cv\\-service/orders/(?<nxtPorderId>[^/]+?)/generate(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/orders/[orderId]/payment-test",
+      "regex": "^/api/public/cv\\-service/orders/([^/]+?)/payment\\-test(?:/)?$",
+      "routeKeys": {
+        "nxtPorderId": "nxtPorderId"
+      },
+      "namedRegex": "^/api/public/cv\\-service/orders/(?<nxtPorderId>[^/]+?)/payment\\-test(?:/)?$"
+    },
+    {
+      "page": "/api/reports/category/[categoryKey]",
+      "regex": "^/api/reports/category/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPcategoryKey": "nxtPcategoryKey"
+      },
+      "namedRegex": "^/api/reports/category/(?<nxtPcategoryKey>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/reports/exports/[exportId]",
+      "regex": "^/api/reports/exports/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPexportId": "nxtPexportId"
+      },
+      "namedRegex": "^/api/reports/exports/(?<nxtPexportId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/reports/saved/[reportId]",
+      "regex": "^/api/reports/saved/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPreportId": "nxtPreportId"
+      },
+      "namedRegex": "^/api/reports/saved/(?<nxtPreportId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/reports/scheduled/[scheduleId]",
+      "regex": "^/api/reports/scheduled/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPscheduleId": "nxtPscheduleId"
+      },
+      "namedRegex": "^/api/reports/scheduled/(?<nxtPscheduleId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/people/employees/[employeeId]/edit",
+      "regex": "^/people/employees/([^/]+?)/edit(?:/)?$",
+      "routeKeys": {
+        "nxtPemployeeId": "nxtPemployeeId"
+      },
+      "namedRegex": "^/people/employees/(?<nxtPemployeeId>[^/]+?)/edit(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/about",
+      "regex": "^/about(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/about(?:/)?$"
+    },
+    {
+      "page": "/api/admin/access-logs",
+      "regex": "^/api/admin/access\\-logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/access\\-logs(?:/)?$"
+    },
+    {
+      "page": "/api/admin/approval-workflows",
+      "regex": "^/api/admin/approval\\-workflows(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/approval\\-workflows(?:/)?$"
+    },
+    {
+      "page": "/api/admin/audit-oversight",
+      "regex": "^/api/admin/audit\\-oversight(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/audit\\-oversight(?:/)?$"
+    },
+    {
+      "page": "/api/admin/billing",
+      "regex": "^/api/admin/billing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/billing(?:/)?$"
+    },
+    {
+      "page": "/api/admin/company-branding/logo",
+      "regex": "^/api/admin/company\\-branding/logo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/company\\-branding/logo(?:/)?$"
+    },
+    {
+      "page": "/api/admin/company-settings",
+      "regex": "^/api/admin/company\\-settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/company\\-settings(?:/)?$"
+    },
+    {
+      "page": "/api/admin/cv-service/cleanup",
+      "regex": "^/api/admin/cv\\-service/cleanup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/cv\\-service/cleanup(?:/)?$"
+    },
+    {
+      "page": "/api/admin/cv-service/dashboard",
+      "regex": "^/api/admin/cv\\-service/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/cv\\-service/dashboard(?:/)?$"
+    },
+    {
+      "page": "/api/admin/cv-service/export",
+      "regex": "^/api/admin/cv\\-service/export(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/cv\\-service/export(?:/)?$"
+    },
+    {
+      "page": "/api/admin/dashboard",
+      "regex": "^/api/admin/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/dashboard(?:/)?$"
+    },
+    {
+      "page": "/api/admin/imports",
+      "regex": "^/api/admin/imports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/imports(?:/)?$"
+    },
+    {
+      "page": "/api/admin/login-sessions",
+      "regex": "^/api/admin/login\\-sessions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/login\\-sessions(?:/)?$"
+    },
+    {
+      "page": "/api/admin/notification-settings",
+      "regex": "^/api/admin/notification\\-settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/notification\\-settings(?:/)?$"
+    },
+    {
+      "page": "/api/admin/onboarding",
+      "regex": "^/api/admin/onboarding(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/onboarding(?:/)?$"
+    },
+    {
+      "page": "/api/admin/permissions",
+      "regex": "^/api/admin/permissions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/permissions(?:/)?$"
+    },
+    {
+      "page": "/api/admin/reference-data",
+      "regex": "^/api/admin/reference\\-data(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/reference\\-data(?:/)?$"
+    },
+    {
+      "page": "/api/admin/roles",
+      "regex": "^/api/admin/roles(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/roles(?:/)?$"
+    },
+    {
+      "page": "/api/admin/saas-hq",
+      "regex": "^/api/admin/saas\\-hq(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/saas\\-hq(?:/)?$"
+    },
+    {
+      "page": "/api/admin/security-settings",
+      "regex": "^/api/admin/security\\-settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/security\\-settings(?:/)?$"
+    },
+    {
+      "page": "/api/admin/support-console",
+      "regex": "^/api/admin/support\\-console(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/support\\-console(?:/)?$"
+    },
+    {
+      "page": "/api/admin/system-health",
+      "regex": "^/api/admin/system\\-health(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/system\\-health(?:/)?$"
+    },
+    {
+      "page": "/api/admin/users",
+      "regex": "^/api/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/users(?:/)?$"
+    },
+    {
+      "page": "/api/ai/assistant",
+      "regex": "^/api/ai/assistant(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ai/assistant(?:/)?$"
+    },
+    {
+      "page": "/api/approval-tasks",
+      "regex": "^/api/approval\\-tasks(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/approval\\-tasks(?:/)?$"
+    },
+    {
+      "page": "/api/assets/workspace",
+      "regex": "^/api/assets/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/assets/workspace(?:/)?$"
+    },
+    {
+      "page": "/api/attendance/overtime",
+      "regex": "^/api/attendance/overtime(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/attendance/overtime(?:/)?$"
+    },
+    {
+      "page": "/api/attendance/records",
+      "regex": "^/api/attendance/records(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/attendance/records(?:/)?$"
+    },
+    {
+      "page": "/api/audit-logs",
+      "regex": "^/api/audit\\-logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/audit\\-logs(?:/)?$"
+    },
+    {
+      "page": "/api/auth/employer-signup",
+      "regex": "^/api/auth/employer\\-signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/employer\\-signup(?:/)?$"
+    },
+    {
+      "page": "/api/auth/forgot-password",
+      "regex": "^/api/auth/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/logout",
+      "regex": "^/api/auth/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/logout(?:/)?$"
+    },
+    {
+      "page": "/api/auth/signup",
+      "regex": "^/api/auth/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/signup(?:/)?$"
+    },
+    {
+      "page": "/api/consultancy/workspace",
+      "regex": "^/api/consultancy/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/consultancy/workspace(?:/)?$"
+    },
+    {
+      "page": "/api/ess/action-messages",
+      "regex": "^/api/ess/action\\-messages(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/action\\-messages(?:/)?$"
+    },
+    {
+      "page": "/api/ess/appraisals",
+      "regex": "^/api/ess/appraisals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/appraisals(?:/)?$"
+    },
+    {
+      "page": "/api/ess/assets",
+      "regex": "^/api/ess/assets(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/assets(?:/)?$"
+    },
+    {
+      "page": "/api/ess/attendance",
+      "regex": "^/api/ess/attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/attendance(?:/)?$"
+    },
+    {
+      "page": "/api/ess/change-password",
+      "regex": "^/api/ess/change\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/change\\-password(?:/)?$"
+    },
+    {
+      "page": "/api/ess/company-documents",
+      "regex": "^/api/ess/company\\-documents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/company\\-documents(?:/)?$"
+    },
+    {
+      "page": "/api/ess/complaints",
+      "regex": "^/api/ess/complaints(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/complaints(?:/)?$"
+    },
+    {
+      "page": "/api/ess/dashboard",
+      "regex": "^/api/ess/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/dashboard(?:/)?$"
+    },
+    {
+      "page": "/api/ess/documents",
+      "regex": "^/api/ess/documents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/documents(?:/)?$"
+    },
+    {
+      "page": "/api/ess/leave",
+      "regex": "^/api/ess/leave(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/leave(?:/)?$"
+    },
+    {
+      "page": "/api/ess/loans",
+      "regex": "^/api/ess/loans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/loans(?:/)?$"
+    },
+    {
+      "page": "/api/ess/notifications",
+      "regex": "^/api/ess/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/notifications(?:/)?$"
+    },
+    {
+      "page": "/api/ess/p9",
+      "regex": "^/api/ess/p9(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/p9(?:/)?$"
+    },
+    {
+      "page": "/api/ess/payslips",
+      "regex": "^/api/ess/payslips(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/payslips(?:/)?$"
+    },
+    {
+      "page": "/api/ess/profile",
+      "regex": "^/api/ess/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/profile(?:/)?$"
+    },
+    {
+      "page": "/api/ess/profile-photo",
+      "regex": "^/api/ess/profile\\-photo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/profile\\-photo(?:/)?$"
+    },
+    {
+      "page": "/api/ess/profile-update",
+      "regex": "^/api/ess/profile\\-update(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/profile\\-update(?:/)?$"
+    },
+    {
+      "page": "/api/ess/requests",
+      "regex": "^/api/ess/requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/requests(?:/)?$"
+    },
+    {
+      "page": "/api/ess/salary-advances",
+      "regex": "^/api/ess/salary\\-advances(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/salary\\-advances(?:/)?$"
+    },
+    {
+      "page": "/api/ess/settings",
+      "regex": "^/api/ess/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/settings(?:/)?$"
+    },
+    {
+      "page": "/api/ess/training",
+      "regex": "^/api/ess/training(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ess/training(?:/)?$"
+    },
+    {
+      "page": "/api/integrations/workspace",
+      "regex": "^/api/integrations/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/integrations/workspace(?:/)?$"
+    },
+    {
+      "page": "/api/leave/adjustments",
+      "regex": "^/api/leave/adjustments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/adjustments(?:/)?$"
+    },
+    {
+      "page": "/api/leave/approval-queue",
+      "regex": "^/api/leave/approval\\-queue(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/approval\\-queue(?:/)?$"
+    },
+    {
+      "page": "/api/leave/attendance-dashboard",
+      "regex": "^/api/leave/attendance\\-dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/attendance\\-dashboard(?:/)?$"
+    },
+    {
+      "page": "/api/leave/balances",
+      "regex": "^/api/leave/balances(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/balances(?:/)?$"
+    },
+    {
+      "page": "/api/leave/calendar",
+      "regex": "^/api/leave/calendar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/calendar(?:/)?$"
+    },
+    {
+      "page": "/api/leave/daily-attendance",
+      "regex": "^/api/leave/daily\\-attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/daily\\-attendance(?:/)?$"
+    },
+    {
+      "page": "/api/leave/dashboard",
+      "regex": "^/api/leave/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/dashboard(?:/)?$"
+    },
+    {
+      "page": "/api/leave/devices",
+      "regex": "^/api/leave/devices(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/devices(?:/)?$"
+    },
+    {
+      "page": "/api/leave/holidays",
+      "regex": "^/api/leave/holidays(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/holidays(?:/)?$"
+    },
+    {
+      "page": "/api/leave/lateness",
+      "regex": "^/api/leave/lateness(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/lateness(?:/)?$"
+    },
+    {
+      "page": "/api/leave/overtime",
+      "regex": "^/api/leave/overtime(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/overtime(?:/)?$"
+    },
+    {
+      "page": "/api/leave/policies",
+      "regex": "^/api/leave/policies(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/policies(?:/)?$"
+    },
+    {
+      "page": "/api/leave/reports",
+      "regex": "^/api/leave/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/reports(?:/)?$"
+    },
+    {
+      "page": "/api/leave/requests",
+      "regex": "^/api/leave/requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/requests(?:/)?$"
+    },
+    {
+      "page": "/api/leave/settings",
+      "regex": "^/api/leave/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/settings(?:/)?$"
+    },
+    {
+      "page": "/api/leave/shifts",
+      "regex": "^/api/leave/shifts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/shifts(?:/)?$"
+    },
+    {
+      "page": "/api/leave/shifts/assignments",
+      "regex": "^/api/leave/shifts/assignments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/shifts/assignments(?:/)?$"
+    },
+    {
+      "page": "/api/leave/shifts/template",
+      "regex": "^/api/leave/shifts/template(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/shifts/template(?:/)?$"
+    },
+    {
+      "page": "/api/leave/shifts/upload",
+      "regex": "^/api/leave/shifts/upload(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/shifts/upload(?:/)?$"
+    },
+    {
+      "page": "/api/leave/shifts/validate",
+      "regex": "^/api/leave/shifts/validate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/shifts/validate(?:/)?$"
+    },
+    {
+      "page": "/api/leave/timesheets",
+      "regex": "^/api/leave/timesheets(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/timesheets(?:/)?$"
+    },
+    {
+      "page": "/api/leave/weekend-rules",
+      "regex": "^/api/leave/weekend\\-rules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leave/weekend\\-rules(?:/)?$"
+    },
+    {
+      "page": "/api/mcp",
+      "regex": "^/api/mcp(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/mcp(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/additions",
+      "regex": "^/api/payroll/additions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/additions(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/audit-trail",
+      "regex": "^/api/payroll/audit\\-trail(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/audit\\-trail(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/day-deductions",
+      "regex": "^/api/payroll/day\\-deductions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/day\\-deductions(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/employee-data",
+      "regex": "^/api/payroll/employee\\-data(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/employee\\-data(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/exports",
+      "regex": "^/api/payroll/exports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/exports(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/package",
+      "regex": "^/api/payroll/package(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/package(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/payslips",
+      "regex": "^/api/payroll/payslips(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/payslips(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/payslips/bulk",
+      "regex": "^/api/payroll/payslips/bulk(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/payslips/bulk(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/periods",
+      "regex": "^/api/payroll/periods(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/periods(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/process",
+      "regex": "^/api/payroll/process(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/process(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/review",
+      "regex": "^/api/payroll/review(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/review(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/settings",
+      "regex": "^/api/payroll/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/settings(?:/)?$"
+    },
+    {
+      "page": "/api/payroll/statutory-reports",
+      "regex": "^/api/payroll/statutory\\-reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/payroll/statutory\\-reports(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees",
+      "regex": "^/api/people/employees(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/people/employees(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/requests",
+      "regex": "^/api/people/employees/requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/people/employees/requests(?:/)?$"
+    },
+    {
+      "page": "/api/people/employees/user-accounts/bulk",
+      "regex": "^/api/people/employees/user\\-accounts/bulk(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/people/employees/user\\-accounts/bulk(?:/)?$"
+    },
+    {
+      "page": "/api/performance/cycles",
+      "regex": "^/api/performance/cycles(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/cycles(?:/)?$"
+    },
+    {
+      "page": "/api/performance/goals",
+      "regex": "^/api/performance/goals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/goals(?:/)?$"
+    },
+    {
+      "page": "/api/performance/kpis",
+      "regex": "^/api/performance/kpis(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/kpis(?:/)?$"
+    },
+    {
+      "page": "/api/performance/pips",
+      "regex": "^/api/performance/pips(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/pips(?:/)?$"
+    },
+    {
+      "page": "/api/performance/promotion-cases",
+      "regex": "^/api/performance/promotion\\-cases(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/promotion\\-cases(?:/)?$"
+    },
+    {
+      "page": "/api/performance/reports",
+      "regex": "^/api/performance/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/reports(?:/)?$"
+    },
+    {
+      "page": "/api/performance/salary-requests",
+      "regex": "^/api/performance/salary\\-requests(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/salary\\-requests(?:/)?$"
+    },
+    {
+      "page": "/api/performance/settings",
+      "regex": "^/api/performance/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/settings(?:/)?$"
+    },
+    {
+      "page": "/api/performance/succession",
+      "regex": "^/api/performance/succession(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/succession(?:/)?$"
+    },
+    {
+      "page": "/api/performance/talent-matrix",
+      "regex": "^/api/performance/talent\\-matrix(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/talent\\-matrix(?:/)?$"
+    },
+    {
+      "page": "/api/performance/work-plans",
+      "regex": "^/api/performance/work\\-plans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/work\\-plans(?:/)?$"
+    },
+    {
+      "page": "/api/performance/workspace",
+      "regex": "^/api/performance/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/performance/workspace(?:/)?$"
+    },
+    {
+      "page": "/api/platform",
+      "regex": "^/api/platform(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/platform(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/orders",
+      "regex": "^/api/public/cv\\-service/orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/public/cv\\-service/orders(?:/)?$"
+    },
+    {
+      "page": "/api/public/cv-service/uploads",
+      "regex": "^/api/public/cv\\-service/uploads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/public/cv\\-service/uploads(?:/)?$"
+    },
+    {
+      "page": "/api/public/leads",
+      "regex": "^/api/public/leads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/public/leads(?:/)?$"
+    },
+    {
+      "page": "/api/public/plans",
+      "regex": "^/api/public/plans(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/public/plans(?:/)?$"
+    },
+    {
+      "page": "/api/recruitment/workspace",
+      "regex": "^/api/recruitment/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/recruitment/workspace(?:/)?$"
+    },
+    {
+      "page": "/api/referrals",
+      "regex": "^/api/referrals(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/referrals(?:/)?$"
+    },
+    {
+      "page": "/api/reports/access-logs",
+      "regex": "^/api/reports/access\\-logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reports/access\\-logs(?:/)?$"
+    },
+    {
+      "page": "/api/reports/builder/preview",
+      "regex": "^/api/reports/builder/preview(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reports/builder/preview(?:/)?$"
+    },
+    {
+      "page": "/api/reports/exports",
+      "regex": "^/api/reports/exports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reports/exports(?:/)?$"
+    },
+    {
+      "page": "/api/reports/saved",
+      "regex": "^/api/reports/saved(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reports/saved(?:/)?$"
+    },
+    {
+      "page": "/api/reports/scheduled",
+      "regex": "^/api/reports/scheduled(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reports/scheduled(?:/)?$"
+    },
+    {
+      "page": "/api/training/workspace",
+      "regex": "^/api/training/workspace(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/training/workspace(?:/)?$"
+    },
+    {
+      "page": "/auth/callback",
+      "regex": "^/auth/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/callback(?:/)?$"
+    },
+    {
+      "page": "/book-demo",
+      "regex": "^/book\\-demo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/book\\-demo(?:/)?$"
+    },
+    {
+      "page": "/contact-sales",
+      "regex": "^/contact\\-sales(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact\\-sales(?:/)?$"
+    },
+    {
+      "page": "/cv-service",
+      "regex": "^/cv\\-service(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cv\\-service(?:/)?$"
+    },
+    {
+      "page": "/cv-service-admin",
+      "regex": "^/cv\\-service\\-admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cv\\-service\\-admin(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/features",
+      "regex": "^/features(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/features(?:/)?$"
+    },
+    {
+      "page": "/forbidden",
+      "regex": "^/forbidden(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forbidden(?:/)?$"
+    },
+    {
+      "page": "/forgot-password",
+      "regex": "^/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/guided-setup",
+      "regex": "^/guided\\-setup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/guided\\-setup(?:/)?$"
+    },
+    {
+      "page": "/hr-modules",
+      "regex": "^/hr\\-modules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr\\-modules(?:/)?$"
+    },
+    {
+      "page": "/icon.svg",
+      "regex": "^/icon\\.svg(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/icon\\.svg(?:/)?$"
+    },
+    {
+      "page": "/insights",
+      "regex": "^/insights(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/insights(?:/)?$"
+    },
+    {
+      "page": "/leave/new",
+      "regex": "^/leave/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/leave/new(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/manifest.webmanifest",
+      "regex": "^/manifest\\.webmanifest(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/manifest\\.webmanifest(?:/)?$"
+    },
+    {
+      "page": "/payroll",
+      "regex": "^/payroll(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payroll(?:/)?$"
+    },
+    {
+      "page": "/payroll/periods/new",
+      "regex": "^/payroll/periods/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payroll/periods/new(?:/)?$"
+    },
+    {
+      "page": "/pending-approval",
+      "regex": "^/pending\\-approval(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pending\\-approval(?:/)?$"
+    },
+    {
+      "page": "/people/employees/new",
+      "regex": "^/people/employees/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/people/employees/new(?:/)?$"
+    },
+    {
+      "page": "/performance/appraisals/new",
+      "regex": "^/performance/appraisals/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/performance/appraisals/new(?:/)?$"
+    },
+    {
+      "page": "/pricing",
+      "regex": "^/pricing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pricing(?:/)?$"
+    },
+    {
+      "page": "/privacy",
+      "regex": "^/privacy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/privacy(?:/)?$"
+    },
+    {
+      "page": "/reset-password",
+      "regex": "^/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reset\\-password(?:/)?$"
+    },
+    {
+      "page": "/security",
+      "regex": "^/security(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/security(?:/)?$"
+    },
+    {
+      "page": "/signup",
+      "regex": "^/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/signup(?:/)?$"
+    },
+    {
+      "page": "/start-free-trial",
+      "regex": "^/start\\-free\\-trial(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/start\\-free\\-trial(?:/)?$"
+    },
+    {
+      "page": "/terms",
+      "regex": "^/terms(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/terms(?:/)?$"
+    },
+    {
+      "page": "/tools",
+      "regex": "^/tools(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/tools(?:/)?$"
+    },
+    {
+      "page": "/unauthorized",
+      "regex": "^/unauthorized(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/unauthorized(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

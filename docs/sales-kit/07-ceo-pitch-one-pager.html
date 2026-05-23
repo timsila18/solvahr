@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solva HR CEO Pitch One-Pager</title>
+    <style>
+      :root {
+        --brand: #0f5fd6;
+        --brand-dark: #0a3d91;
+        --brand-soft: #edf4ff;
+        --ink: #132238;
+        --muted: #5a6a82;
+        --line: #d8e2f0;
+        --panel: #f7faff;
+        --white: #ffffff;
+      }
+
+      * { box-sizing: border-box; }
+
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #eaf1fb;
+        color: var(--ink);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      body {
+        font-size: 10.5pt;
+        line-height: 1.45;
+      }
+
+      .page {
+        width: 100%;
+        min-height: 267mm;
+        background: linear-gradient(180deg, #fdfefe 0%, #f6faff 100%);
+        border: 1px solid #d6e3f7;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .page::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at top right, rgba(15, 95, 214, 0.10), transparent 26%),
+          radial-gradient(circle at bottom left, rgba(10, 61, 145, 0.07), transparent 24%);
+        pointer-events: none;
+      }
+
+      .wrap {
+        position: relative;
+        padding: 18mm 18mm 16mm;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.45fr 0.85fr;
+        gap: 18px;
+        align-items: stretch;
+        margin-bottom: 16px;
+      }
+
+      .hero-main {
+        background: linear-gradient(160deg, #0f5fd6 0%, #0a3d91 100%);
+        color: var(--white);
+        border-radius: 12px;
+        padding: 18px 20px;
+        min-height: 180px;
+        box-shadow: 0 10px 28px rgba(10, 61, 145, 0.16);
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin: 0 0 8px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.14);
+        font-size: 8.5pt;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24pt;
+        line-height: 1.04;
+      }
+
+      .hero-main p {
+        margin: 0;
+        font-size: 11pt;
+        color: rgba(255,255,255,0.93);
+      }
+
+      .hero-card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 16px 14px;
+        box-shadow: 0 8px 22px rgba(19, 34, 56, 0.06);
+      }
+
+      .hero-card h2 {
+        margin: 0 0 10px;
+        font-size: 11pt;
+        color: var(--brand-dark);
+      }
+
+      .hero-card .row {
+        margin-bottom: 10px;
+      }
+
+      .hero-card strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 8.5pt;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .lead {
+        margin: 0 0 14px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 11.5pt;
+        color: var(--brand-dark);
+      }
+
+      p {
+        margin: 0 0 10px;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li {
+        margin-bottom: 6px;
+      }
+
+      .modules {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 14px;
+      }
+
+      .modules div {
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid var(--line);
+      }
+
+      .cta {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #edf4ff 0%, #e2eeff 100%);
+        border: 1px solid #cfe0fb;
+      }
+
+      .cta strong {
+        color: var(--brand-dark);
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        font-size: 9pt;
+        color: var(--muted);
+      }
+
+      .brandline {
+        font-weight: 700;
+        color: var(--brand-dark);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="wrap">
+        <section class="hero">
+          <div class="hero-main">
+            <div class="eyebrow">CEO Brief</div>
+            <h1>A Smarter Way to Run Payroll and HR</h1>
+            <p>
+              Solva HR helps growing businesses move payroll, approvals, employee records,
+              leave, reporting, and staff self service into one secure working system.
+            </p>
+          </div>
+          <aside class="hero-card">
+            <h2>Prepared For</h2>
+            <div class="row">
+              <strong>CEO</strong>
+              <span>[CEO Name]</span>
+            </div>
+            <div class="row">
+              <strong>Company</strong>
+              <span>[Company Name]</span>
+            </div>
+            <div class="row">
+              <strong>Prepared By</strong>
+              <span>Solva HR</span>
+            </div>
+            <div class="row">
+              <strong>Contact</strong>
+              <span>Timothy Sila<br />+254 721 537 597<br />solvabusinessgroup@gmail.com</span>
+            </div>
+          </aside>
+        </section>
+
+        <p class="lead">
+          Many businesses lose money and leadership time through delayed payroll processing,
+          fragmented approvals, incomplete employee records, weak reporting, and poor visibility
+          across teams or branches. Solva HR fixes that with one live platform built for practical operational control.
+        </p>
+
+        <section class="grid">
+          <article class="card">
+            <h3>What This Means for [Company Name]</h3>
+            <ul>
+              <li>Faster and more controlled payroll processing</li>
+              <li>Better visibility into approvals, exceptions, and pending actions</li>
+              <li>Reduced operational errors from manual handling</li>
+              <li>Cleaner statutory reporting and export readiness</li>
+              <li>Improved employee experience through self service access</li>
+              <li>Stronger management oversight across teams and workflows</li>
+            </ul>
+          </article>
+
+          <article class="card">
+            <h3>Why CEOs Buy Solva HR</h3>
+            <p>Solva HR is not just an HR tool. It is an operations control system for workforce management.</p>
+            <ul>
+              <li>Are payroll figures accurate before release?</li>
+              <li>Which approvals are delaying operations?</li>
+              <li>Which employee records are incomplete and exposing risk?</li>
+              <li>What is happening across leave, attendance, performance, and HR actions in real time?</li>
+              <li>Can management get reports quickly enough to make decisions confidently?</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="card">
+            <h3>Core Modules</h3>
+            <div class="modules">
+              <div>Payroll Management</div>
+              <div>Employee Self Service (ESS)</div>
+              <div>Leave and Attendance</div>
+              <div>Performance Management</div>
+              <div>Employee Records and HR Letters</div>
+              <div>Approval Workflows</div>
+              <div>Statutory Reporting</div>
+              <div>Executive Reporting</div>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Business Value</h3>
+            <ul>
+              <li>Reduce payroll and HR processing delays</li>
+              <li>Strengthen internal control and auditability</li>
+              <li>Improve management visibility</li>
+              <li>Centralize staff information</li>
+              <li>Support scale without growing administrative disorder</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="card">
+            <h3>Implementation Approach</h3>
+            <ol style="margin:0; padding-left:18px;">
+              <li>Organization setup</li>
+              <li>Employee data onboarding</li>
+              <li>Payroll and workflow configuration</li>
+              <li>User access setup</li>
+              <li>Testing and go-live support</li>
+            </ol>
+          </article>
+
+          <article class="card">
+            <h3>Expected Outcome</h3>
+            <p>
+              The goal is simple: move your team from scattered HR operations to one professional
+              working system within days, not months.
+            </p>
+            <p>
+              That means less administrative drag, faster leadership visibility, and stronger execution.
+            </p>
+          </article>
+        </section>
+
+        <section class="cta">
+          <p><strong>Recommended Next Step</strong></p>
+          <p>
+            We would value the opportunity to give you a short demo focused on your current payroll and HR pain points,
+            the level of control your team needs, and the fastest path to operational adoption.
+          </p>
+        </section>
+
+        <footer class="footer">
+          <div>
+            <div class="brandline">Solva HR</div>
+            <div>Manage Payroll. Simplify HR. Empower Teams.</div>
+          </div>
+          <div>www.solvahr.co.ke</div>
+        </footer>
+      </div>
+    </main>
+  </body>
+  </html>

@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solva HR Sales & Client Acquisition Kit</title>
+    <style>
+      :root {
+        --brand: #0f5fd6;
+        --brand-dark: #0b3f90;
+        --ink: #15233b;
+        --muted: #5d6b82;
+        --line: #d6e0ef;
+        --surface: #f5f8fd;
+        --white: #ffffff;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); background: #eef3fb; }
+
+      @page {
+        size: A4;
+        margin: 16mm 14mm 16mm 14mm;
+      }
+
+      body {
+        font-size: 10.5pt;
+        line-height: 1.45;
+      }
+
+      .page {
+        background: var(--white);
+        page-break-after: always;
+        min-height: 260mm;
+        padding: 18mm 16mm;
+      }
+
+      .page:last-child { page-break-after: auto; }
+
+      .cover {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: linear-gradient(180deg, #0f5fd6 0%, #0a4caf 100%);
+        color: var(--white);
+      }
+
+      .cover-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.14);
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .cover h1 {
+        margin: 18px 0 8px;
+        font-size: 28pt;
+        line-height: 1.05;
+      }
+
+      .cover h2 {
+        margin: 0;
+        font-size: 14pt;
+        font-weight: 600;
+        color: rgba(255,255,255,0.92);
+      }
+
+      .cover p {
+        max-width: 520px;
+        font-size: 11.5pt;
+        color: rgba(255,255,255,0.9);
+      }
+
+      .cover-card {
+        border: 1px solid rgba(255,255,255,0.16);
+        background: rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 14px 16px;
+        width: 210px;
+      }
+
+      .cover-card strong {
+        display: block;
+        font-size: 11pt;
+        margin-bottom: 6px;
+      }
+
+      .cover-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 20px;
+      }
+
+      .cover-footer {
+        font-size: 9.5pt;
+        color: rgba(255,255,255,0.9);
+      }
+
+      .section-kicker {
+        margin: 0 0 8px;
+        color: var(--brand);
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      h1.doc-title {
+        margin: 0 0 6px;
+        font-size: 22pt;
+        line-height: 1.08;
+      }
+
+      h2.doc-subtitle {
+        margin: 0 0 16px;
+        font-size: 12pt;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      h3 {
+        margin: 18px 0 8px;
+        font-size: 13pt;
+        color: var(--brand-dark);
+      }
+
+      h4 {
+        margin: 14px 0 6px;
+        font-size: 10.5pt;
+        color: var(--ink);
+      }
+
+      p {
+        margin: 0 0 10px;
+      }
+
+      ul {
+        margin: 6px 0 12px 18px;
+        padding: 0;
+      }
+
+      li { margin: 0 0 5px; }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+
+      .contact-bar {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .contact-pill {
+        background: #edf4ff;
+        border: 1px solid #cfe0ff;
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+
+      .contact-pill strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--brand-dark);
+        font-size: 9pt;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 14px;
+      }
+
+      th, td {
+        text-align: left;
+        vertical-align: top;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        font-size: 9.5pt;
+        color: var(--brand-dark);
+        background: #eef4ff;
+      }
+
+      .price {
+        font-weight: 700;
+        color: var(--brand-dark);
+      }
+
+      .cta-band {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #0f5fd6;
+        color: var(--white);
+      }
+
+      .cta-band strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12pt;
+      }
+
+      .muted { color: var(--muted); }
+
+      .signature-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 20px;
+      }
+
+      .sign-box {
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+      }
+
+      .small {
+        font-size: 9pt;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="page cover">
+      <div class="cover-top">
+        <div>
+          <span class="badge">Sales & Client Acquisition Kit</span>
+          <h1>Solva HR</h1>
+          <h2>Smart Payroll & HR Management Platform for Modern Businesses</h2>
+          <p>
+            A modern cloud-based payroll and HR platform built to simplify payroll, improve employee experience,
+            centralize approvals, and give organizations stronger operational control.
+          </p>
+        </div>
+        <div class="cover-card">
+          <strong>Prepared For</strong>
+          <div>Prospects, partners, and onboarding clients</div>
+          <br />
+          <strong>Prepared By</strong>
+          <div>Solva HR</div>
+          <div class="small">May 2026</div>
+        </div>
+      </div>
+      <div class="cover-bottom">
+        <div class="cover-footer">
+          Website: https://solvahr.co.ke<br />
+          Email: solvabusinessgroup@gmail.com<br />
+          Phone: +254 721 537 597
+        </div>
+        <div class="cover-footer">Manage Payroll. Simplify HR. Empower Teams.</div>
+      </div>
+    </section>
+
+    <section class="page">
+      <p class="section-kicker">One-Page Brochure</p>
+      <h1 class="doc-title">Solva HR</h1>
+      <h2 class="doc-subtitle">Simplify Payroll. Empower HR. Improve Workforce Operations.</h2>
+      <p>
+        Solva HR is a modern cloud-based payroll and HR management system built for businesses in Kenya and beyond.
+        It helps organizations automate payroll, manage staff records, streamline approvals, improve employee experience,
+        and generate statutory reports in one secure platform.
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Payroll Management</h3>
+          <ul>
+            <li>15th and month-end payroll processing</li>
+            <li>Payslip generation and ESS access</li>
+            <li>PAYE, SHIF, NSSF, HELB, and Housing Levy reports</li>
+            <li>Net-to-MPESA exports</li>
+            <li>Payroll approvals and audit trails</li>
+            <li>Salary reviews and payroll adjustments</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Employee Self Service</h3>
+          <ul>
+            <li>Download payslips</li>
+            <li>Apply leave</li>
+            <li>View leave balances</li>
+            <li>Access shifts and rosters</li>
+            <li>View performance status</li>
+            <li>Access contracts and HR letters</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Leave, Attendance & Performance</h3>
+          <ul>
+            <li>Annual leave tracking and off-day requests</li>
+            <li>Attendance monitoring and shift roster management</li>
+            <li>Absenteeism deduction workflows</li>
+            <li>KPI tracking, appraisals, reviews, and promotion cases</li>
+            <li>Talent matrix and supervisor/GM scoring</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>HR Operations & Reports</h3>
+          <ul>
+            <li>Employee records management</li>
+            <li>HR letters, contracts, and disciplinary workflows</li>
+            <li>Onboarding and offboarding</li>
+            <li>Wagebill reports, posting lists, payroll registers</li>
+            <li>Statutory exports, audit logs, and executive dashboards</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Why Solva HR?</h3>
+      <div class="grid-2">
+        <div>
+          <ul>
+            <li>Kenyan payroll and labour-law focused</li>
+            <li>Supports multi-branch organizations</li>
+            <li>Role-based approvals and access control</li>
+            <li>Employee mobile-friendly ESS</li>
+          </ul>
+        </div>
+        <div>
+          <ul>
+            <li>AI-assisted HR workflows</li>
+            <li>Tenant-based organization isolation</li>
+            <li>Fast onboarding and setup</li>
+            <li>Professional reports and exports</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="contact-bar">
+        <div class="contact-pill"><strong>Website</strong>https://solvahr.co.ke</div>
+        <div class="contact-pill"><strong>Email</strong>solvabusinessgroup@gmail.com</div>
+        <div class="contact-pill"><strong>Phone</strong>+254 721 537 597</div>
+      </div>
+    </section>
+
+    <section class="page">
+      <p class="section-kicker">Pricing Sheet</p>
+      <h1 class="doc-title">Solva HR Pricing Plans</h1>
+      <h2 class="doc-subtitle">Flexible plans for small businesses, growing companies, and enterprise organizations.</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:18%">Plan</th>
+            <th style="width:18%">Best For</th>
+            <th>Included Features</th>
+            <th style="width:14%">Setup Fee</th>
+            <th style="width:15%">Monthly Fee</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Starter</strong><br /><span class="muted">Up to 25 employees</span></td>
+            <td>Small businesses</td>
+            <td>Payroll processing, payslips, ESS access, leave management, basic reports, statutory exports, email support</td>
+            <td class="price">KES 15,000</td>
+            <td class="price">KES 7,500</td>
+          </tr>
+          <tr>
+            <td><strong>Growth</strong><br /><span class="muted">26-100 employees</span></td>
+            <td>Growing companies</td>
+            <td>Everything in Starter, performance management, shift rosters, approvals workflows, HR letters and contracts, audit trail, salary review workflows, AI assist, priority support</td>
+            <td class="price">KES 35,000</td>
+            <td class="price">KES 20,000</td>
+          </tr>
+          <tr>
+            <td><strong>Enterprise</strong><br /><span class="muted">100+ employees</span></td>
+            <td>Large organizations</td>
+            <td>Everything in Growth, multi-branch support, advanced analytics, custom reports, executive dashboards, dedicated onboarding, API integrations, tenant branding, premium support</td>
+            <td class="price">Custom</td>
+            <td class="price">Custom</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Optional Services</h3>
+      <div class="grid-2">
+        <ul>
+          <li>Payroll outsourcing</li>
+          <li>HR policy setup</li>
+          <li>Data migration</li>
+          <li>Staff onboarding support</li>
+        </ul>
+        <ul>
+          <li>Training and implementation</li>
+          <li>Compliance support</li>
+          <li>Custom branding</li>
+          <li>Dedicated support</li>
+        </ul>
+      </div>
+
+      <div class="cta-band">
+        <strong>Need a custom commercial proposal?</strong>
+        Contact Solva HR for enterprise pricing, rollout planning, and implementation support.
+      </div>
+    </section>
+
+    <section class="page">
+      <p class="section-kicker">Demo Access</p>
+      <h1 class="doc-title">Solva HR Demo Access</h1>
+      <h2 class="doc-subtitle">Use these role profiles to guide live product demos and client walkthroughs.</h2>
+
+      <div class="card">
+        <h3>Live Demo</h3>
+        <p><strong>Website:</strong> https://solvahr.co.ke</p>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:24%">Role</th>
+            <th style="width:36%">Demo Login</th>
+            <th>Access Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>General Manager</td><td>gm@robotcafe.co.ke</td><td>Executive approvals, staff control, payroll approvals, reports</td></tr>
+          <tr><td>Payroll Operator</td><td>payroll@robotcafe.co.ke</td><td>Payroll processing, exports, reviews, adjustments</td></tr>
+          <tr><td>HR Admin</td><td>hr@robotcafe.co.ke</td><td>People operations, documents, letters, approvals</td></tr>
+          <tr><td>Supervisor</td><td>supervisor@robotcafe.co.ke</td><td>Team leave approvals, roster handling, recommendations</td></tr>
+          <tr><td>Employee ESS</td><td>employee@robotcafe.co.ke</td><td>Payslips, leave, documents, notifications, profile</td></tr>
+        </tbody>
+      </table>
+
+      <p class="small muted">
+        Demo passwords should be shared privately during guided demos or with qualified leads only.
+      </p>
+
+      <h3>What To Test</h3>
+      <div class="grid-2">
+        <ul>
+          <li>Payroll processing</li>
+          <li>Payslip download</li>
+          <li>Leave approvals</li>
+          <li>ESS experience</li>
+          <li>Performance module</li>
+        </ul>
+        <ul>
+          <li>HR letters</li>
+          <li>Shift rosters</li>
+          <li>Reports and exports</li>
+          <li>Approval workflows</li>
+          <li>Role-based operational control</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="page">
+      <p class="section-kicker">Website Copy</p>
+      <h1 class="doc-title">Landing Page Copy</h1>
+      <h2 class="doc-subtitle">Ready-to-use website messaging for Solva HR.</h2>
+
+      <div class="card">
+        <h3>Hero Section</h3>
+        <p><strong>Modern Payroll & HR Management for Kenyan Businesses</strong></p>
+        <p>Run payroll, manage staff, approve leave, track performance, issue HR letters, and generate statutory reports in one simple platform.</p>
+        <p><strong>Primary CTA:</strong> Book a Demo &nbsp;&nbsp; <strong>Secondary CTA:</strong> Get Started</p>
+      </div>
+
+      <h3>Why Solva HR?</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h4>Built for Kenyan Businesses</h4>
+          <p>Automate payroll and statutory processing with Kenyan HR and payroll workflows in mind.</p>
+        </div>
+        <div class="card">
+          <h4>One Platform for HR & Payroll</h4>
+          <p>Manage payroll, leave, attendance, performance, rosters, HR letters, and employee records in one place.</p>
+        </div>
+        <div class="card">
+          <h4>Employee Self Service</h4>
+          <p>Give staff access to payslips, leave, shifts, and performance through a mobile-friendly ESS.</p>
+        </div>
+        <div class="card">
+          <h4>Powerful Approvals</h4>
+          <p>Approve payroll, leave, salary reviews, performance, and HR workflows from one dashboard.</p>
+        </div>
+      </div>
+
+      <h3>Features Section</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:24%">Area</th>
+            <th>Highlights</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Payroll</td><td>15th and month-end payroll, payslips, Net-to-MPESA, statutory reports, payroll approvals</td></tr>
+          <tr><td>Leave & Attendance</td><td>Leave applications, attendance tracking, off days, shift rosters</td></tr>
+          <tr><td>Performance</td><td>KPIs, appraisals, promotions, talent matrix</td></tr>
+          <tr><td>HR Operations</td><td>Employee records, HR letters, contracts, employee relations</td></tr>
+        </tbody>
+      </table>
+
+      <div class="cta-band">
+        <strong>Ready to Modernize Your HR & Payroll?</strong>
+        Book a free demo and see how Solva HR can simplify your workforce operations.
+      </div>
+    </section>
+
+    <section class="page">
+      <p class="section-kicker">Onboarding & Agreement</p>
+      <h1 class="doc-title">Client Onboarding Checklist & Implementation Agreement</h1>
+      <h2 class="doc-subtitle">Use this section during onboarding and implementation handover.</h2>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Client Onboarding Checklist</h3>
+          <h4>Company Details</h4>
+          <ul>
+            <li>Company name, logo, address</li>
+            <li>Contact person, official email, phone number</li>
+            <li>Branch structure</li>
+          </ul>
+          <h4>Payroll Details</h4>
+          <ul>
+            <li>Payroll frequency and salary structure</li>
+            <li>Statutory settings</li>
+            <li>Approval structure and payment method</li>
+          </ul>
+          <h4>Employee Data</h4>
+          <ul>
+            <li>Employee register and salary data</li>
+            <li>KRA, SHIF, NSSF, phone numbers</li>
+            <li>Departments and designations</li>
+          </ul>
+          <h4>Go-Live Checks</h4>
+          <ul>
+            <li>Payroll test and payslip verification</li>
+            <li>ESS login test</li>
+            <li>Leave and approval workflow test</li>
+            <li>Report export test</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Implementation Agreement</h3>
+          <p>
+            This Agreement is entered into between <strong>Solva HR</strong> and the
+            <strong> Client Organization</strong> for the implementation and use of the Solva HR platform.
+          </p>
+          <h4>Implementation Scope</h4>
+          <ul>
+            <li>System setup and organization onboarding</li>
+            <li>Employee data import and payroll configuration</li>
+            <li>User setup, leave setup, and ESS activation</li>
+            <li>Report configuration and initial training</li>
+          </ul>
+          <h4>Client Responsibilities</h4>
+          <p>Provide accurate employee data, statutory information, payroll structures, approval workflows, and branding assets.</p>
+          <h4>Solva HR Responsibilities</h4>
+          <p>Configure the platform, import data, onboard users, provide training, support implementation, and assist during go-live.</p>
+          <h4>Acceptance</h4>
+          <p>The implementation is considered complete after successful onboarding, payroll verification, and user acceptance testing.</p>
+        </div>
+      </div>
+
+      <div class="signature-grid">
+        <div class="sign-box">
+          <strong>Authorized Signatory - Client</strong><br />
+          Name: ____________________<br />
+          Signature: ____________________<br />
+          Date: ____________________
+        </div>
+        <div class="sign-box">
+          <strong>Authorized Signatory - Solva HR</strong><br />
+          Name: Timothy Sila<br />
+          Signature: ____________________<br />
+          Date: ____________________
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/start-free-trial/layout,_N_T_/start-free-trial/page,_N_T_/start-free-trial"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/start-free-trial/__PAGE__",
+    "/start-free-trial",
+    "/_index",
+    "/_head"
+  ]
+}

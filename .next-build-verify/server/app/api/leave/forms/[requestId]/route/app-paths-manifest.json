@@ -1,0 +1,3 @@
+{
+  "/api/leave/forms/[requestId]/route": "app/api/leave/forms/[requestId]/route.js"
+}

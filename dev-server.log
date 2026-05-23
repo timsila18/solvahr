@@ -1,0 +1,193 @@
+
+> solva-hr@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.100.46:3000
+- Environments: .env.local
+✓ Ready in 719ms
+
+○ Compiling / ...
+ GET / 307 in 4.6s (next.js: 4.3s, application-code: 323ms)
+ GET /login 200 in 744ms (next.js: 593ms, application-code: 151ms)
+⨯ ./src/components/solva-shell.tsx:32:1
+Module not found: Can't resolve '@/components/dashboard-workbench'
+  [90m30 |[0m [36mimport[0m { [33mReportsWorkbench[0m } [36mfrom[0m [32m"@/components/reports-workbench"[0m;
+  [90m31 |[0m [36mimport[0m { [33mAdminWorkbench[0m } [36mfrom[0m [32m"@/components/admin-workbench"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mDashboardWorkbench[0m } [36mfrom[0m [32m"@/components/dashboard-workbench"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { [33mOperationsWorkbench[0m } [36mfrom[0m [32m"@/components/operations-workbench"[0m;
+  [90m34 |[0m [36mimport[0m { getSupabaseBrowserClient } [36mfrom[0m [32m"@/lib/supabase/browser"[0m;
+  [90m35 |[0m [36mimport[0m {
+
+Import map: aliased to relative './src/components/dashboard-workbench' inside of [project]/
+
+
+Import trace:
+  Server Component:
+    ./src/components/solva-shell.tsx
+    ./src/app/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./src/components/solva-shell.tsx:32:1
+Module not found: Can't resolve '@/components/dashboard-workbench'
+  [90m30 |[0m [36mimport[0m { [33mReportsWorkbench[0m } [36mfrom[0m [32m"@/components/reports-workbench"[0m;
+  [90m31 |[0m [36mimport[0m { [33mAdminWorkbench[0m } [36mfrom[0m [32m"@/components/admin-workbench"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mDashboardWorkbench[0m } [36mfrom[0m [32m"@/components/dashboard-workbench"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { [33mOperationsWorkbench[0m } [36mfrom[0m [32m"@/components/operations-workbench"[0m;
+  [90m34 |[0m [36mimport[0m { getSupabaseBrowserClient } [36mfrom[0m [32m"@/lib/supabase/browser"[0m;
+  [90m35 |[0m [36mimport[0m {
+
+Import map: aliased to relative './src/components/dashboard-workbench' inside of [project]/
+
+
+Import trace:
+  Server Component:
+    ./src/components/solva-shell.tsx
+    ./src/app/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./src/components/solva-shell.tsx:32:1
+Module not found: Can't resolve '@/components/dashboard-workbench'
+  [90m30 |[0m [36mimport[0m { [33mReportsWorkbench[0m } [36mfrom[0m [32m"@/components/reports-workbench"[0m;
+  [90m31 |[0m [36mimport[0m { [33mAdminWorkbench[0m } [36mfrom[0m [32m"@/components/admin-workbench"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mDashboardWorkbench[0m } [36mfrom[0m [32m"@/components/dashboard-workbench"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { [33mOperationsWorkbench[0m } [36mfrom[0m [32m"@/components/operations-workbench"[0m;
+  [90m34 |[0m [36mimport[0m { getSupabaseBrowserClient } [36mfrom[0m [32m"@/lib/supabase/browser"[0m;
+  [90m35 |[0m [36mimport[0m {
+
+Import map: aliased to relative './src/components/dashboard-workbench' inside of [project]/
+
+
+Import trace:
+  Server Component:
+    ./src/components/solva-shell.tsx
+    ./src/app/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./src/components/solva-shell.tsx:32:1
+Module not found: Can't resolve '@/components/dashboard-workbench'
+  [90m30 |[0m [36mimport[0m { [33mReportsWorkbench[0m } [36mfrom[0m [32m"@/components/reports-workbench"[0m;
+  [90m31 |[0m [36mimport[0m { [33mAdminWorkbench[0m } [36mfrom[0m [32m"@/components/admin-workbench"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { [33mDashboardWorkbench[0m } [36mfrom[0m [32m"@/components/dashboard-workbench"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { [33mOperationsWorkbench[0m } [36mfrom[0m [32m"@/components/operations-workbench"[0m;
+  [90m34 |[0m [36mimport[0m { getSupabaseBrowserClient } [36mfrom[0m [32m"@/lib/supabase/browser"[0m;
+  [90m35 |[0m [36mimport[0m {
+
+Import map: aliased to relative './src/components/dashboard-workbench' inside of [project]/
+
+
+Import trace:
+  Server Component:
+    ./src/components/solva-shell.tsx
+    ./src/app/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+✓ Compiled in 99ms
+ GET / 307 in 397ms (next.js: 152ms, application-code: 245ms)
+ GET /login 200 in 137ms (next.js: 24ms, application-code: 114ms)
+ GET / 307 in 92ms (next.js: 6ms, application-code: 86ms)
+ GET /login 200 in 116ms (next.js: 4ms, application-code: 112ms)
+ GET / 307 in 137ms (next.js: 3ms, application-code: 134ms)
+ GET /login 200 in 67ms (next.js: 3ms, application-code: 64ms)
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET /login 200 in 58ms (next.js: 7ms, application-code: 51ms)
+ GET /login 200 in 49ms (next.js: 3ms, application-code: 46ms)
+ GET /login? 200 in 64ms (next.js: 6ms, application-code: 59ms)
+ GET /signup 200 in 503ms (next.js: 386ms, application-code: 117ms)
+ GET /signup 200 in 93ms (next.js: 10ms, application-code: 83ms)
+ GET /signup? 200 in 53ms (next.js: 3ms, application-code: 50ms)
+ GET /login 200 in 54ms (next.js: 4ms, application-code: 50ms)
+ GET /login? 200 in 69ms (next.js: 3ms, application-code: 66ms)
+ GET /login? 200 in 47ms (next.js: 2ms, application-code: 45ms)
+ GET /login? 200 in 53ms (next.js: 2ms, application-code: 50ms)
+ GET /signup 200 in 44ms (next.js: 3ms, application-code: 41ms)
+ GET /signup 200 in 45ms (next.js: 2ms, application-code: 43ms)
+ GET /signup? 200 in 55ms (next.js: 3ms, application-code: 52ms)
+ GET /login 200 in 55ms (next.js: 2ms, application-code: 52ms)
+ GET /login? 200 in 52ms (next.js: 3ms, application-code: 49ms)
+ GET /signup 200 in 46ms (next.js: 2ms, application-code: 44ms)
+ GET /login 200 in 53ms (next.js: 4ms, application-code: 50ms)
+ GET /login? 200 in 49ms (next.js: 3ms, application-code: 46ms)
+ GET /login? 200 in 51ms (next.js: 3ms, application-code: 48ms)
+ GET /login? 200 in 169ms (next.js: 10ms, application-code: 159ms)
+ POST /api/auth/login 400 in 2.9s (next.js: 908ms, application-code: 2.0s)
+ POST /api/auth/signup 201 in 3.3s (next.js: 285ms, application-code: 3.0s)
+ GET /login? 200 in 77ms (next.js: 7ms, application-code: 70ms)
+ POST /api/auth/login 200 in 774ms (next.js: 2ms, application-code: 772ms)
+ POST /api/auth/login 200 in 1216ms (next.js: 3ms, application-code: 1213ms)
+ GET /login? 200 in 122ms (next.js: 6ms, application-code: 115ms)
+ POST /api/auth/login 200 in 1302ms (next.js: 3ms, application-code: 1299ms)
+ POST /api/auth/login 200 in 1219ms (next.js: 3ms, application-code: 1216ms)
+ GET / 200 in 786ms (next.js: 5ms, application-code: 781ms)
+ GET / 200 in 687ms (next.js: 3ms, application-code: 684ms)
+ POST /api/auth/login 500 in 18ms (next.js: 8ms, application-code: 10ms)
+ POST /api/auth/login 500 in 37ms (next.js: 31ms, application-code: 6ms)
+ GET / 307 in 152ms (next.js: 3ms, application-code: 149ms)
+ GET / 307 in 106ms (next.js: 5ms, application-code: 102ms)
+ GET /login? 200 in 67ms (next.js: 4ms, application-code: 62ms)
+ POST /api/auth/login 200 in 1384ms (next.js: 20ms, application-code: 1364ms)
+ GET /login? 200 in 67ms (next.js: 4ms, application-code: 63ms)
+✓ Compiled in 147ms
+✓ Compiled in 114ms
+[auth.login] attempt {
+  email: 'codex-auth-test-7c78ec5a@example.com',
+  hasPassword: true,
+  deviceInfo: 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8115',
+  ipAddress: '::ffff:127.0.0.1'
+}
+[auth.login] success {
+  email: 'codex-auth-test-7c78ec5a@example.com',
+  userId: '8cd076bb-20e9-4ca9-99e4-9fbf7b59c904'
+}
+ POST /api/auth/login 200 in 1596ms (next.js: 231ms, application-code: 1365ms)
+[auth.session] getCurrentUserProfile {
+  hasUser: true,
+  userId: '8cd076bb-20e9-4ca9-99e4-9fbf7b59c904',
+  email: 'codex-auth-test-7c78ec5a@example.com'
+}
+ GET / 200 in 1359ms (next.js: 207ms, application-code: 1152ms)
+[auth.login] attempt {
+  email: 'codex-auth-test-7c78ec5a@example.com',
+  hasPassword: true,
+  deviceInfo: 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8115',
+  ipAddress: '::ffff:127.0.0.1'
+}
+[auth.login] success {
+  email: 'codex-auth-test-7c78ec5a@example.com',
+  userId: '8cd076bb-20e9-4ca9-99e4-9fbf7b59c904'
+}
+ POST /api/auth/login 200 in 849ms (next.js: 3ms, application-code: 846ms)
+[auth.session] getCurrentUserProfile {
+  hasUser: true,
+  userId: '8cd076bb-20e9-4ca9-99e4-9fbf7b59c904',
+  email: 'codex-auth-test-7c78ec5a@example.com'
+}
+ GET / 200 in 680ms (next.js: 4ms, application-code: 676ms)
+ GET /login? 200 in 212ms (next.js: 28ms, application-code: 183ms)
+ GET /login? 200 in 75ms (next.js: 6ms, application-code: 69ms)
+✓ Compiled in 59ms
+✓ Compiled in 100ms
+[?25h

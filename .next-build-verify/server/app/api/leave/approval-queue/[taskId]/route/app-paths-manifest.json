@@ -1,0 +1,3 @@
+{
+  "/api/leave/approval-queue/[taskId]/route": "app/api/leave/approval-queue/[taskId]/route.js"
+}

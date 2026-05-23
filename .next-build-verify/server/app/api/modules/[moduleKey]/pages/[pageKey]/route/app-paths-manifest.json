@@ -1,0 +1,3 @@
+{
+  "/api/modules/[moduleKey]/pages/[pageKey]/route": "app/api/modules/[moduleKey]/pages/[pageKey]/route.js"
+}

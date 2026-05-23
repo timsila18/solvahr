@@ -1,0 +1,3 @@
+{
+  "/.well-known/[...slug]/route": "app/.well-known/[...slug]/route.js"
+}

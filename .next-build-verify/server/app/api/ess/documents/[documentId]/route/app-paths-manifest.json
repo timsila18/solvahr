@@ -1,0 +1,3 @@
+{
+  "/api/ess/documents/[documentId]/route": "app/api/ess/documents/[documentId]/route.js"
+}

@@ -1,0 +1,137 @@
+
+> solva-hr@0.1.0 build
+> next build
+
+▲ Next.js 16.2.4 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 8.2s
+  Running TypeScript ...
+  Finished TypeScript in 15.3s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/89) ...
+  Generating static pages using 7 workers (22/89) 
+  Generating static pages using 7 workers (44/89) 
+  Generating static pages using 7 workers (66/89) 
+✓ Generating static pages using 7 workers (89/89) in 662ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/admin/access-logs
+├ ƒ /api/admin/approval-workflows
+├ ƒ /api/admin/audit-oversight
+├ ƒ /api/admin/company-settings
+├ ƒ /api/admin/dashboard
+├ ƒ /api/admin/imports
+├ ƒ /api/admin/login-sessions
+├ ƒ /api/admin/notification-settings
+├ ƒ /api/admin/permissions
+├ ƒ /api/admin/reference-data
+├ ƒ /api/admin/roles
+├ ƒ /api/admin/roles/[roleKey]
+├ ƒ /api/admin/security-settings
+├ ƒ /api/admin/system-health
+├ ƒ /api/admin/users
+├ ƒ /api/admin/users/[userId]
+├ ƒ /api/admin/users/[userId]/actions
+├ ƒ /api/approval-tasks
+├ ƒ /api/approval-tasks/[taskId]
+├ ƒ /api/assets/[assetId]
+├ ƒ /api/assets/workspace
+├ ƒ /api/attendance/overtime
+├ ƒ /api/attendance/records
+├ ƒ /api/audit-logs
+├ ƒ /api/auth/forgot-password
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/signup
+├ ƒ /api/consultancy/workspace
+├ ƒ /api/ess/appraisals
+├ ƒ /api/ess/assets
+├ ƒ /api/ess/attendance
+├ ƒ /api/ess/dashboard
+├ ƒ /api/ess/documents
+├ ƒ /api/ess/documents/[documentId]
+├ ƒ /api/ess/leave
+├ ƒ /api/ess/loans
+├ ƒ /api/ess/notifications
+├ ƒ /api/ess/notifications/[notificationId]
+├ ƒ /api/ess/p9
+├ ƒ /api/ess/payslips
+├ ƒ /api/ess/profile
+├ ƒ /api/ess/profile-update
+├ ƒ /api/ess/requests
+├ ƒ /api/ess/settings
+├ ƒ /api/ess/training
+├ ƒ /api/integrations/workspace
+├ ƒ /api/leave/adjustments
+├ ƒ /api/leave/approval-queue
+├ ƒ /api/leave/approval-queue/[taskId]
+├ ƒ /api/leave/attendance-dashboard
+├ ƒ /api/leave/balances
+├ ƒ /api/leave/calendar
+├ ƒ /api/leave/daily-attendance
+├ ƒ /api/leave/dashboard
+├ ƒ /api/leave/devices
+├ ƒ /api/leave/holidays
+├ ƒ /api/leave/lateness
+├ ƒ /api/leave/overtime
+├ ƒ /api/leave/policies
+├ ƒ /api/leave/reports
+├ ƒ /api/leave/requests
+├ ƒ /api/leave/requests/[requestId]
+├ ƒ /api/leave/settings
+├ ƒ /api/leave/shifts
+├ ƒ /api/leave/timesheets
+├ ƒ /api/leave/weekend-rules
+├ ƒ /api/lookups/[table]
+├ ƒ /api/lookups/[table]/[recordId]
+├ ƒ /api/modules/[moduleKey]
+├ ƒ /api/modules/[moduleKey]/pages/[pageKey]
+├ ƒ /api/payroll/audit-trail
+├ ƒ /api/payroll/employee-data
+├ ƒ /api/payroll/exports/[exportType]
+├ ƒ /api/payroll/package
+├ ƒ /api/payroll/payslips
+├ ƒ /api/payroll/payslips/[employeeId]
+├ ƒ /api/payroll/periods
+├ ƒ /api/payroll/process
+├ ƒ /api/payroll/review
+├ ƒ /api/payroll/settings
+├ ƒ /api/payroll/statutory-reports
+├ ƒ /api/people/employees
+├ ƒ /api/people/employees/[employeeId]
+├ ƒ /api/people/employees/[employeeId]/documents
+├ ƒ /api/people/employees/[employeeId]/documents/[documentId]
+├ ƒ /api/performance/reviews/[reviewId]
+├ ƒ /api/performance/workspace
+├ ƒ /api/platform
+├ ƒ /api/recruitment/workspace
+├ ƒ /api/reports/access-logs
+├ ƒ /api/reports/builder/preview
+├ ƒ /api/reports/category/[categoryKey]
+├ ƒ /api/reports/exports
+├ ƒ /api/reports/exports/[exportId]
+├ ƒ /api/reports/saved
+├ ƒ /api/reports/saved/[reportId]
+├ ƒ /api/reports/scheduled
+├ ƒ /api/reports/scheduled/[scheduleId]
+├ ƒ /api/training/workspace
+├ ƒ /auth/callback
+├ ○ /forbidden
+├ ○ /forgot-password
+├ ○ /icon.svg
+├ ƒ /login
+├ ○ /reset-password
+├ ○ /signup
+└ ○ /unauthorized
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

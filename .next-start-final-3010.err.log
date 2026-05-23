@@ -1,0 +1,40 @@
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at sZ (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:38849)
+    at async s1 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39793)
+    at async s0 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39233)
+    at async r (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22409)
+    at async (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22672) {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at sZ (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:38849)
+    at async s1 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39793)
+    at async s0 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39233)
+    at async r (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22409)
+    at async (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22672) {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at sZ (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:38849)
+    at async s1 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39793)
+    at async s0 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39233)
+    at async r (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22409)
+    at async (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22672) {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}
+AuthApiError: Invalid Refresh Token: Refresh Token Not Found
+    at sZ (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:38849)
+    at async s1 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39793)
+    at async s0 (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:32:39233)
+    at async r (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22409)
+    at async (C:\Solva HR\.next\server\edge\chunks\[root-of-the-server]__0x4n.4m._.js:45:22672) {
+  __isAuthError: true,
+  status: 400,
+  code: 'refresh_token_not_found'
+}

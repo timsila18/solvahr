@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/cv-service/layout,_N_T_/cv-service/page,_N_T_/cv-service"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/cv-service/__PAGE__",
+    "/cv-service",
+    "/_index",
+    "/_head"
+  ]
+}

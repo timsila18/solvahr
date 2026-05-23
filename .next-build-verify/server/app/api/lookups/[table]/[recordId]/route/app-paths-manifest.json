@@ -1,0 +1,3 @@
+{
+  "/api/lookups/[table]/[recordId]/route": "app/api/lookups/[table]/[recordId]/route.js"
+}

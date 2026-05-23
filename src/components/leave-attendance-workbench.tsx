@@ -2142,6 +2142,10 @@ export function LeaveAttendanceWorkbench({
                 <article key={safeString(item.id)}>
                   <strong>{safeString(item.title)}</strong>
                   <span>{safeString(item.requestType, safeString(item.kind))} | {safeString(item.ownerRole)} | {safeString(item.status)}</span>
+                  <small>
+                    {safeString(item.kind) === "staff_complaint" ? "Raised by" : "Launched by"} {safeString(item.employee, safeString(item.requestedBy, "Unknown"))} |{" "}
+                    {formatDate(safeString(item.submittedDate, safeString(item.updatedAt, safeString(item.due))))}
+                  </small>
                   <small>{safeString(item.description)} | Pending action: {safeString(item.stage)}</small>
                   {safeString(item.kind) === "leave_request" ? (
                     <>

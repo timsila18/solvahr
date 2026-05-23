@@ -1396,9 +1396,15 @@ export function DashboardWorkbench({
                 <article key={task.id}>
                   <strong>{task.requestType}</strong>
                   <span>{task.employee} | {task.department}</span>
-                  <small>
-                    Launched by {task.requestedBy} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
-                  </small>
+                  {task.kind === "staff_complaint" ? (
+                    <small>
+                      Raised by {task.employee || task.requestedBy} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
+                    </small>
+                  ) : (
+                    <small>
+                      Launched by {task.requestedBy} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
+                    </small>
+                  )}
                   <small>
                     Pending approver {task.pendingApprover} | {task.title}
                   </small>

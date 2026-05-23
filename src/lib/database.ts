@@ -4176,7 +4176,7 @@ export async function listApprovalTasks(): Promise<ApprovalTask[]> {
   }
 
   const rows = (data ?? []) as TaskRow[];
-  const filtered =
+  let filtered =
     context.profile.role === "Super Admin"
       ? rows
       : rows.filter((row) => {
@@ -4191,6 +4191,18 @@ export async function listApprovalTasks(): Promise<ApprovalTask[]> {
             allowedApproverRoles.includes(context.profile.role)
           );
         });
+
+  if (context.profile.role === "Supervisor" && context.profile.employee_id) {
+    const scopedEmployeeIds = new Set((await getScopedEmployeeIds(context)) ?? []);
+    filtered = filtered.filter((row) => {
+      if (safeString(row.entity_type) !== "staff_complaint") {
+        return true;
+      }
+
+      const metadata = asRecord(row.metadata);
+      return scopedEmployeeIds.has(safeString(metadata?.employeeId));
+    });
+  }
 
   return filtered.map(mapApprovalTask);
 }
@@ -16508,7 +16520,7 @@ export async function createEssComplaint(input: {
 
   const { data: employee, error } = await context.supabase
     .from("employees")
-    .select("id, employee_number, first_name, last_name, supervisor_employee_id")
+    .select("id, employee_number, first_name, last_name, supervisor_employee_id, department:department_id(name), branch:branch_id(name)")
     .eq("id", context.profile.employee_id)
     .single();
 
@@ -16522,6 +16534,8 @@ export async function createEssComplaint(input: {
   }
 
   const employeeName = `${safeString(employee.first_name)} ${safeString(employee.last_name)}`.trim();
+  const departmentName = safeString(asRecord(employee.department)?.name, "Unassigned");
+  const branchName = safeString(asRecord(employee.branch)?.name, "Unassigned");
   const task = await createTask(context, {
     module_key: "ess",
     entity_type: "staff_complaint",
@@ -16532,13 +16546,18 @@ export async function createEssComplaint(input: {
     stage: "Supervisor review",
     metadata: {
       category: input.category,
+      requestType: "Staff Complaint",
       employeeId: safeString(employee.id),
       employeeNumber: safeString(employee.employee_number),
       employeeName,
+      departmentName,
+      branchName,
+      requestedByName: employeeName,
       assignedSupervisorEmployeeId: supervisorEmployeeId,
       response: "",
       privateNotes: "",
       visibility: "supervisor_only",
+      allowed_approver_roles: ["Supervisor", "Manager", "HR Admin", "Payroll Admin", "Super Admin"],
     },
   });
 

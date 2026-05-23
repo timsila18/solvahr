@@ -77,6 +77,19 @@ const WORKSPACE_GROUPS = [
   { label: "Administration", keys: ["administration", "settings", "integrations"] },
 ] as const;
 
+function getWorkspaceGroups(role: AppRole) {
+  if (usesApprovalsHome(role)) {
+    return [
+      { label: "Operations", keys: ["dashboard", "payroll", "leave", "assets"] },
+      { label: "People", keys: ["people", "performance", "recruitment", "training"] },
+      { label: "Analytics", keys: ["reports", "audit", "consultancy"] },
+      { label: "Administration", keys: ["administration", "settings", "integrations"] },
+    ] as const;
+  }
+
+  return WORKSPACE_GROUPS;
+}
+
 const MODULE_PRESENTATION: Record<
   string,
   Partial<Pick<ModuleSpec, "title" | "shortTitle" | "summary" | "tagline" | "icon">>
@@ -126,10 +139,6 @@ const MODULE_PRESENTATION: Record<
 };
 
 function usesApprovalsHome(role: AppRole) {
-  return ["Supervisor", "Payroll Admin", "HR Admin", "Manager", "Finance Officer", "Super Admin"].includes(role);
-}
-
-function usesUnifiedApprovalsRail(role: AppRole) {
   return ["Supervisor", "Payroll Admin", "HR Admin", "Manager", "Finance Officer", "Super Admin"].includes(role);
 }
 
@@ -5151,13 +5160,13 @@ export function SolvaShell({
           if (presented.key === "dashboard" && selectedRole) {
             return {
               ...presented,
-              title: usesApprovalsHome(selectedRole.role) ? "All Pending Tasks & Approvals" : "Dashboard",
-              shortTitle: usesApprovalsHome(selectedRole.role) ? "Tasks" : "Dashboard",
+              title: usesApprovalsHome(selectedRole.role) ? "Approvals" : "Dashboard",
+              shortTitle: usesApprovalsHome(selectedRole.role) ? "Inbox" : "Dashboard",
               summary: usesApprovalsHome(selectedRole.role)
-                ? "See every pending approval in scope and act on it from one operational queue."
+                ? "See every pending leave, payroll, performance, and staff request in one clean approval queue."
                 : presented.summary,
               tagline: usesApprovalsHome(selectedRole.role)
-                ? "Approvals, sign-offs, and pending work in one direct action space."
+                ? "A simple approvals schedule for sign-offs, comments, and direct action."
                 : presented.tagline,
             };
           }
@@ -5256,13 +5265,14 @@ export function SolvaShell({
       `${module.title} ${module.summary} ${module.items.join(" ")}`.toLowerCase().includes(query)
     );
   }, [presentedModules, search, selectedRole.role]);
+  const workspaceGroups = useMemo(() => getWorkspaceGroups(selectedRole.role), [selectedRole.role]);
   const groupedModules = useMemo(
     () =>
-      WORKSPACE_GROUPS.map((group) => ({
+      workspaceGroups.map((group) => ({
         label: group.label,
         modules: filteredModules.filter((module) => group.keys.some((key) => key === module.key)),
       })).filter((group) => group.modules.length > 0),
-    [filteredModules]
+    [filteredModules, workspaceGroups]
   );
   const employeeWorkspaceModules: Array<{ key: string; title: string }> = [];
 
@@ -5280,25 +5290,6 @@ export function SolvaShell({
     snapshot?.currentUser?.fullName ??
     selectedRole.email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
   const pendingTaskCount = tasks.filter((task) => task.status === "pending").length;
-  const pendingTasks = useMemo(
-    () => tasks.filter((task) => String(task.status ?? "").toLowerCase() === "pending"),
-    [tasks]
-  );
-  const sidebarApprovalGroups = useMemo(() => {
-    const groups = [
-      { key: "leave", label: "Leave", count: pendingTasks.filter((task) => task.moduleKey === "leave").length },
-      { key: "performance", label: "Performance", count: pendingTasks.filter((task) => task.moduleKey === "performance").length },
-      { key: "payroll", label: "Payroll", count: pendingTasks.filter((task) => task.moduleKey === "payroll").length },
-      { key: "people", label: "Staff Updates", count: pendingTasks.filter((task) => task.moduleKey === "people").length },
-      {
-        key: "other",
-        label: "Other",
-        count: pendingTasks.filter((task) => !["leave", "performance", "payroll", "people"].includes(task.moduleKey)).length,
-      },
-    ];
-    return groups.filter((group) => group.count > 0);
-  }, [pendingTasks]);
-  const isApproverWorkspace = usesUnifiedApprovalsRail(selectedRole.role);
   const aiAssist = useMemo(
     () =>
       getRoleAwareAiAssist(selectedRole.role as AppRole, activeModule.title, activeItem, {
@@ -5322,7 +5313,7 @@ export function SolvaShell({
   const aiInsightFeed = snapshot?.featured.insights ?? [];
   const roleGuidance = ROLE_GUIDANCE[selectedRole.role] ?? ROLE_GUIDANCE.default;
   const activeModuleGroup =
-    WORKSPACE_GROUPS.find((group) => group.keys.includes(activeModule.key as never))?.label ?? "Workspace";
+    workspaceGroups.find((group) => group.keys.includes(activeModule.key as never))?.label ?? "Workspace";
   const moduleBadgeByKey = useMemo<Record<string, string | null>>(
     () => ({
       dashboard: pendingTaskCount > 0 ? String(pendingTaskCount) : null,
@@ -7071,36 +7062,6 @@ export function SolvaShell({
               <h2>{activeModule.title}</h2>
               <p>{activeModule.tagline}</p>
             </div>
-            {isApproverWorkspace ? (
-              <section className="sidebar-approvals-card">
-                <div className="sidebar-approvals-card__header">
-                  <div>
-                    <p className="section-eyebrow">Approvals Hub</p>
-                    <h3>All Pending Tasks & Approvals</h3>
-                  </div>
-                  <strong>{pendingTaskCount}</strong>
-                </div>
-                <button
-                  className={`sidebar-approvals-card__button ${activeModule.key === "dashboard" && activeItem === "Pending Approvals" ? "is-active" : ""}`}
-                  onClick={() => navigateTo("dashboard", "Pending Approvals")}
-                  type="button"
-                >
-                  <span>Open unified approvals queue</span>
-                  <small>Approve leave, performance, payroll, staff updates, and other requests from one place.</small>
-                </button>
-                {sidebarApprovalGroups.length ? (
-                  <div className="sidebar-approvals-card__chips">
-                    {sidebarApprovalGroups.map((group) => (
-                      <span className="sidebar-approvals-card__chip" key={group.key}>
-                        {group.label} ({group.count})
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <small className="sidebar-approvals-card__empty">No pending approvals are assigned right now.</small>
-                )}
-              </section>
-            ) : null}
             <nav className="secondary-nav">
               {activeModule.items.map((item) => (
                 <button

@@ -53,6 +53,18 @@ function formatCompactDate(value: string) {
   });
 }
 
+function getApprovalModuleLabel(moduleKey: string) {
+  if (moduleKey === "leave") return "Leave";
+  if (moduleKey === "payroll") return "Payroll";
+  if (moduleKey === "performance") return "Performance";
+  if (moduleKey === "people") return "Staff updates";
+  return "Other";
+}
+
+function getApprovalLauncher(task: ApprovalTask) {
+  return safeString(task.employee || task.requestedByName || task.requestedBy, "Unknown");
+}
+
 function SectionMessage({ text }: { text: string }) {
   return <p className="section-description">{text}</p>;
 }
@@ -107,6 +119,13 @@ export function DashboardWorkbench({
   const approvals = tasks.slice(0, 8);
   const pendingApprovals = tasks.filter((task) => task.status === "pending");
   const visibleApprovals = activeItem === "Pending Approvals" ? pendingApprovals : approvals;
+  const scheduleApprovals = useMemo(
+    () =>
+      [...pendingApprovals].sort((left, right) =>
+        safeString(right.submittedDate || right.updatedAt).localeCompare(safeString(left.submittedDate || left.updatedAt))
+      ),
+    [pendingApprovals]
+  );
   const approvalSummary = Array.from(
     pendingApprovals.reduce((map, task) => {
       const key = safeString(task.requestType, task.kind);
@@ -1359,99 +1378,159 @@ export function DashboardWorkbench({
 
       {(activeItem === "Pending Approvals" || activeItem === "Overview") && (
         <section className="mini-panel">
-          <h4>{roleName === "Manager" ? "GM approvals center" : "Pending approvals"}</h4>
-          <div className="metric-grid compact-grid">
-            <article className="metric-card">
-              <span>Total pending</span>
-              <strong>{pendingApprovals.length}</strong>
-              <small>Items waiting in one queue</small>
-            </article>
-            <article className="metric-card">
-              <span>High priority</span>
-              <strong>{pendingApprovals.filter((task) => safeString(task.priority).toLowerCase() === "high").length}</strong>
-              <small>Need same-day review</small>
-            </article>
-            <article className="metric-card">
-              <span>GM actions</span>
-              <strong>{gmFacingApprovals}</strong>
-              <small>Manager sign-offs in scope</small>
-            </article>
-            <article className="metric-card">
-              <span>Approval types</span>
-              <strong>{approvalSummary.length}</strong>
-              <small>Grouped request categories</small>
-            </article>
-          </div>
-          {approvalSummary.length ? (
-            <div className="filter-row">
-              {approvalSummary.map(([label, count]) => (
-                <span className="filter-pill" key={label}>
-                  {label} ({count})
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <div className="mini-list queue-list">
-            {visibleApprovals.length ? (
-              visibleApprovals.map((task) => (
-                <article key={task.id}>
-                  <strong>{task.requestType}</strong>
-                  <span>{task.employee} | {task.department}</span>
-                  {task.kind === "staff_complaint" ? (
-                    <small>
-                      Raised by {task.employee || task.requestedBy} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
-                    </small>
-                  ) : (
-                    <small>
-                      Launched by {task.requestedBy} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
-                    </small>
-                  )}
-                  <small>
-                    Pending approver {task.pendingApprover} | {task.title}
-                  </small>
-                  {task.latestComment ? <small>{task.latestComment}</small> : null}
-                  {task.status === "pending" && (task.ownerRole === roleName || roleName === "Super Admin") ? (
-                    <div className="action-form compact-form">
-                      <label>
-                        <span>Optional reply</span>
-                        <textarea
-                          onChange={(event) =>
-                            setApprovalComments((current) => ({
-                              ...current,
-                              [task.id]: event.target.value,
-                            }))
-                          }
-                          placeholder="Comment and approve or comment and reject"
-                          rows={2}
-                          value={approvalComments[task.id] ?? ""}
-                        />
-                      </label>
-                      <div className="inline-actions">
-                      <button
-                        className="primary-button"
-                        disabled={busyTaskId === task.id}
-                        onClick={() => onApprove(task.id, approvalComments[task.id] ?? "")}
-                        type="button"
-                      >
-                        {busyTaskId === task.id ? "Working..." : "Approve"}
-                      </button>
-                      <button
-                        className="ghost-button"
-                        disabled={busyTaskId === task.id}
-                        onClick={() => onReject(task.id, approvalComments[task.id] ?? "")}
-                        type="button"
-                      >
-                        Reject
-                      </button>
-                      </div>
-                    </div>
-                  ) : null}
+          <h4>{activeItem === "Pending Approvals" ? "Approvals schedule" : roleName === "Manager" ? "GM approvals center" : "Pending approvals"}</h4>
+          {activeItem === "Pending Approvals" ? (
+            <>
+              <p className="section-description">
+                One simple approval schedule for leave, payroll, performance, staff updates, and every other pending request in your scope.
+              </p>
+              <div className="approval-summary-strip">
+                <span>Total pending: {pendingApprovals.length}</span>
+                <span>High priority: {pendingApprovals.filter((task) => safeString(task.priority).toLowerCase() === "high").length}</span>
+                <span>GM actions: {gmFacingApprovals}</span>
+                <span>Approval types: {approvalSummary.length}</span>
+              </div>
+              <div className="table-wrap">
+                <table className="data-table approvals-schedule-table">
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Staff</th>
+                      <th>Module</th>
+                      <th>Launched</th>
+                      <th>Pending with</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleApprovals.length ? (
+                      scheduleApprovals.map((task) => (
+                        <tr key={task.id}>
+                          <td>
+                            <div className="approval-cell-main">
+                              <strong>{safeString(task.requestType, task.kind)}</strong>
+                              <span>{task.title}</span>
+                              {task.latestComment ? <small>{task.latestComment}</small> : null}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="approval-cell-main">
+                              <strong>{safeString(task.employee, "-")}</strong>
+                              <span>{safeString(task.department, "-")}</span>
+                              <small>
+                                {task.kind === "staff_complaint" ? "Raised" : "Launched"} by {getApprovalLauncher(task)}
+                              </small>
+                            </div>
+                          </td>
+                          <td>{getApprovalModuleLabel(task.moduleKey)}</td>
+                          <td>
+                            <div className="approval-cell-main">
+                              <strong>{formatCompactDate(safeString(task.submittedDate || task.updatedAt))}</strong>
+                              <small>{safeString(task.priority, "normal")}</small>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="approval-cell-main">
+                              <strong>{safeString(task.pendingApprover, task.ownerRole)}</strong>
+                              <small>{safeString(task.stage, "-")}</small>
+                            </div>
+                          </td>
+                          <td>
+                            {task.status === "pending" && (task.ownerRole === roleName || roleName === "Super Admin") ? (
+                              <div className="approval-action-cell">
+                                <textarea
+                                  className="approval-inline-comment"
+                                  onChange={(event) =>
+                                    setApprovalComments((current) => ({
+                                      ...current,
+                                      [task.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Optional reply"
+                                  rows={2}
+                                  value={approvalComments[task.id] ?? ""}
+                                />
+                                <div className="inline-actions">
+                                  <button
+                                    className="primary-button"
+                                    disabled={busyTaskId === task.id}
+                                    onClick={() => onApprove(task.id, approvalComments[task.id] ?? "")}
+                                    type="button"
+                                  >
+                                    {busyTaskId === task.id ? "Working..." : "Approve"}
+                                  </button>
+                                  <button
+                                    className="ghost-button"
+                                    disabled={busyTaskId === task.id}
+                                    onClick={() => onReject(task.id, approvalComments[task.id] ?? "")}
+                                    type="button"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span>{task.status}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6}>
+                          <SectionMessage text="No approval tasks are pending for this profile right now." />
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="metric-grid compact-grid">
+                <article className="metric-card">
+                  <span>Total pending</span>
+                  <strong>{pendingApprovals.length}</strong>
+                  <small>Items waiting in one queue</small>
                 </article>
-              ))
-            ) : (
-              <SectionMessage text="No approval tasks are pending for this profile right now." />
-            )}
-          </div>
+                <article className="metric-card">
+                  <span>High priority</span>
+                  <strong>{pendingApprovals.filter((task) => safeString(task.priority).toLowerCase() === "high").length}</strong>
+                  <small>Need same-day review</small>
+                </article>
+                <article className="metric-card">
+                  <span>GM actions</span>
+                  <strong>{gmFacingApprovals}</strong>
+                  <small>Manager sign-offs in scope</small>
+                </article>
+                <article className="metric-card">
+                  <span>Approval types</span>
+                  <strong>{approvalSummary.length}</strong>
+                  <small>Grouped request categories</small>
+                </article>
+              </div>
+              <div className="mini-list queue-list">
+                {visibleApprovals.length ? (
+                  visibleApprovals.map((task) => (
+                    <article key={task.id}>
+                      <strong>{task.requestType}</strong>
+                      <span>{task.employee} | {task.department}</span>
+                      <small>
+                        {task.kind === "staff_complaint" ? "Raised" : "Launched"} by {getApprovalLauncher(task)} | {formatCompactDate(safeString(task.submittedDate))} | Priority {task.priority}
+                      </small>
+                      <small>
+                        Pending approver {task.pendingApprover} | {task.title}
+                      </small>
+                      {task.latestComment ? <small>{task.latestComment}</small> : null}
+                    </article>
+                  ))
+                ) : (
+                  <SectionMessage text="No approval tasks are pending for this profile right now." />
+                )}
+              </div>
+            </>
+          )}
         </section>
       )}
 

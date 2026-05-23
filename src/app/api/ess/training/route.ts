@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       programName?: string;
       schedule?: string;
       budget?: string;
+      notes?: string;
     };
 
     if (!body.programName || !body.schedule) {
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
         programName: body.programName,
         schedule: body.schedule,
         budget: body.budget ?? "0",
+        notes: body.notes ?? "",
       }),
       { status: 201 }
     );

@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       fieldName: string;
       newValue: string;
+      reason?: string;
     };
 
     if (!body.fieldName || !body.newValue) {
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
         employeeName: profile.full_name,
         fieldName: body.fieldName,
         newValue: body.newValue,
+        reason: body.reason,
       }),
       { status: 201 }
     );

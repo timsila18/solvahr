@@ -4590,8 +4590,10 @@ export async function createTrainingRequest(input: {
   programName: string;
   schedule: string;
   budget: string;
+  notes?: string;
 }) {
   const context = await getRequestContext();
+  const notes = safeString(input.notes);
 
   const { data, error } = await context.supabase
     .from("training_requests")
@@ -4601,7 +4603,7 @@ export async function createTrainingRequest(input: {
       program_name: input.programName,
       schedule: input.schedule,
       budget: Number(input.budget || 0),
-      notes: `Requested by ${input.employeeName}`,
+      notes: notes || `Requested by ${input.employeeName}`,
       status: "pending",
       created_by: context.profile.id,
     })
@@ -4617,7 +4619,7 @@ export async function createTrainingRequest(input: {
     entity_type: "training_request",
     entity_id: safeString(data.id),
     title: `Approve ${input.programName}`,
-    description: `${input.employeeName} | ${input.schedule} | Budget KES ${input.budget}`,
+    description: `${input.employeeName} | ${input.schedule} | Budget KES ${input.budget}${notes ? ` | ${notes}` : ""}`,
     owner_role: "HR Admin",
     stage: "HR training review",
     metadata: {
@@ -4626,6 +4628,7 @@ export async function createTrainingRequest(input: {
       priority: safeNumber(input.budget) >= 50000 ? "High" : "Normal",
       allowed_approver_roles: ["HR Admin", "Manager", "Super Admin"],
       final_status: "approved",
+      notes,
     },
   });
 
@@ -10263,14 +10266,18 @@ export async function createProfileUpdateRequest(input: {
   employeeName: string;
   fieldName: string;
   newValue: string;
+  reason?: string;
 }) {
   const context = await getRequestContext();
+  const reason = safeString(input.reason);
 
   const taskRow = await createTask(context, {
     module_key: "ess",
     entity_type: "profile_update",
     title: `Approve profile change for ${input.employeeName}`,
-    description: `${input.fieldName} -> ${input.newValue}`,
+    description: reason
+      ? `${input.fieldName} -> ${input.newValue} | Reason: ${reason}`
+      : `${input.fieldName} -> ${input.newValue}`,
     owner_role: "HR Admin",
     stage: "HR validation",
     metadata: {
@@ -10280,6 +10287,7 @@ export async function createProfileUpdateRequest(input: {
       allowed_approver_roles: ["HR Admin", "Manager", "Super Admin"],
       field_name: input.fieldName,
       new_value: input.newValue,
+      reason,
     },
   });
 

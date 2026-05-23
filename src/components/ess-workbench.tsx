@@ -347,6 +347,19 @@ type ComplaintItem = {
   updatedAt: string;
 };
 
+type WorkflowAssistPayload = {
+  newValue?: string;
+  reason?: string;
+  programName?: string;
+  notes?: string;
+  subject?: string;
+  details?: string;
+  response?: string;
+  privateNotes?: string;
+  summary?: string;
+  model?: string;
+};
+
 type SettingsPayload = {
   themeMode: string;
   emailNotifications: boolean;
@@ -620,11 +633,13 @@ export function EssWorkbench({
   const [sensitiveProfileForm, setSensitiveProfileForm] = useState({
     fieldName: "Bank details",
     newValue: "",
+    reason: "",
   });
   const [trainingForm, setTrainingForm] = useState({
     programName: "Customer Service Excellence",
     schedule: DEFAULT_TRAINING_SCHEDULE,
     budget: "0",
+    notes: "",
   });
   const [assetForm, setAssetForm] = useState({
     assetName: "",
@@ -1329,7 +1344,7 @@ export function EssWorkbench({
         body: JSON.stringify(sensitiveProfileForm),
       });
       await loadRequests();
-      setSensitiveProfileForm((current) => ({ ...current, newValue: "" }));
+      setSensitiveProfileForm((current) => ({ ...current, newValue: "", reason: "" }));
       setActionMessage("Sensitive profile update submitted for HR approval.");
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not submit the profile update request.");
@@ -1349,6 +1364,7 @@ export function EssWorkbench({
       });
       await loadTraining();
       await loadRequests();
+      setTrainingForm((current) => ({ ...current, notes: "" }));
       setActionMessage("Training request submitted for HR review.");
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not submit the training request.");
@@ -1375,6 +1391,122 @@ export function EssWorkbench({
       setActionMessage("Complaint sent to your assigned supervisor.");
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not submit the complaint.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleWorkflowAssist(
+    mode:
+      | "profile_update_request"
+      | "training_request"
+      | "salary_advance_request"
+      | "complaint_submission"
+      | "complaint_response"
+      | "payslip_explanation",
+    options?: {
+      complaintId?: string;
+      payslip?: PayslipItem;
+    }
+  ) {
+    const busyKey = options?.complaintId
+      ? `workflow-ai-${mode}-${options.complaintId}`
+      : options?.payslip?.id
+        ? `workflow-ai-${mode}-${options.payslip.id}`
+        : `workflow-ai-${mode}`;
+    setBusyAction(busyKey);
+    setActionMessage("");
+    try {
+      const payload = await readJson<WorkflowAssistPayload>("/api/ai/workflow-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "profile_update_request"
+            ? {
+                mode,
+                fieldName: sensitiveProfileForm.fieldName,
+                newValue: sensitiveProfileForm.newValue,
+                reason: sensitiveProfileForm.reason,
+              }
+            : mode === "training_request"
+              ? {
+                  mode,
+                  programName: trainingForm.programName,
+                  schedule: trainingForm.schedule,
+                  budget: trainingForm.budget,
+                  notes: trainingForm.notes,
+                }
+              : mode === "salary_advance_request"
+                ? {
+                    mode,
+                    reason: salaryAdvanceForm.reason,
+                  }
+                : mode === "complaint_submission"
+                  ? {
+                      mode,
+                      category: complaintForm.category,
+                      subject: complaintForm.subject,
+                      details: complaintForm.details,
+                    }
+                  : mode === "complaint_response" && options?.complaintId
+                    ? {
+                        mode,
+                        category:
+                          complaintsState.data?.find((item) => item.id === options.complaintId)?.category ?? "",
+                        subject:
+                          complaintsState.data?.find((item) => item.id === options.complaintId)?.title ?? "",
+                        details:
+                          complaintsState.data?.find((item) => item.id === options.complaintId)?.details ?? "",
+                        response: complaintReplyDrafts[options.complaintId]?.response ?? "",
+                        privateNotes: complaintReplyDrafts[options.complaintId]?.privateNotes ?? "",
+                      }
+                    : {
+                        mode,
+                        payrollPeriod: options?.payslip?.period,
+                        grossPay: options?.payslip?.grossPay,
+                        netPay: options?.payslip?.netPay,
+                        deductions: options?.payslip?.deductions,
+                        allowances: options?.payslip?.allowances,
+                      }
+        ),
+      });
+
+      if (mode === "profile_update_request") {
+        setSensitiveProfileForm((current) => ({
+          ...current,
+          newValue: payload.newValue || current.newValue,
+          reason: payload.reason || current.reason,
+        }));
+      } else if (mode === "training_request") {
+        setTrainingForm((current) => ({
+          ...current,
+          programName: payload.programName || current.programName,
+          notes: payload.notes || current.notes,
+        }));
+      } else if (mode === "salary_advance_request") {
+        setSalaryAdvanceForm((current) => ({
+          ...current,
+          reason: payload.reason || current.reason,
+        }));
+      } else if (mode === "complaint_submission") {
+        setComplaintForm((current) => ({
+          ...current,
+          subject: payload.subject || current.subject,
+          details: payload.details || current.details,
+        }));
+      } else if (mode === "complaint_response" && options?.complaintId) {
+        setComplaintReplyDrafts((current) => ({
+          ...current,
+          [options.complaintId!]: {
+            response: payload.response || current[options.complaintId!]?.response || "",
+            privateNotes: payload.privateNotes || current[options.complaintId!]?.privateNotes || "",
+          },
+        }));
+      }
+
+      setActionMessage(payload.summary || "A stronger draft is ready. Please review it and keep it true to the situation.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Could not prepare AI assistance right now.");
     } finally {
       setBusyAction("");
     }
@@ -1982,6 +2114,24 @@ export function EssWorkbench({
                   value={sensitiveProfileForm.newValue}
                 />
               </label>
+              <label>
+                <span>Reason</span>
+                <textarea
+                  onChange={(event) => setSensitiveProfileForm((current) => ({ ...current, reason: event.target.value }))}
+                  rows={3}
+                  value={sensitiveProfileForm.reason}
+                />
+              </label>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-profile_update_request"}
+                  onClick={() => void handleWorkflowAssist("profile_update_request")}
+                  type="button"
+                >
+                  {busyAction === "workflow-ai-profile_update_request" ? "Drafting..." : "Help me draft this"}
+                </button>
+              </div>
               <button className="primary-button" disabled={busyAction === "request-profile"} onClick={handleSensitiveProfileRequest} type="button">
                 {busyAction === "request-profile" ? "Submitting..." : "Submit for HR approval"}
               </button>
@@ -2307,6 +2457,14 @@ export function EssWorkbench({
               <div className="inline-actions">
                 <button
                   className="ghost-button"
+                  disabled={busyAction === `workflow-ai-payslip_explanation-${latestPayslip.id}`}
+                  onClick={() => void handleWorkflowAssist("payslip_explanation", { payslip: latestPayslip })}
+                  type="button"
+                >
+                  {busyAction === `workflow-ai-payslip_explanation-${latestPayslip.id}` ? "Explaining..." : "Explain this payslip"}
+                </button>
+                <button
+                  className="ghost-button"
                   disabled={busyAction === `payslip-${latestPayslip.employeeId}-${latestPayslip.periodId ?? "latest"}-preview`}
                   onClick={() =>
                     void handlePayslipFile(latestPayslip.employeeId as string, "preview", latestPayslip.periodId)
@@ -2362,6 +2520,14 @@ export function EssWorkbench({
               nssf: toNumberValue(slip.deductions?.NSSF ?? 0).toLocaleString(),
               actions: slip.employeeId ? (
                 <div className="inline-actions">
+                  <button
+                    className="ghost-button"
+                    disabled={busyAction === `workflow-ai-payslip_explanation-${slip.id}`}
+                    onClick={() => void handleWorkflowAssist("payslip_explanation", { payslip: slip })}
+                    type="button"
+                  >
+                    {busyAction === `workflow-ai-payslip_explanation-${slip.id}` ? "Explaining..." : "Explain"}
+                  </button>
                   <button
                     className="ghost-button"
                     disabled={busyAction === `payslip-${slip.employeeId}-${slip.periodId ?? "latest"}-preview`}
@@ -2764,6 +2930,16 @@ export function EssWorkbench({
                   value={salaryAdvanceForm.reason}
                 />
               </label>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-salary_advance_request"}
+                  onClick={() => void handleWorkflowAssist("salary_advance_request")}
+                  type="button"
+                >
+                  {busyAction === "workflow-ai-salary_advance_request" ? "Drafting..." : "Help me explain this"}
+                </button>
+              </div>
               <small>One request is allowed each month. Supervisor recommends, then the GM approves.</small>
               <button
                 className="primary-button"
@@ -3222,6 +3398,16 @@ export function EssWorkbench({
                   value={complaintForm.details}
                 />
               </label>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-complaint_submission"}
+                  onClick={() => void handleWorkflowAssist("complaint_submission")}
+                  type="button"
+                >
+                  {busyAction === "workflow-ai-complaint_submission" ? "Drafting..." : "Help me write this"}
+                </button>
+              </div>
               <button className="primary-button" disabled={busyAction === "complaint-submit"} onClick={() => void handleComplaintSubmit()} type="button">
                 {busyAction === "complaint-submit" ? "Submitting..." : "Submit complaint"}
               </button>
@@ -3279,6 +3465,16 @@ export function EssWorkbench({
                           value={complaintReplyDrafts[item.id]?.privateNotes ?? ""}
                         />
                       </label>
+                      <div className="inline-actions">
+                        <button
+                          className="ghost-button"
+                          disabled={busyAction === `workflow-ai-complaint_response-${item.id}`}
+                          onClick={() => void handleWorkflowAssist("complaint_response", { complaintId: item.id })}
+                          type="button"
+                        >
+                          {busyAction === `workflow-ai-complaint_response-${item.id}` ? "Drafting..." : "Draft response"}
+                        </button>
+                      </div>
                       <div className="inline-actions">
                         <button
                           className="ghost-button"
@@ -3349,6 +3545,24 @@ export function EssWorkbench({
                   value={trainingForm.budget}
                 />
               </label>
+              <label>
+                <span>Justification</span>
+                <textarea
+                  onChange={(event) => setTrainingForm((current) => ({ ...current, notes: event.target.value }))}
+                  rows={3}
+                  value={trainingForm.notes}
+                />
+              </label>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-training_request"}
+                  onClick={() => void handleWorkflowAssist("training_request")}
+                  type="button"
+                >
+                  {busyAction === "workflow-ai-training_request" ? "Drafting..." : "Help me draft this"}
+                </button>
+              </div>
               <button className="primary-button" disabled={busyAction === "training"} onClick={handleTrainingSubmit} type="button">
                 {busyAction === "training" ? "Submitting..." : "Submit training request"}
               </button>

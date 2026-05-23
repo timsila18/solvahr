@@ -1147,7 +1147,7 @@ function PeopleWorkbench({
     }
   }
 
-  async function handleStaffExitAssist() {
+  async function handleStaffExitAssist(variant: "draft" | "review" | "shorter" | "formal" | "factual" = "draft") {
     if (!selectedEmployee) {
       setStaffExitMessage("Select the staff member first.");
       return;
@@ -1161,6 +1161,7 @@ function PeopleWorkbench({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "employee_exit",
+          variant,
           employeeName: selectedEmployee.fullName,
           reason: staffExitReason,
           comments: staffExitComments,
@@ -1169,14 +1170,18 @@ function PeopleWorkbench({
       const payload = (await response.json().catch(() => null)) as {
         comments?: string;
         summary?: string;
+        issues?: string[];
         error?: string;
       } | null;
       if (!response.ok) {
         throw new Error(payload?.error ?? "Could not prepare exit wording right now.");
       }
       setStaffExitComments(payload?.comments ?? staffExitComments);
+      const issues = Array.isArray(payload?.issues) ? payload.issues.filter(Boolean) : [];
       setStaffExitMessage(
-        payload?.summary ?? "A stronger exit note is ready. Please review it and keep it true to the case."
+        issues.length
+          ? `${payload?.summary ?? "A stronger exit note is ready."} Watch-outs: ${issues.slice(0, 3).join(" | ")}`
+          : payload?.summary ?? "A stronger exit note is ready. Please review it and keep it true to the case."
       );
     } catch (error) {
       setStaffExitMessage(error instanceof Error ? error.message : "Could not prepare exit wording right now.");
@@ -1893,6 +1898,12 @@ function PeopleWorkbench({
                     <div className="inline-actions">
                       <button className="ghost-button" disabled={staffExitBusy || staffExitAssistBusy} onClick={() => void handleStaffExitAssist()} type="button">
                         {staffExitAssistBusy ? "Drafting..." : "Help me draft this"}
+                      </button>
+                      <button className="ghost-button" disabled={staffExitBusy || staffExitAssistBusy} onClick={() => void handleStaffExitAssist("formal")} type="button">
+                        More formal
+                      </button>
+                      <button className="ghost-button" disabled={staffExitBusy || staffExitAssistBusy} onClick={() => void handleStaffExitAssist("review")} type="button">
+                        Review wording
                       </button>
                       <button className="primary-button" disabled={staffExitBusy} onClick={() => void handleStaffExitRequest()} type="button">
                         {staffExitBusy

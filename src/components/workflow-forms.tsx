@@ -110,6 +110,7 @@ type WorkflowAssistPayload = {
   desiredAction?: string;
   attachmentNote?: string;
   roleDutyOverrides?: string[];
+  issues?: string[];
   summary?: string;
   model?: string;
 };
@@ -218,6 +219,15 @@ function parseRoleDutyOverrides(value: string) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function formatWorkflowAssistMessage(payload: WorkflowAssistPayload, fallback: string) {
+  const summary = payload.summary || fallback;
+  const issues = Array.isArray(payload.issues) ? payload.issues.filter(Boolean) : [];
+  if (!issues.length) {
+    return summary;
+  }
+  return `${summary} Watch-outs: ${issues.slice(0, 3).join(" | ")}`;
 }
 
 export function EmployeeCreateForm() {
@@ -835,8 +845,11 @@ export function EmployeeEditForm({
     }
   }
 
-  async function handleWorkflowAssist(mode: "salary_review" | "hr_document") {
-    const busyKey = `assist-${mode}`;
+  async function handleWorkflowAssist(
+    mode: "salary_review" | "hr_document",
+    variant: "draft" | "review" | "shorter" | "formal" | "factual" = "draft"
+  ) {
+    const busyKey = `assist-${mode}-${variant}`;
     setAssistBusyKey(busyKey);
     setError("");
     setSuccess("");
@@ -848,6 +861,7 @@ export function EmployeeEditForm({
           mode === "salary_review"
             ? {
                 mode,
+                variant,
                 employeeName: salaryReviewForm.employeeName,
                 currentSalary: salaryReviewForm.currentSalary,
                 newSalary: salaryReviewForm.proposedSalary,
@@ -857,6 +871,7 @@ export function EmployeeEditForm({
               }
             : {
                 mode,
+                variant,
                 employeeName: form.fullName,
                 kind: documentForm.kind,
                 currentSalary: documentForm.currentSalary,
@@ -891,7 +906,12 @@ export function EmployeeEditForm({
         }));
       }
 
-      setSuccess(payload.summary || "A stronger draft is ready. Please review it and keep it true to the situation.");
+      setSuccess(
+        formatWorkflowAssistMessage(
+          payload,
+          "A stronger draft is ready. Please review it and keep it true to the situation."
+        )
+      );
     } catch (assistError) {
       setError(assistError instanceof Error ? assistError.message : "Could not prepare drafting help right now.");
     } finally {
@@ -1070,11 +1090,27 @@ export function EmployeeEditForm({
             <div className="workflow-form-grid__full workflow-actions">
               <button
                 className="ghost-button"
-                disabled={assistBusyKey === "assist-salary_review" || salaryReviewPending}
+                disabled={assistBusyKey.startsWith("assist-salary_review") || salaryReviewPending}
                 onClick={() => void handleWorkflowAssist("salary_review")}
                 type="button"
               >
-                {assistBusyKey === "assist-salary_review" ? "Drafting..." : "Help me draft this"}
+                {assistBusyKey.startsWith("assist-salary_review") ? "Drafting..." : "Help me draft this"}
+              </button>
+              <button
+                className="ghost-button"
+                disabled={assistBusyKey.startsWith("assist-salary_review") || salaryReviewPending}
+                onClick={() => void handleWorkflowAssist("salary_review", "formal")}
+                type="button"
+              >
+                More formal
+              </button>
+              <button
+                className="ghost-button"
+                disabled={assistBusyKey.startsWith("assist-salary_review") || salaryReviewPending}
+                onClick={() => void handleWorkflowAssist("salary_review", "review")}
+                type="button"
+              >
+                Review wording
               </button>
               <button
                 className="primary-button"
@@ -1228,15 +1264,31 @@ export function EmployeeEditForm({
         <div className="workflow-form-grid__full workflow-actions">
           <button
             className="ghost-button"
-            disabled={assistBusyKey === "assist-hr_document" || documentPending || loading}
+            disabled={assistBusyKey.startsWith("assist-hr_document") || documentPending || loading}
             onClick={() => void handleWorkflowAssist("hr_document")}
             type="button"
           >
-            {assistBusyKey === "assist-hr_document"
+            {assistBusyKey.startsWith("assist-hr_document")
               ? "Drafting..."
               : ["contract", "appointment_letter"].includes(documentForm.kind)
                 ? "Suggest duties"
                 : "Help me draft this"}
+          </button>
+          <button
+            className="ghost-button"
+            disabled={assistBusyKey.startsWith("assist-hr_document") || documentPending || loading}
+            onClick={() => void handleWorkflowAssist("hr_document", "factual")}
+            type="button"
+          >
+            More factual
+          </button>
+          <button
+            className="ghost-button"
+            disabled={assistBusyKey.startsWith("assist-hr_document") || documentPending || loading}
+            onClick={() => void handleWorkflowAssist("hr_document", "review")}
+            type="button"
+          >
+            Review wording
           </button>
           <button
             className="primary-button"
@@ -1548,7 +1600,9 @@ export function LeaveRequestCreateForm({
     };
   }, [form.endDate, form.startDate, holidays, selectedBalance, selectedPolicy]);
 
-  async function handleWorkflowAssist() {
+  async function handleWorkflowAssist(
+    variant: "draft" | "review" | "shorter" | "formal" | "factual" = "draft"
+  ) {
     setAssistPending(true);
     setError("");
     setSuccess("");
@@ -1558,6 +1612,7 @@ export function LeaveRequestCreateForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "leave_request",
+          variant,
           employeeName,
           leaveType: form.leaveType,
           startDate: form.startDate,
@@ -1574,7 +1629,12 @@ export function LeaveRequestCreateForm({
         reason: payload.reason || current.reason,
         attachmentNote: payload.attachmentNote || current.attachmentNote,
       }));
-      setSuccess(payload.summary || "A stronger leave request draft is ready. Please review it before you submit.");
+      setSuccess(
+        formatWorkflowAssistMessage(
+          payload,
+          "A stronger leave request draft is ready. Please review it before you submit."
+        )
+      );
     } catch (assistError) {
       setError(assistError instanceof Error ? assistError.message : "Could not prepare leave drafting help right now.");
     } finally {
@@ -1745,6 +1805,22 @@ export function LeaveRequestCreateForm({
             type="button"
           >
             {assistPending ? "Drafting..." : "Help me draft this"}
+          </button>
+          <button
+            className="ghost-button"
+            disabled={assistPending || pending}
+            onClick={() => void handleWorkflowAssist("formal")}
+            type="button"
+          >
+            More formal
+          </button>
+          <button
+            className="ghost-button"
+            disabled={assistPending || pending}
+            onClick={() => void handleWorkflowAssist("review")}
+            type="button"
+          >
+            Review wording
           </button>
         </div>
       </SectionCard>

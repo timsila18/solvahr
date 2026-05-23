@@ -356,6 +356,9 @@ type WorkflowAssistPayload = {
   details?: string;
   response?: string;
   privateNotes?: string;
+  comments?: string;
+  attachmentNote?: string;
+  issues?: string[];
   summary?: string;
   model?: string;
 };
@@ -514,6 +517,15 @@ function formatShiftTime(value: string) {
   const suffix = hours >= 12 ? "PM" : "AM";
   const normalizedHours = hours % 12 || 12;
   return `${normalizedHours}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+function formatWorkflowAssistMessage(payload: WorkflowAssistPayload, fallback: string) {
+  const summary = payload.summary || fallback;
+  const issues = Array.isArray(payload.issues) ? payload.issues.filter(Boolean) : [];
+  if (!issues.length) {
+    return summary;
+  }
+  return `${summary} Watch-outs: ${issues.slice(0, 3).join(" | ")}`;
 }
 
 const DEFAULT_TRAINING_SCHEDULE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14)
@@ -1407,6 +1419,7 @@ export function EssWorkbench({
     options?: {
       complaintId?: string;
       payslip?: PayslipItem;
+      variant?: "draft" | "review" | "shorter" | "formal" | "factual";
     }
   ) {
     const busyKey = options?.complaintId
@@ -1424,6 +1437,7 @@ export function EssWorkbench({
           mode === "profile_update_request"
             ? {
                 mode,
+                variant: options?.variant ?? "draft",
                 fieldName: sensitiveProfileForm.fieldName,
                 newValue: sensitiveProfileForm.newValue,
                 reason: sensitiveProfileForm.reason,
@@ -1431,6 +1445,7 @@ export function EssWorkbench({
             : mode === "training_request"
               ? {
                   mode,
+                  variant: options?.variant ?? "draft",
                   programName: trainingForm.programName,
                   schedule: trainingForm.schedule,
                   budget: trainingForm.budget,
@@ -1439,11 +1454,13 @@ export function EssWorkbench({
               : mode === "salary_advance_request"
                 ? {
                     mode,
+                    variant: options?.variant ?? "draft",
                     reason: salaryAdvanceForm.reason,
                   }
                 : mode === "complaint_submission"
                   ? {
                       mode,
+                      variant: options?.variant ?? "draft",
                       category: complaintForm.category,
                       subject: complaintForm.subject,
                       details: complaintForm.details,
@@ -1451,6 +1468,7 @@ export function EssWorkbench({
                   : mode === "complaint_response" && options?.complaintId
                     ? {
                         mode,
+                        variant: options?.variant ?? "draft",
                         category:
                           complaintsState.data?.find((item) => item.id === options.complaintId)?.category ?? "",
                         subject:
@@ -1462,6 +1480,7 @@ export function EssWorkbench({
                       }
                     : {
                         mode,
+                        variant: options?.variant ?? "draft",
                         payrollPeriod: options?.payslip?.period,
                         grossPay: options?.payslip?.grossPay,
                         netPay: options?.payslip?.netPay,
@@ -1504,7 +1523,12 @@ export function EssWorkbench({
         }));
       }
 
-      setActionMessage(payload.summary || "A stronger draft is ready. Please review it and keep it true to the situation.");
+      setActionMessage(
+        formatWorkflowAssistMessage(
+          payload,
+          "A stronger draft is ready. Please review it and keep it true to the situation."
+        )
+      );
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not prepare AI assistance right now.");
     } finally {
@@ -2130,6 +2154,22 @@ export function EssWorkbench({
                   type="button"
                 >
                   {busyAction === "workflow-ai-profile_update_request" ? "Drafting..." : "Help me draft this"}
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-profile_update_request"}
+                  onClick={() => void handleWorkflowAssist("profile_update_request", { variant: "formal" })}
+                  type="button"
+                >
+                  More formal
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-profile_update_request"}
+                  onClick={() => void handleWorkflowAssist("profile_update_request", { variant: "review" })}
+                  type="button"
+                >
+                  Review wording
                 </button>
               </div>
               <button className="primary-button" disabled={busyAction === "request-profile"} onClick={handleSensitiveProfileRequest} type="button">
@@ -2939,6 +2979,22 @@ export function EssWorkbench({
                 >
                   {busyAction === "workflow-ai-salary_advance_request" ? "Drafting..." : "Help me explain this"}
                 </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-salary_advance_request"}
+                  onClick={() => void handleWorkflowAssist("salary_advance_request", { variant: "shorter" })}
+                  type="button"
+                >
+                  Make shorter
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-salary_advance_request"}
+                  onClick={() => void handleWorkflowAssist("salary_advance_request", { variant: "review" })}
+                  type="button"
+                >
+                  Review wording
+                </button>
               </div>
               <small>One request is allowed each month. Supervisor recommends, then the GM approves.</small>
               <button
@@ -3407,6 +3463,22 @@ export function EssWorkbench({
                 >
                   {busyAction === "workflow-ai-complaint_submission" ? "Drafting..." : "Help me write this"}
                 </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-complaint_submission"}
+                  onClick={() => void handleWorkflowAssist("complaint_submission", { variant: "factual" })}
+                  type="button"
+                >
+                  More factual
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-complaint_submission"}
+                  onClick={() => void handleWorkflowAssist("complaint_submission", { variant: "review" })}
+                  type="button"
+                >
+                  Review wording
+                </button>
               </div>
               <button className="primary-button" disabled={busyAction === "complaint-submit"} onClick={() => void handleComplaintSubmit()} type="button">
                 {busyAction === "complaint-submit" ? "Submitting..." : "Submit complaint"}
@@ -3473,6 +3545,22 @@ export function EssWorkbench({
                           type="button"
                         >
                           {busyAction === `workflow-ai-complaint_response-${item.id}` ? "Drafting..." : "Draft response"}
+                        </button>
+                        <button
+                          className="ghost-button"
+                          disabled={busyAction === `workflow-ai-complaint_response-${item.id}`}
+                          onClick={() => void handleWorkflowAssist("complaint_response", { complaintId: item.id, variant: "formal" })}
+                          type="button"
+                        >
+                          More formal
+                        </button>
+                        <button
+                          className="ghost-button"
+                          disabled={busyAction === `workflow-ai-complaint_response-${item.id}`}
+                          onClick={() => void handleWorkflowAssist("complaint_response", { complaintId: item.id, variant: "review" })}
+                          type="button"
+                        >
+                          Review wording
                         </button>
                       </div>
                       <div className="inline-actions">
@@ -3561,6 +3649,22 @@ export function EssWorkbench({
                   type="button"
                 >
                   {busyAction === "workflow-ai-training_request" ? "Drafting..." : "Help me draft this"}
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-training_request"}
+                  onClick={() => void handleWorkflowAssist("training_request", { variant: "shorter" })}
+                  type="button"
+                >
+                  Make shorter
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === "workflow-ai-training_request"}
+                  onClick={() => void handleWorkflowAssist("training_request", { variant: "review" })}
+                  type="button"
+                >
+                  Review wording
                 </button>
               </div>
               <button className="primary-button" disabled={busyAction === "training"} onClick={handleTrainingSubmit} type="button">

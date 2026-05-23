@@ -15,6 +15,7 @@ type WorkflowAssistMode =
 
 type WorkflowAssistRequest = {
   mode?: WorkflowAssistMode;
+  variant?: "draft" | "review" | "shorter" | "formal" | "factual";
   employeeName?: string;
   fieldName?: string;
   newValue?: string;
@@ -80,77 +81,101 @@ function extractJsonObject(text: string) {
   return JSON.parse(objectText) as Record<string, unknown>;
 }
 
-function buildSystemPrompt(mode: WorkflowAssistMode) {
+function buildSystemPrompt(
+  mode: WorkflowAssistMode,
+  variant: WorkflowAssistRequest["variant"]
+) {
+  const variantInstruction =
+    variant === "review"
+      ? 'First identify weak, unclear, risky, or overly emotional wording. Then improve the draft. Return a short "issues" array with practical warnings.'
+      : variant === "shorter"
+        ? 'Make the draft shorter and tighter while preserving the meaning. Return a short "issues" array only if something important is still missing.'
+        : variant === "formal"
+          ? 'Make the draft more formal and polished without sounding robotic. Return a short "issues" array only if something important is still missing.'
+          : variant === "factual"
+            ? 'Make the draft more factual, neutral, and evidence-focused. Return a short "issues" array only if something important is still missing.'
+            : 'Improve the draft directly. Return a short "issues" array only if something important is still missing.';
+
   switch (mode) {
     case "profile_update_request":
       return [
         "You help employees prepare HR-ready profile update requests inside Solva HR.",
         "Improve clarity and professionalism without sounding stiff.",
         "Do not invent facts. Keep the wording short and practical.",
-        'Return JSON with keys: "newValue", "reason", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "newValue", "reason", "summary", "issues".',
       ].join(" ");
     case "training_request":
       return [
         "You help employees prepare short, practical training requests inside Solva HR.",
         "Keep the wording grounded, useful, and operational.",
         "Do not invent qualifications or approvals.",
-        'Return JSON with keys: "programName", "notes", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "programName", "notes", "summary", "issues".',
       ].join(" ");
     case "salary_advance_request":
       return [
         "You help employees explain salary advance requests clearly and respectfully.",
         "Be concise, believable, and professional.",
         "Do not exaggerate hardship or invent facts.",
-        'Return JSON with keys: "reason", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "reason", "summary", "issues".',
       ].join(" ");
     case "complaint_submission":
       return [
         "You help employees write workplace complaints in a calm, factual, professional tone.",
         "Improve structure and clarity without inflaming the issue.",
         "Do not invent incidents, dates, or accusations.",
-        'Return JSON with keys: "subject", "details", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "subject", "details", "summary", "issues".',
       ].join(" ");
     case "complaint_response":
       return [
         "You help supervisors or managers draft professional responses to employee complaints.",
         "Be respectful, practical, and resolution-oriented.",
         "Do not admit facts that are not in context, and do not invent private investigation details.",
-        'Return JSON with keys: "response", "privateNotes", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "response", "privateNotes", "summary", "issues".',
       ].join(" ");
     case "payslip_explanation":
       return [
         "You explain a payslip clearly for an employee inside Solva HR.",
         "Be simple, practical, and reassuring where appropriate.",
         "Use only the supplied figures.",
-        'Return JSON with keys: "summary".',
+        variantInstruction,
+        'Return JSON with keys: "summary", "issues".',
       ].join(" ");
     case "leave_request":
       return [
         "You help employees prepare approval-ready leave requests inside Solva HR.",
         "Keep the request practical, respectful, and believable.",
         "Do not invent emergencies, travel plans, or supporting documents.",
-        'Return JSON with keys: "reason", "attachmentNote", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "reason", "attachmentNote", "summary", "issues".',
       ].join(" ");
     case "salary_review":
       return [
         "You help HR or management write clean salary review justifications inside Solva HR.",
         "Keep the wording professional, specific, and grounded in business reality.",
         "Do not invent approvals, market data, or performance claims that are not supplied.",
-        'Return JSON with keys: "reason", "comments", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "reason", "comments", "summary", "issues".',
       ].join(" ");
     case "hr_document":
       return [
         "You help HR teams prepare HR letter content inside Solva HR.",
         "Adapt tone to the document type: formal and positive for commendations or recommendations, careful and factual for disciplinary letters, clear and practical for contracts and appointment letters.",
         "Do not invent incidents, misconduct, or employment terms.",
-        'Return JSON with keys: "reason", "facts", "desiredAction", "roleDutyOverrides", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "reason", "facts", "desiredAction", "roleDutyOverrides", "summary", "issues".',
       ].join(" ");
     case "employee_exit":
       return [
         "You help HR, supervisors, and managers draft respectful staff exit notes inside Solva HR.",
         "Keep the comments factual, calm, and operational.",
         "Do not invent misconduct, admissions, or legal language that is not in context.",
-        'Return JSON with keys: "comments", "summary".',
+        variantInstruction,
+        'Return JSON with keys: "comments", "summary", "issues".',
       ].join(" ");
   }
 }
@@ -172,6 +197,7 @@ function buildUserPrompt(mode: WorkflowAssistMode, input: WorkflowAssistRequest,
   return [
     `Authenticated role: ${role}.`,
     `Workflow assist mode: ${mode}.`,
+    `Requested variant: ${safeString(input.variant, "draft")}.`,
     safeString(input.employeeName) ? `Employee: ${safeString(input.employeeName)}` : "",
     safeString(input.fieldName) ? `Field being updated: ${safeString(input.fieldName)}` : "",
     safeString(input.newValue) ? `Requested value draft: ${safeString(input.newValue)}` : "",
@@ -248,7 +274,8 @@ export async function POST(request: Request) {
         model,
         temperature: 0.6,
         messages: [
-          { role: "system", content: buildSystemPrompt(mode) },
+          { role: "system", content: buildSystemPrompt(mode, input.variant) },
+          { role: "system", content: `Keep the response strictly in JSON. Do not wrap it in prose.` },
           { role: "user", content: buildUserPrompt(mode, input, safeString(profile.role, "Employee")) },
         ],
       }),
@@ -282,6 +309,9 @@ export async function POST(request: Request) {
       facts: safeString(parsed.facts),
       desiredAction: safeString(parsed.desiredAction),
       attachmentNote: safeString(parsed.attachmentNote),
+      issues: Array.isArray(parsed.issues)
+        ? parsed.issues.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+        : [],
       roleDutyOverrides: Array.isArray(parsed.roleDutyOverrides)
         ? parsed.roleDutyOverrides.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
         : [],

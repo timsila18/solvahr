@@ -5691,6 +5691,15 @@ export function SolvaShell({
     }));
   }
 
+  function openModuleFromRail(moduleKey: string) {
+    if (moduleKey === "dashboard" && usesApprovalsHome(selectedRole.role)) {
+      navigateTo("dashboard", "Pending Approvals");
+      return;
+    }
+
+    navigateTo(moduleKey);
+  }
+
   function openGuidanceAction(action: GuidanceAction) {
     setGuidanceState((current) => ({
       ...current,
@@ -6917,7 +6926,7 @@ export function SolvaShell({
                   <button
                     className={`nav-item ${module.key === activeModule.key ? "is-active" : ""}`}
                     key={module.key}
-                    onClick={() => setModuleKey(module.key)}
+                    onClick={() => openModuleFromRail(module.key)}
                     type="button"
                   >
                     <span className="nav-icon">{module.icon}</span>

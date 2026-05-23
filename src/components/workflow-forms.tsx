@@ -600,6 +600,100 @@ export function EmployeeEditForm({
     comments: "",
   });
 
+  const salaryReviewSuggestion = useMemo(() => {
+    const currentSalary = Number(salaryReviewForm.currentSalary || 0);
+    const proposedSalary = Number(salaryReviewForm.proposedSalary || 0);
+    const difference = proposedSalary - currentSalary;
+    const changePercent =
+      currentSalary > 0 ? Math.abs((difference / currentSalary) * 100) : 0;
+    const direction =
+      difference > 0 ? "an upward review" : difference < 0 ? "a downward review" : "a salary confirmation";
+    return {
+      reason:
+        proposedSalary > 0
+          ? `I am recommending ${direction} effective ${salaryReviewForm.effectiveDate} to align this employee's pay with current responsibilities, contribution level, and the practical needs of the role.`
+          : "State the operational reason for the salary review and what has changed in the role, performance, or business need.",
+      comments:
+        proposedSalary > 0
+          ? `Current gross pay is KES ${currentSalary.toLocaleString()}. Proposed gross pay is KES ${proposedSalary.toLocaleString()}${difference !== 0 ? `, a ${changePercent.toFixed(1)}% ${difference > 0 ? "increase" : "adjustment"}` : ""}. This change should take effect from ${salaryReviewForm.effectiveDate} and be reflected in the next applicable payroll period.`
+          : "Add short supporting comments on scope, performance, retention, market fit, or internal parity.",
+    };
+  }, [salaryReviewForm.currentSalary, salaryReviewForm.effectiveDate, salaryReviewForm.proposedSalary]);
+
+  const salaryReviewWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    const currentSalary = Number(salaryReviewForm.currentSalary || 0);
+    const proposedSalary = Number(salaryReviewForm.proposedSalary || 0);
+    if (!proposedSalary) warnings.push("Add the proposed new gross pay.");
+    if (proposedSalary === currentSalary && proposedSalary > 0) warnings.push("The proposed pay matches the current pay, so explain why a review record is still needed.");
+    if (!salaryReviewForm.reason.trim()) warnings.push("Add a clear salary review reason before saving.");
+    if (!salaryReviewForm.comments.trim()) warnings.push("Add short support comments so the review has enough decision context.");
+    if (currentSalary > 0 && proposedSalary > currentSalary * 1.25) warnings.push("This is a large increase, so the justification should be especially specific.");
+    return warnings;
+  }, [salaryReviewForm.comments, salaryReviewForm.currentSalary, salaryReviewForm.proposedSalary, salaryReviewForm.reason]);
+
+  const documentSuggestion = useMemo(() => {
+    if (["contract", "appointment_letter"].includes(documentForm.kind)) {
+      return {
+        reason: "",
+        facts: "",
+        desiredAction: "",
+        roleDutyOverrides: [
+          "Carry out the assigned duties of the role in line with company standards and supervisor direction.",
+          "Maintain professionalism, punctuality, and proper conduct while on duty.",
+          "Follow operational, customer service, cash-handling, safety, and reporting procedures.",
+          "Work collaboratively with the team and support day-to-day branch operations as required.",
+        ],
+      };
+    }
+
+    if (documentForm.kind === "salary_review") {
+      return {
+        reason:
+          "State the business basis for the salary change, the employee's current contribution level, and why the proposed adjustment should take effect now.",
+        facts: "",
+        desiredAction: "",
+        roleDutyOverrides: [] as string[],
+      };
+    }
+
+    if (["commendation_letter", "recommendation_letter"].includes(documentForm.kind)) {
+      return {
+        reason: "State the reason for recognition clearly, including the contribution, conduct, or achievement being acknowledged.",
+        facts: `During the relevant period, ${form.fullName || "the employee"} demonstrated strong contribution in the following areas: [achievement 1], [achievement 2], and [positive impact].`,
+        desiredAction: "Confirm the recognition being granted and the positive outcome or appreciation being recorded.",
+        roleDutyOverrides: [] as string[],
+      };
+    }
+
+    return {
+      reason: "State the policy, conduct, or operational basis for this letter in calm, factual language.",
+      facts: `On ${documentForm.incidentDate}, the following concern was raised: [brief incident summary]. The facts currently available are: [fact 1], [fact 2], and [impact on operations or policy].`,
+      desiredAction:
+        documentForm.kind === "show_cause"
+          ? "State what response is required from the employee and by when."
+          : "State the required action, consequence, or management decision clearly.",
+      roleDutyOverrides: [] as string[],
+    };
+  }, [documentForm.incidentDate, documentForm.kind, form.fullName]);
+
+  const documentWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    if (documentForm.kind === "salary_review") {
+      if (!documentForm.newSalary.trim()) warnings.push("Add the new salary value for the salary review letter.");
+      if (!documentForm.reason.trim()) warnings.push("Add the salary review basis before generating the letter.");
+      return warnings;
+    }
+    if (["contract", "appointment_letter"].includes(documentForm.kind)) {
+      if (!documentForm.roleDutyOverrides.trim()) warnings.push("Add role duties so the letter is specific to the employee's role.");
+      return warnings;
+    }
+    if (!documentForm.facts.trim()) warnings.push("Add the key facts or achievement details before issuing the letter.");
+    if (!documentForm.reason.trim()) warnings.push("Add the basis for the letter.");
+    if (!documentForm.desiredAction.trim()) warnings.push("Add the required action or outcome so the letter is complete.");
+    return warnings;
+  }, [documentForm]);
+
   useEffect(() => {
     const allowedKinds: HrDocumentKind[] = [
       "contract",
@@ -1087,6 +1181,36 @@ export function EmployeeEditForm({
               />
             </label>
 
+            <div className="workflow-form-grid__full workflow-readonly-card">
+              <strong>Suggested starting point</strong>
+              <span>{salaryReviewSuggestion.reason}</span>
+              <span>{salaryReviewSuggestion.comments}</span>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  onClick={() =>
+                    setSalaryReviewForm((current) => ({
+                      ...current,
+                      reason: current.reason || salaryReviewSuggestion.reason,
+                      comments: current.comments || salaryReviewSuggestion.comments,
+                    }))
+                  }
+                  type="button"
+                >
+                  Use suggested talking points
+                </button>
+              </div>
+              {salaryReviewWarnings.length ? (
+                <div className="note-list">
+                  {salaryReviewWarnings.map((warning) => (
+                    <article key={warning}>
+                      <p>{warning}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
             <div className="workflow-form-grid__full workflow-actions">
               <button
                 className="ghost-button"
@@ -1260,6 +1384,43 @@ export function EmployeeEditForm({
             />
           </label>
         ) : null}
+
+        <div className="workflow-form-grid__full workflow-readonly-card">
+          <strong>Suggested starting point</strong>
+          {documentSuggestion.facts ? <span>{documentSuggestion.facts}</span> : null}
+          {documentSuggestion.reason ? <span>{documentSuggestion.reason}</span> : null}
+          {documentSuggestion.desiredAction ? <span>{documentSuggestion.desiredAction}</span> : null}
+          {documentSuggestion.roleDutyOverrides.length ? (
+            <span>{documentSuggestion.roleDutyOverrides.join(" | ")}</span>
+          ) : null}
+          <div className="inline-actions">
+            <button
+              className="ghost-button"
+              onClick={() =>
+                setDocumentForm((current) => ({
+                  ...current,
+                  facts: current.facts || documentSuggestion.facts,
+                  reason: current.reason || documentSuggestion.reason,
+                  desiredAction: current.desiredAction || documentSuggestion.desiredAction,
+                  roleDutyOverrides:
+                    current.roleDutyOverrides || documentSuggestion.roleDutyOverrides.join("\n"),
+                }))
+              }
+              type="button"
+            >
+              Use suggested structure
+            </button>
+          </div>
+          {documentWarnings.length ? (
+            <div className="note-list">
+              {documentWarnings.map((warning) => (
+                <article key={warning}>
+                  <p>{warning}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
 
         <div className="workflow-form-grid__full workflow-actions">
           <button
@@ -1600,6 +1761,26 @@ export function LeaveRequestCreateForm({
     };
   }, [form.endDate, form.startDate, holidays, selectedBalance, selectedPolicy]);
 
+  const leaveSuggestion = useMemo(() => {
+    const dayLabel = leaveCalculation.requestedDays > 0 ? `${leaveCalculation.requestedDays} day(s)` : "the requested period";
+    return {
+      reason: `I am requesting ${form.leaveType.toLowerCase()} for ${dayLabel} from ${form.startDate} to ${form.endDate}. I will remain reachable during this period and I have made practical handover arrangements for my work.`,
+      attachmentNote: Boolean(selectedPolicy?.requires_attachment)
+        ? "Attach the relevant supporting document for this leave type and briefly note what it covers."
+        : "Add a short note only if you need to mention a supporting document or special arrangement.",
+    };
+  }, [form.endDate, form.leaveType, form.startDate, leaveCalculation.requestedDays, selectedPolicy]);
+
+  const leaveWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    if (!form.reason.trim()) warnings.push("Add a clear leave reason before submitting.");
+    if (!form.relievingOfficer.trim()) warnings.push("Add the relieving officer or covering person if one has been arranged.");
+    if (!form.leaveAddress.trim()) warnings.push("Add a leave address or contact location so the request is easier to action.");
+    if (Boolean(selectedPolicy?.requires_attachment) && !form.attachmentNote.trim()) warnings.push("This leave type expects supporting documentation, so add a note about the attachment.");
+    if (leaveCalculation.requestedDays < 1) warnings.push("Check the leave dates because the current selection is not valid yet.");
+    return warnings;
+  }, [form.attachmentNote, form.leaveAddress, form.reason, form.relievingOfficer, leaveCalculation.requestedDays, selectedPolicy]);
+
   async function handleWorkflowAssist(
     variant: "draft" | "review" | "shorter" | "formal" | "factual" = "draft"
   ) {
@@ -1797,6 +1978,38 @@ export function LeaveRequestCreateForm({
             value={form.attachmentNote}
           />
         </label>
+        <div className="workflow-form-grid__full workflow-readonly-card">
+          <strong>Suggested starting point</strong>
+          <span>{leaveSuggestion.reason}</span>
+          <span>{leaveSuggestion.attachmentNote}</span>
+          <div className="inline-actions">
+            <button
+              className="ghost-button"
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  reason:
+                    !current.reason.trim() || current.reason === "Planned leave"
+                      ? leaveSuggestion.reason
+                      : current.reason,
+                  attachmentNote: current.attachmentNote || leaveSuggestion.attachmentNote,
+                }))
+              }
+              type="button"
+            >
+              Use suggested starting point
+            </button>
+          </div>
+          {leaveWarnings.length ? (
+            <div className="note-list">
+              {leaveWarnings.map((warning) => (
+                <article key={warning}>
+                  <p>{warning}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="workflow-form-grid__full workflow-actions">
           <button
             className="ghost-button"

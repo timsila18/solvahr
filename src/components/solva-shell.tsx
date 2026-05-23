@@ -1105,6 +1105,23 @@ function PeopleWorkbench({
   const [actionThreadDraft, setActionThreadDraft] = useState("");
   const [actionThreadBusy, setActionThreadBusy] = useState("");
 
+  const staffExitSuggestion = useMemo(() => {
+    if (!selectedEmployee) {
+      return "";
+    }
+    return `${selectedEmployee.fullName} is being processed for ${staffExitReason.toLowerCase()}. The exit request should confirm the operational reason, the expected effective date or handover status, and any immediate follow-up needed on access, payroll, or company property.`;
+  }, [selectedEmployee, staffExitReason]);
+
+  const staffExitWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    if (!selectedEmployee) return warnings;
+    if (!staffExitComments.trim()) warnings.push("Add a short exit note before submitting the request.");
+    if (["Dismissal", "Summary Dismissal", "Absconding of Duty", "Desertion"].includes(staffExitReason) && staffExitComments.trim().length < 40) {
+      warnings.push("This exit reason usually needs a fuller factual note.");
+    }
+    return warnings;
+  }, [selectedEmployee, staffExitComments, staffExitReason]);
+
   function toggleSelectedEmployee(employeeId: string) {
     setSelectedEmployeeIds((current) =>
       current.includes(employeeId) ? current.filter((value) => value !== employeeId) : [...current, employeeId]
@@ -1895,6 +1912,31 @@ function PeopleWorkbench({
                       <span>Comments</span>
                       <textarea rows={3} value={staffExitComments} onChange={(event) => setStaffExitComments(event.target.value)} />
                     </label>
+                    <div className="workflow-readonly-card">
+                      <strong>Suggested starting point</strong>
+                      <span>{staffExitSuggestion || "Select a staff member to see a context-aware starting point."}</span>
+                      <div className="inline-actions">
+                        <button
+                          className="ghost-button"
+                          disabled={!selectedEmployee}
+                          onClick={() =>
+                            setStaffExitComments((current) => current || staffExitSuggestion)
+                          }
+                          type="button"
+                        >
+                          Use suggested note
+                        </button>
+                      </div>
+                      {staffExitWarnings.length ? (
+                        <div className="note-list">
+                          {staffExitWarnings.map((warning) => (
+                            <article key={warning}>
+                              <p>{warning}</p>
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                     <div className="inline-actions">
                       <button className="ghost-button" disabled={staffExitBusy || staffExitAssistBusy} onClick={() => void handleStaffExitAssist()} type="button">
                         {staffExitAssistBusy ? "Drafting..." : "Help me draft this"}

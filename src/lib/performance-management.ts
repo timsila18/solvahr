@@ -140,8 +140,13 @@ const SIMPLE_ROBOT_CAFE_FINAL_OUTCOMES = [
   "Promotion Potential",
   "Formal Follow-Up Required",
 ] as const;
-const SIMPLE_ROBOT_CAFE_STAGE_SHARE = 33;
-const SIMPLE_ROBOT_CAFE_TOTAL_SHARE = SIMPLE_ROBOT_CAFE_STAGE_SHARE * 3;
+const SIMPLE_ROBOT_CAFE_SELF_SHARE = 33;
+const SIMPLE_ROBOT_CAFE_SUPERVISOR_SHARE = 33;
+const SIMPLE_ROBOT_CAFE_GM_SHARE = 34;
+const SIMPLE_ROBOT_CAFE_TOTAL_SHARE =
+  SIMPLE_ROBOT_CAFE_SELF_SHARE +
+  SIMPLE_ROBOT_CAFE_SUPERVISOR_SHARE +
+  SIMPLE_ROBOT_CAFE_GM_SHARE;
 
 const SIMPLE_ROBOT_CAFE_REVIEW_STATUSES = {
   self: "self_review_pending",
@@ -857,10 +862,14 @@ function computeReviewTotals(items: Array<RecordMap>) {
     const average = items.reduce((sum, item) => sum + computeItemPercent(item, "final"), 0) / items.length;
 
     if (isSimpleRobotCafeReview) {
-      const scaledSelf = Number(((selfAverage / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-      const scaledSupervisor = Number(((supervisorAverage / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-      const scaledGm = Number(((gmAverage / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-      const scaledFinal = Number((scaledSelf + scaledSupervisor + scaledGm).toFixed(2));
+      const scaledSelf = Number(((selfAverage / 100) * SIMPLE_ROBOT_CAFE_SELF_SHARE).toFixed(2));
+      const scaledSupervisor = Number(
+        ((supervisorAverage / 100) * SIMPLE_ROBOT_CAFE_SUPERVISOR_SHARE).toFixed(2)
+      );
+      const scaledGm = Number(((gmAverage / 100) * SIMPLE_ROBOT_CAFE_GM_SHARE).toFixed(2));
+      const scaledFinal = Number(
+        Math.min(scaledSelf + scaledSupervisor + scaledGm, SIMPLE_ROBOT_CAFE_TOTAL_SHARE).toFixed(2)
+      );
       const normalizedFinal = Number(((scaledFinal / SIMPLE_ROBOT_CAFE_TOTAL_SHARE) * 100).toFixed(2));
       return {
         selfScore: scaledSelf,
@@ -881,10 +890,14 @@ function computeReviewTotals(items: Array<RecordMap>) {
   }
 
   if (isSimpleRobotCafeReview) {
-    const scaledSelf = Number(((selfTotal / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-    const scaledSupervisor = Number(((supervisorTotal / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-    const scaledGm = Number(((gmTotal / 100) * SIMPLE_ROBOT_CAFE_STAGE_SHARE).toFixed(2));
-    const scaledFinal = Number((scaledSelf + scaledSupervisor + scaledGm).toFixed(2));
+    const scaledSelf = Number(((selfTotal / 100) * SIMPLE_ROBOT_CAFE_SELF_SHARE).toFixed(2));
+    const scaledSupervisor = Number(
+      ((supervisorTotal / 100) * SIMPLE_ROBOT_CAFE_SUPERVISOR_SHARE).toFixed(2)
+    );
+    const scaledGm = Number(((gmTotal / 100) * SIMPLE_ROBOT_CAFE_GM_SHARE).toFixed(2));
+    const scaledFinal = Number(
+      Math.min(scaledSelf + scaledSupervisor + scaledGm, SIMPLE_ROBOT_CAFE_TOTAL_SHARE).toFixed(2)
+    );
     const normalizedFinal = Number(((scaledFinal / SIMPLE_ROBOT_CAFE_TOTAL_SHARE) * 100).toFixed(2));
     return {
       selfScore: scaledSelf,

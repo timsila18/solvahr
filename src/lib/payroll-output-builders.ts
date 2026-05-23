@@ -3617,9 +3617,9 @@ export function buildPerformanceAppraisalReportPdf(
       ],
       [
         "GM Share",
-        `${dataset.gmEvaluation.score.toFixed(2)}/33`,
+        `${dataset.gmEvaluation.score.toFixed(2)}/34`,
         "Total",
-        `${dataset.scoreSummary.totalScore.toFixed(2)}/99`,
+        `${dataset.scoreSummary.totalScore.toFixed(2)}/100`,
       ],
     ]);
 

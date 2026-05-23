@@ -1015,7 +1015,7 @@ export function PerformanceWorkbench({
                     <strong>{safeString(review.employeeName)} | {safeString(review.title)}</strong>
                     <span>{safeString(review.reviewPeriodLabel, `${safeString(review.periodStart)} to ${safeString(review.periodEnd)}`)}</span>
                     <small>
-                      {safeString(review.status)} | Final score {safeNumber(review.finalScore).toFixed(2)}/99 |{" "}
+                      {safeString(review.status)} | Final score {safeNumber(review.finalScore).toFixed(2)}/100 |{" "}
                       {safeString(review.finalDecision, safeString(review.ratingBand, "Pending decision"))}
                     </small>
                     <div className="inline-actions">

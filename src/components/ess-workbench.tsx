@@ -462,13 +462,13 @@ function formatDate(value: string) {
   return parsed.toLocaleDateString("en-KE", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function formatSimpleStageContribution(scoreValues: Array<number | undefined>) {
+function formatSimpleWeightedContribution(scoreValues: Array<number | undefined>, sharePercent: number) {
   const validScores = scoreValues.filter((value): value is number => typeof value === "number" && value > 0);
   if (!validScores.length) {
     return "0.00";
   }
   const average = validScores.reduce((sum, value) => sum + value, 0) / validScores.length;
-  return ((average / 5) * 33).toFixed(2);
+  return ((average / 5) * sharePercent).toFixed(2);
 }
 
 function toStringValue(value: unknown) {
@@ -3333,7 +3333,7 @@ export function EssWorkbench({
                                 <strong>{area.title}</strong>
                                 <span>{area.expectedOutput || area.performanceIndicator || "-"}</span>
                                 <label>
-                                  <span>My score (out of 5, contributes to your 33%)</span>
+                                  <span>My score (out of 5, contributes 33% of the final appraisal)</span>
                                   <select
                                     className="filter-pill"
                                     value={selfReviewDrafts[item.id]?.areaScores?.[area.id] ?? ""}
@@ -3407,12 +3407,25 @@ export function EssWorkbench({
                         <article>
                           <strong>Score split</strong>
                           <span>
-                            Self {formatSimpleStageContribution((item.areas ?? []).map((area) => area.selfScore))}/33
-                            {item.areas?.length
-                              ? ` | Supervisor ${formatSimpleStageContribution(
-                                  item.areas.map((area) => area.supervisorScore)
-                                )}/33 | GM ${formatSimpleStageContribution(item.areas.map((area) => area.gmScore))}/33`
-                              : ""}
+                            {(() => {
+                              const selfShare = formatSimpleWeightedContribution(
+                                (item.areas ?? []).map((area) => area.selfScore),
+                                33
+                              );
+                              const supervisorShare = formatSimpleWeightedContribution(
+                                (item.areas ?? []).map((area) => area.supervisorScore),
+                                33
+                              );
+                              const gmShare = formatSimpleWeightedContribution(
+                                (item.areas ?? []).map((area) => area.gmScore),
+                                34
+                              );
+                              const totalShare = Math.min(
+                                Number(selfShare) + Number(supervisorShare) + Number(gmShare),
+                                100
+                              ).toFixed(2);
+                              return `Self ${selfShare}/33 | Supervisor ${supervisorShare}/33 | GM ${gmShare}/34 | Total ${totalShare}/100`;
+                            })()}
                           </span>
                         </article>
                         {item.gmComments ? (

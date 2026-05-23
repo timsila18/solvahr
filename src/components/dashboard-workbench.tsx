@@ -106,6 +106,7 @@ export function DashboardWorkbench({
   const moduleKeys = new Set(modules.map((module) => module.key));
   const approvals = tasks.slice(0, 8);
   const pendingApprovals = tasks.filter((task) => task.status === "pending");
+  const visibleApprovals = activeItem === "Pending Approvals" ? pendingApprovals : approvals;
   const approvalSummary = Array.from(
     pendingApprovals.reduce((map, task) => {
       const key = safeString(task.requestType, task.kind);
@@ -1391,8 +1392,8 @@ export function DashboardWorkbench({
             </div>
           ) : null}
           <div className="mini-list queue-list">
-            {approvals.length ? (
-              approvals.map((task) => (
+            {visibleApprovals.length ? (
+              visibleApprovals.map((task) => (
                 <article key={task.id}>
                   <strong>{task.requestType}</strong>
                   <span>{task.employee} | {task.department}</span>

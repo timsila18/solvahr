@@ -90,12 +90,13 @@ const SOLVA_BUSINESS_GROUP_COMPANY_IDS = new Set([
 ]);
 const ROBOT_CAFE_SHARED_SERVICE_SUPERVISORS = new Set([
   "brian.niva@solvahr.co.ke",
-  "grace.wariungi@solvahr.co.ke",
+  "grace.waruingi@solvahr.co.ke",
   "victor.akoyo@solvahr.co.ke",
   "brian niva",
-  "grace wanjiku wariungi",
+  "grace wanjiku waruingi",
   "victor akoyo",
 ]);
+const ROBOT_CAFE_SHARED_SERVICE_SUPERVISOR_EMPLOYEE_NUMBERS = new Set(["RC-020", "RC-044", "RC-045"]);
 const OFFBOARDED_EMPLOYEE_STATUSES = [
   "separated",
   "terminated",
@@ -1937,7 +1938,7 @@ async function getRobotCafeSharedServiceEmployeeIds(context: RequestContext) {
 
   const { data, error } = await context.supabase
     .from("employees")
-    .select("id, department:department_id(name)")
+    .select("id, employee_number, supervisor_employee_id")
     .eq("company_id", ROBOT_CAFE_COMPANY_ID)
     .in("status", ["Active", "active", "Pending activation"]);
 
@@ -1945,11 +1946,25 @@ async function getRobotCafeSharedServiceEmployeeIds(context: RequestContext) {
     throw error;
   }
 
+  const sharedSupervisorIds = new Set<string>();
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    const employeeId = safeString(row.id);
+    const employeeNumber = safeString(row.employee_number).toUpperCase();
+    if (employeeId && ROBOT_CAFE_SHARED_SERVICE_SUPERVISOR_EMPLOYEE_NUMBERS.has(employeeNumber)) {
+      sharedSupervisorIds.add(employeeId);
+    }
+  }
+
   const scopedIds = new Set<string>();
   for (const row of (data ?? []) as Array<Record<string, unknown>>) {
     const employeeId = safeString(row.id);
-    const departmentName = safeString(asRecord(row.department)?.name);
-    if (employeeId && (departmentName === "Service" || employeeId === safeString(context.profile.employee_id))) {
+    const supervisorEmployeeId = safeString(row.supervisor_employee_id);
+    if (
+      employeeId &&
+      (sharedSupervisorIds.has(employeeId) ||
+        (supervisorEmployeeId && sharedSupervisorIds.has(supervisorEmployeeId)) ||
+        employeeId === safeString(context.profile.employee_id))
+    ) {
       scopedIds.add(employeeId);
     }
   }

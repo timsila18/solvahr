@@ -1094,6 +1094,7 @@ function PeopleWorkbench({
   const [staffExitReason, setStaffExitReason] = useState("Resignation");
   const [staffExitComments, setStaffExitComments] = useState("");
   const [staffExitBusy, setStaffExitBusy] = useState(false);
+  const [staffExitAssistBusy, setStaffExitAssistBusy] = useState(false);
   const [staffExitMessage, setStaffExitMessage] = useState("");
   const [salaryStopBusy, setSalaryStopBusy] = useState(false);
   const [salaryStopMessage, setSalaryStopMessage] = useState("");
@@ -1143,6 +1144,44 @@ function PeopleWorkbench({
       setStaffExitMessage(error instanceof Error ? error.message : "Could not submit the staff exit request.");
     } finally {
       setStaffExitBusy(false);
+    }
+  }
+
+  async function handleStaffExitAssist() {
+    if (!selectedEmployee) {
+      setStaffExitMessage("Select the staff member first.");
+      return;
+    }
+
+    setStaffExitAssistBusy(true);
+    setStaffExitMessage("");
+    try {
+      const response = await fetch("/api/ai/workflow-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "employee_exit",
+          employeeName: selectedEmployee.fullName,
+          reason: staffExitReason,
+          comments: staffExitComments,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        comments?: string;
+        summary?: string;
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Could not prepare exit wording right now.");
+      }
+      setStaffExitComments(payload?.comments ?? staffExitComments);
+      setStaffExitMessage(
+        payload?.summary ?? "A stronger exit note is ready. Please review it and keep it true to the case."
+      );
+    } catch (error) {
+      setStaffExitMessage(error instanceof Error ? error.message : "Could not prepare exit wording right now.");
+    } finally {
+      setStaffExitAssistBusy(false);
     }
   }
 
@@ -1852,6 +1891,9 @@ function PeopleWorkbench({
                       <textarea rows={3} value={staffExitComments} onChange={(event) => setStaffExitComments(event.target.value)} />
                     </label>
                     <div className="inline-actions">
+                      <button className="ghost-button" disabled={staffExitBusy || staffExitAssistBusy} onClick={() => void handleStaffExitAssist()} type="button">
+                        {staffExitAssistBusy ? "Drafting..." : "Help me draft this"}
+                      </button>
                       <button className="primary-button" disabled={staffExitBusy} onClick={() => void handleStaffExitRequest()} type="button">
                         {staffExitBusy
                           ? "Submitting..."

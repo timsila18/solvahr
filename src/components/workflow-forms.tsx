@@ -103,6 +103,17 @@ type PerformanceWorkspacePayload = {
   };
 };
 
+type WorkflowAssistPayload = {
+  reason?: string;
+  comments?: string;
+  facts?: string;
+  desiredAction?: string;
+  attachmentNote?: string;
+  roleDutyOverrides?: string[];
+  summary?: string;
+  model?: string;
+};
+
 const DEFAULT_LEAVE_START = new Date().toISOString().slice(0, 10);
 const DEFAULT_LEAVE_END = new Date(new Date(DEFAULT_LEAVE_START).getTime() + 2 * 24 * 60 * 60 * 1000)
   .toISOString()
@@ -543,6 +554,7 @@ export function EmployeeEditForm({
   const [pending, setPending] = useState(false);
   const [documentPending, setDocumentPending] = useState(false);
   const [salaryReviewPending, setSalaryReviewPending] = useState(false);
+  const [assistBusyKey, setAssistBusyKey] = useState("");
   const [documentsLoading, setDocumentsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -823,6 +835,70 @@ export function EmployeeEditForm({
     }
   }
 
+  async function handleWorkflowAssist(mode: "salary_review" | "hr_document") {
+    const busyKey = `assist-${mode}`;
+    setAssistBusyKey(busyKey);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = await readJson<WorkflowAssistPayload>("/api/ai/workflow-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          mode === "salary_review"
+            ? {
+                mode,
+                employeeName: salaryReviewForm.employeeName,
+                currentSalary: salaryReviewForm.currentSalary,
+                newSalary: salaryReviewForm.proposedSalary,
+                effectiveDate: salaryReviewForm.effectiveDate,
+                reason: salaryReviewForm.reason,
+                comments: salaryReviewForm.comments,
+              }
+            : {
+                mode,
+                employeeName: form.fullName,
+                kind: documentForm.kind,
+                currentSalary: documentForm.currentSalary,
+                newSalary: documentForm.newSalary,
+                effectiveDate: documentForm.effectiveDate,
+                incidentDate: documentForm.incidentDate,
+                facts: documentForm.facts,
+                desiredAction: documentForm.desiredAction,
+                reason: documentForm.reason,
+                responseHours: documentForm.responseHours,
+                roleDutyOverrides: parseRoleDutyOverrides(documentForm.roleDutyOverrides),
+              }
+        ),
+      });
+
+      if (mode === "salary_review") {
+        setSalaryReviewForm((current) => ({
+          ...current,
+          reason: payload.reason || current.reason,
+          comments: payload.comments || current.comments,
+        }));
+      } else {
+        setDocumentForm((current) => ({
+          ...current,
+          reason: payload.reason || current.reason,
+          facts: payload.facts || current.facts,
+          desiredAction: payload.desiredAction || current.desiredAction,
+          roleDutyOverrides:
+            payload.roleDutyOverrides && payload.roleDutyOverrides.length
+              ? payload.roleDutyOverrides.join("\n")
+              : current.roleDutyOverrides,
+        }));
+      }
+
+      setSuccess(payload.summary || "A stronger draft is ready. Please review it and keep it true to the situation.");
+    } catch (assistError) {
+      setError(assistError instanceof Error ? assistError.message : "Could not prepare drafting help right now.");
+    } finally {
+      setAssistBusyKey("");
+    }
+  }
+
   return (
     <form className="workflow-form" onSubmit={handleSubmit}>
       <FormActions
@@ -993,6 +1069,14 @@ export function EmployeeEditForm({
 
             <div className="workflow-form-grid__full workflow-actions">
               <button
+                className="ghost-button"
+                disabled={assistBusyKey === "assist-salary_review" || salaryReviewPending}
+                onClick={() => void handleWorkflowAssist("salary_review")}
+                type="button"
+              >
+                {assistBusyKey === "assist-salary_review" ? "Drafting..." : "Help me draft this"}
+              </button>
+              <button
                 className="primary-button"
                 disabled={salaryReviewPending}
                 onClick={() => void handleSalaryReviewSave()}
@@ -1142,6 +1226,18 @@ export function EmployeeEditForm({
         ) : null}
 
         <div className="workflow-form-grid__full workflow-actions">
+          <button
+            className="ghost-button"
+            disabled={assistBusyKey === "assist-hr_document" || documentPending || loading}
+            onClick={() => void handleWorkflowAssist("hr_document")}
+            type="button"
+          >
+            {assistBusyKey === "assist-hr_document"
+              ? "Drafting..."
+              : ["contract", "appointment_letter"].includes(documentForm.kind)
+                ? "Suggest duties"
+                : "Help me draft this"}
+          </button>
           <button
             className="primary-button"
             disabled={documentPending || loading}
@@ -1310,6 +1406,7 @@ export function LeaveRequestCreateForm({
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [assistPending, setAssistPending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [policies, setPolicies] = useState<Array<Record<string, unknown>>>([]);
@@ -1450,6 +1547,40 @@ export function LeaveRequestCreateForm({
       afterApproval: reducingBalance ? Math.max(0, availableBalance - requestedDays) : availableBalance,
     };
   }, [form.endDate, form.startDate, holidays, selectedBalance, selectedPolicy]);
+
+  async function handleWorkflowAssist() {
+    setAssistPending(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = await readJson<WorkflowAssistPayload>("/api/ai/workflow-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "leave_request",
+          employeeName,
+          leaveType: form.leaveType,
+          startDate: form.startDate,
+          endDate: form.endDate,
+          reason: form.reason,
+          attachmentNote: form.attachmentNote,
+          leaveAddress: form.leaveAddress,
+          relievingOfficer: form.relievingOfficer,
+        }),
+      });
+
+      setForm((current) => ({
+        ...current,
+        reason: payload.reason || current.reason,
+        attachmentNote: payload.attachmentNote || current.attachmentNote,
+      }));
+      setSuccess(payload.summary || "A stronger leave request draft is ready. Please review it before you submit.");
+    } catch (assistError) {
+      setError(assistError instanceof Error ? assistError.message : "Could not prepare leave drafting help right now.");
+    } finally {
+      setAssistPending(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1606,6 +1737,16 @@ export function LeaveRequestCreateForm({
             value={form.attachmentNote}
           />
         </label>
+        <div className="workflow-form-grid__full workflow-actions">
+          <button
+            className="ghost-button"
+            disabled={assistPending || pending}
+            onClick={() => void handleWorkflowAssist()}
+            type="button"
+          >
+            {assistPending ? "Drafting..." : "Help me draft this"}
+          </button>
+        </div>
       </SectionCard>
 
       <SectionCard

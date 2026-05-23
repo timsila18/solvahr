@@ -7,7 +7,11 @@ type WorkflowAssistMode =
   | "salary_advance_request"
   | "complaint_submission"
   | "complaint_response"
-  | "payslip_explanation";
+  | "payslip_explanation"
+  | "leave_request"
+  | "salary_review"
+  | "hr_document"
+  | "employee_exit";
 
 type WorkflowAssistRequest = {
   mode?: WorkflowAssistMode;
@@ -29,6 +33,22 @@ type WorkflowAssistRequest = {
   netPay?: string;
   deductions?: Record<string, unknown>;
   allowances?: Record<string, unknown>;
+  kind?: string;
+  currentSalary?: string;
+  newSalary?: string;
+  effectiveDate?: string;
+  incidentDate?: string;
+  facts?: string;
+  desiredAction?: string;
+  responseHours?: string;
+  roleDutyOverrides?: string[];
+  leaveType?: string;
+  startDate?: string;
+  endDate?: string;
+  attachmentNote?: string;
+  leaveAddress?: string;
+  relievingOfficer?: string;
+  comments?: string;
 };
 
 function readConfiguredEnv(value: string | undefined) {
@@ -104,6 +124,34 @@ function buildSystemPrompt(mode: WorkflowAssistMode) {
         "Use only the supplied figures.",
         'Return JSON with keys: "summary".',
       ].join(" ");
+    case "leave_request":
+      return [
+        "You help employees prepare approval-ready leave requests inside Solva HR.",
+        "Keep the request practical, respectful, and believable.",
+        "Do not invent emergencies, travel plans, or supporting documents.",
+        'Return JSON with keys: "reason", "attachmentNote", "summary".',
+      ].join(" ");
+    case "salary_review":
+      return [
+        "You help HR or management write clean salary review justifications inside Solva HR.",
+        "Keep the wording professional, specific, and grounded in business reality.",
+        "Do not invent approvals, market data, or performance claims that are not supplied.",
+        'Return JSON with keys: "reason", "comments", "summary".',
+      ].join(" ");
+    case "hr_document":
+      return [
+        "You help HR teams prepare HR letter content inside Solva HR.",
+        "Adapt tone to the document type: formal and positive for commendations or recommendations, careful and factual for disciplinary letters, clear and practical for contracts and appointment letters.",
+        "Do not invent incidents, misconduct, or employment terms.",
+        'Return JSON with keys: "reason", "facts", "desiredAction", "roleDutyOverrides", "summary".',
+      ].join(" ");
+    case "employee_exit":
+      return [
+        "You help HR, supervisors, and managers draft respectful staff exit notes inside Solva HR.",
+        "Keep the comments factual, calm, and operational.",
+        "Do not invent misconduct, admissions, or legal language that is not in context.",
+        'Return JSON with keys: "comments", "summary".',
+      ].join(" ");
   }
 }
 
@@ -140,6 +188,24 @@ function buildUserPrompt(mode: WorkflowAssistMode, input: WorkflowAssistRequest,
     safeString(input.payrollPeriod) ? `Payroll period: ${safeString(input.payrollPeriod)}` : "",
     safeString(input.grossPay) ? `Gross pay: ${safeString(input.grossPay)}` : "",
     safeString(input.netPay) ? `Net pay: ${safeString(input.netPay)}` : "",
+    safeString(input.kind) ? `Document type: ${safeString(input.kind)}` : "",
+    safeString(input.currentSalary) ? `Current salary: ${safeString(input.currentSalary)}` : "",
+    safeString(input.newSalary) ? `New salary: ${safeString(input.newSalary)}` : "",
+    safeString(input.effectiveDate) ? `Effective date: ${safeString(input.effectiveDate)}` : "",
+    safeString(input.incidentDate) ? `Incident or recognition date: ${safeString(input.incidentDate)}` : "",
+    safeString(input.facts) ? `Facts draft: ${safeString(input.facts)}` : "",
+    safeString(input.desiredAction) ? `Desired action draft: ${safeString(input.desiredAction)}` : "",
+    safeString(input.responseHours) ? `Response hours: ${safeString(input.responseHours)}` : "",
+    Array.isArray(input.roleDutyOverrides) && input.roleDutyOverrides.length
+      ? `Role duty overrides draft: ${input.roleDutyOverrides.join(" | ")}`
+      : "",
+    safeString(input.leaveType) ? `Leave type: ${safeString(input.leaveType)}` : "",
+    safeString(input.startDate) ? `Leave start date: ${safeString(input.startDate)}` : "",
+    safeString(input.endDate) ? `Leave end date: ${safeString(input.endDate)}` : "",
+    safeString(input.attachmentNote) ? `Attachment note draft: ${safeString(input.attachmentNote)}` : "",
+    safeString(input.leaveAddress) ? `Leave address: ${safeString(input.leaveAddress)}` : "",
+    safeString(input.relievingOfficer) ? `Relieving officer: ${safeString(input.relievingOfficer)}` : "",
+    safeString(input.comments) ? `Comments draft: ${safeString(input.comments)}` : "",
     deductions,
     allowances,
   ]
@@ -212,6 +278,13 @@ export async function POST(request: Request) {
       details: safeString(parsed.details),
       response: safeString(parsed.response),
       privateNotes: safeString(parsed.privateNotes),
+      comments: safeString(parsed.comments),
+      facts: safeString(parsed.facts),
+      desiredAction: safeString(parsed.desiredAction),
+      attachmentNote: safeString(parsed.attachmentNote),
+      roleDutyOverrides: Array.isArray(parsed.roleDutyOverrides)
+        ? parsed.roleDutyOverrides.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+        : [],
       summary: safeString(parsed.summary, content),
       model,
     });

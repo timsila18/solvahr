@@ -948,7 +948,7 @@ function mapApprovalTask(row: TaskRow): ApprovalTask {
     title: safeString(row.title),
     description: safeString(row.description),
     ownerRole: safeString(row.owner_role),
-    employee: employeeName || "-",
+    employee: employeeName || requesterName || "-",
     department: departmentName || "-",
     requestedBy: requesterName,
     requestedByName: requesterName || undefined,

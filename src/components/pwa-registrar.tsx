@@ -7,9 +7,63 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
 
+const PWA_INSTALL_DISMISSED_KEY = "solva-hr-pwa-install-dismissed-at";
+const PWA_INSTALL_DISMISS_MS = 1000 * 60 * 60 * 24 * 7;
+
+type InstallBannerMode = "native" | "ios" | "manual";
+
+function isStandaloneMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+function isIosSafari() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const ua = window.navigator.userAgent;
+  const isIos = /iphone|ipad|ipod/i.test(ua);
+  const isSafari = /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua);
+  return isIos && isSafari;
+}
+
+function isDismissedRecently() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const stored = window.localStorage.getItem(PWA_INSTALL_DISMISSED_KEY);
+  if (!stored) {
+    return false;
+  }
+
+  const timestamp = Number(stored);
+  if (!Number.isFinite(timestamp)) {
+    return false;
+  }
+
+  return Date.now() - timestamp < PWA_INSTALL_DISMISS_MS;
+}
+
+function markInstallDismissed() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(PWA_INSTALL_DISMISSED_KEY, String(Date.now()));
+}
+
 export function PwaRegistrar() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installDismissed, setInstallDismissed] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(true);
+  const [bannerMode, setBannerMode] = useState<InstallBannerMode | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
@@ -18,15 +72,46 @@ export function PwaRegistrar() {
 
     void navigator.serviceWorker.register("/sw.js");
 
+    if (isStandaloneMode() || isDismissedRecently()) {
+      setInstallDismissed(true);
+    } else {
+      setInstallDismissed(false);
+    }
+
     const handler = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
+      setBannerMode("native");
       setInstallDismissed(false);
     };
 
+    const installedHandler = () => {
+      setInstallEvent(null);
+      setBannerMode(null);
+      setInstallDismissed(true);
+      markInstallDismissed();
+    };
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (isStandaloneMode() || isDismissedRecently()) {
+        return;
+      }
+      if (installEvent) {
+        return;
+      }
+
+      setBannerMode(isIosSafari() ? "ios" : "manual");
+      setInstallDismissed(false);
+    }, 2500);
+
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
+    window.addEventListener("appinstalled", installedHandler);
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installedHandler);
+    };
+  }, [installEvent]);
 
   async function handleInstall() {
     if (!installEvent) {
@@ -37,10 +122,20 @@ export function PwaRegistrar() {
     const choice = await installEvent.userChoice;
     if (choice.outcome === "accepted") {
       setInstallEvent(null);
+      setBannerMode(null);
+      markInstallDismissed();
+    } else {
+      setInstallDismissed(true);
+      markInstallDismissed();
     }
   }
 
-  if (!installEvent || installDismissed) {
+  function handleDismiss() {
+    setInstallDismissed(true);
+    markInstallDismissed();
+  }
+
+  if (installDismissed || !bannerMode) {
     return null;
   }
 
@@ -48,15 +143,27 @@ export function PwaRegistrar() {
     <div className="pwa-install-banner">
       <div>
         <strong>Install Solva HR</strong>
-        <small>Add the ESS and approvals workspace to your home screen for a faster app-like flow.</small>
+        <small>
+          {bannerMode === "native"
+            ? "Add Solva HR to this device for faster access, app-style opening, and a cleaner everyday workflow."
+            : bannerMode === "ios"
+              ? "On iPhone or iPad, tap Share and choose Add to Home Screen to install Solva HR."
+              : "Use your browser menu and choose Install app or Add to Home Screen to keep Solva HR one tap away."}
+        </small>
       </div>
       <div className="inline-actions">
-        <button className="ghost-button" onClick={() => setInstallDismissed(true)} type="button">
+        <button className="ghost-button" onClick={handleDismiss} type="button">
           Not now
         </button>
-        <button className="primary-button" onClick={() => void handleInstall()} type="button">
-          Add to home screen
-        </button>
+        {bannerMode === "native" ? (
+          <button className="primary-button" onClick={() => void handleInstall()} type="button">
+            Install app
+          </button>
+        ) : (
+          <button className="primary-button" onClick={handleDismiss} type="button">
+            Got it
+          </button>
+        )}
       </div>
     </div>
   );

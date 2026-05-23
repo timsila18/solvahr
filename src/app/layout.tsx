@@ -11,6 +11,10 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Solva HR",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

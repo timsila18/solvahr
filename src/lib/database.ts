@@ -931,7 +931,10 @@ function mapApprovalTask(row: TaskRow): ApprovalTask {
   const employeeId = safeString(metadata?.employeeId);
   const requesterName = safeString(
     metadata?.requestedByName,
-    safeString(requester?.full_name, safeString(requester?.email, safeString(row.requested_by)))
+    safeString(
+      metadata?.employeeName,
+      safeString(requester?.full_name, safeString(requester?.email, safeString(row.requested_by)))
+    )
   );
   const taskId = safeString(row.id);
 
@@ -949,7 +952,7 @@ function mapApprovalTask(row: TaskRow): ApprovalTask {
     department: departmentName || "-",
     requestedBy: requesterName,
     requestedByName: requesterName || undefined,
-    requestedByRole: safeString(requester?.role, "Employee"),
+    requestedByRole: safeString(metadata?.requestedByRole, safeString(requester?.role, "Employee")),
     status: (safeString(row.status) as ApprovalTask["status"]) || "pending",
     stage: safeString(row.stage),
     due: safeString(row.due_at, "-"),

@@ -17,6 +17,14 @@ type WorkflowAssistRequest = {
   mode?: WorkflowAssistMode;
   variant?: "draft" | "review" | "shorter" | "formal" | "factual";
   employeeName?: string;
+  employeeNumber?: string;
+  department?: string;
+  branch?: string;
+  designation?: string;
+  supervisorName?: string;
+  employmentType?: string;
+  employeeStatus?: string;
+  costCenter?: string;
   fieldName?: string;
   newValue?: string;
   reason?: string;
@@ -50,6 +58,11 @@ type WorkflowAssistRequest = {
   leaveAddress?: string;
   relievingOfficer?: string;
   comments?: string;
+  leaveBalance?: string;
+  recentMovementSummary?: string;
+  recentDocumentSummary?: string;
+  recentLeaveSummary?: string;
+  recentRequestSummary?: string;
 };
 
 function readConfiguredEnv(value: string | undefined) {
@@ -199,6 +212,14 @@ function buildUserPrompt(mode: WorkflowAssistMode, input: WorkflowAssistRequest,
     `Workflow assist mode: ${mode}.`,
     `Requested variant: ${safeString(input.variant, "draft")}.`,
     safeString(input.employeeName) ? `Employee: ${safeString(input.employeeName)}` : "",
+    safeString(input.employeeNumber) ? `Employee number: ${safeString(input.employeeNumber)}` : "",
+    safeString(input.designation) ? `Designation: ${safeString(input.designation)}` : "",
+    safeString(input.department) ? `Department: ${safeString(input.department)}` : "",
+    safeString(input.branch) ? `Branch: ${safeString(input.branch)}` : "",
+    safeString(input.supervisorName) ? `Supervisor or reporting line: ${safeString(input.supervisorName)}` : "",
+    safeString(input.employmentType) ? `Employment type: ${safeString(input.employmentType)}` : "",
+    safeString(input.employeeStatus) ? `Employee status: ${safeString(input.employeeStatus)}` : "",
+    safeString(input.costCenter) ? `Cost center: ${safeString(input.costCenter)}` : "",
     safeString(input.fieldName) ? `Field being updated: ${safeString(input.fieldName)}` : "",
     safeString(input.newValue) ? `Requested value draft: ${safeString(input.newValue)}` : "",
     safeString(input.reason) ? `Reason draft: ${safeString(input.reason)}` : "",
@@ -232,6 +253,11 @@ function buildUserPrompt(mode: WorkflowAssistMode, input: WorkflowAssistRequest,
     safeString(input.leaveAddress) ? `Leave address: ${safeString(input.leaveAddress)}` : "",
     safeString(input.relievingOfficer) ? `Relieving officer: ${safeString(input.relievingOfficer)}` : "",
     safeString(input.comments) ? `Comments draft: ${safeString(input.comments)}` : "",
+    safeString(input.leaveBalance) ? `Current leave balance: ${safeString(input.leaveBalance)}` : "",
+    safeString(input.recentMovementSummary) ? `Recent movement history: ${safeString(input.recentMovementSummary)}` : "",
+    safeString(input.recentDocumentSummary) ? `Recent document history: ${safeString(input.recentDocumentSummary)}` : "",
+    safeString(input.recentLeaveSummary) ? `Recent leave history: ${safeString(input.recentLeaveSummary)}` : "",
+    safeString(input.recentRequestSummary) ? `Recent request history: ${safeString(input.recentRequestSummary)}` : "",
     deductions,
     allowances,
   ]

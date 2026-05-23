@@ -528,6 +528,11 @@ function formatWorkflowAssistMessage(payload: WorkflowAssistPayload, fallback: s
   return `${summary} Watch-outs: ${issues.slice(0, 3).join(" | ")}`;
 }
 
+function summarizeRecentItems(items: string[], emptyText: string) {
+  const filtered = items.map((item) => item.trim()).filter(Boolean);
+  return filtered.length ? filtered.slice(0, 3).join(" | ") : emptyText;
+}
+
 const DEFAULT_TRAINING_SCHEDULE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14)
   .toISOString()
   .slice(0, 10);
@@ -1067,6 +1072,40 @@ export function EssWorkbench({
   ]);
 
   const latestPayslip = useMemo(() => payslipState.data?.[0] ?? null, [payslipState.data]);
+  const employeeContext = useMemo(
+    () => ({
+      employeeName: profileState.data?.fullName || dashboardState.data?.profile.fullName || "",
+      employeeNumber: profileState.data?.employeeNumber || dashboardState.data?.profile.employeeNumber || "",
+      department: profileState.data?.department || dashboardState.data?.profile.department || "",
+      branch: profileState.data?.branch || dashboardState.data?.profile.branch || "",
+      employmentType: profileState.data?.employmentType || dashboardState.data?.profile.employmentType || "",
+      supervisorName: profileState.data?.supervisor || dashboardState.data?.profile.supervisor || "",
+      employeeStatus: profileState.data?.status || "",
+      costCenter: profileState.data?.costCenter || "",
+      recentDocumentSummary: summarizeRecentItems(
+        [
+          ...(profileState.data?.documentSummary ?? []).map((item) => `${item.category}: ${item.name}`),
+          ...(dashboardState.data?.recentDocuments ?? []).map((item) => `${item.category}: ${item.fileName}`),
+        ],
+        "No recent document activity recorded."
+      ),
+      recentMovementSummary: summarizeRecentItems(
+        (profileState.data?.movementHistory ?? []).map((item) => `${item.title}: ${item.detail}`),
+        "No recent movement history recorded."
+      ),
+      recentLeaveSummary: summarizeRecentItems(
+        (dashboardState.data?.upcomingLeaveDates ?? []).map(
+          (item) => `${item.leaveType} ${item.startDate} to ${item.endDate} (${item.status})`
+        ),
+        "No recent leave activity recorded."
+      ),
+      recentRequestSummary: summarizeRecentItems(
+        (dashboardState.data?.recentRequests ?? []).map((item) => `${item.title} (${item.status})`),
+        "No recent employee request activity recorded."
+      ),
+    }),
+    [dashboardState.data, profileState.data]
+  );
 
   async function handleSafeProfileSave() {
     setBusyAction("save-profile");
@@ -1430,12 +1469,27 @@ export function EssWorkbench({
     setBusyAction(busyKey);
     setActionMessage("");
     try {
+      const baseContext = {
+        employeeName: employeeContext.employeeName,
+        employeeNumber: employeeContext.employeeNumber,
+        department: employeeContext.department,
+        branch: employeeContext.branch,
+        supervisorName: employeeContext.supervisorName,
+        employmentType: employeeContext.employmentType,
+        employeeStatus: employeeContext.employeeStatus,
+        costCenter: employeeContext.costCenter,
+        recentDocumentSummary: employeeContext.recentDocumentSummary,
+        recentMovementSummary: employeeContext.recentMovementSummary,
+        recentLeaveSummary: employeeContext.recentLeaveSummary,
+        recentRequestSummary: employeeContext.recentRequestSummary,
+      };
       const payload = await readJson<WorkflowAssistPayload>("/api/ai/workflow-assist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           mode === "profile_update_request"
             ? {
+                ...baseContext,
                 mode,
                 variant: options?.variant ?? "draft",
                 fieldName: sensitiveProfileForm.fieldName,
@@ -1444,6 +1498,7 @@ export function EssWorkbench({
               }
             : mode === "training_request"
               ? {
+                  ...baseContext,
                   mode,
                   variant: options?.variant ?? "draft",
                   programName: trainingForm.programName,
@@ -1453,12 +1508,14 @@ export function EssWorkbench({
                 }
               : mode === "salary_advance_request"
                 ? {
+                    ...baseContext,
                     mode,
                     variant: options?.variant ?? "draft",
                     reason: salaryAdvanceForm.reason,
                   }
                 : mode === "complaint_submission"
                   ? {
+                      ...baseContext,
                       mode,
                       variant: options?.variant ?? "draft",
                       category: complaintForm.category,
@@ -1467,6 +1524,7 @@ export function EssWorkbench({
                     }
                   : mode === "complaint_response" && options?.complaintId
                     ? {
+                        ...baseContext,
                         mode,
                         variant: options?.variant ?? "draft",
                         category:
@@ -1479,6 +1537,7 @@ export function EssWorkbench({
                         privateNotes: complaintReplyDrafts[options.complaintId]?.privateNotes ?? "",
                       }
                     : {
+                        ...baseContext,
                         mode,
                         variant: options?.variant ?? "draft",
                         payrollPeriod: options?.payslip?.period,

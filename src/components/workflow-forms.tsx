@@ -15,13 +15,34 @@ type LookupRecord = {
 type EmployeeProfilePayload = {
   employee: {
     id: string;
+    employeeNumber?: string;
     fullName: string;
+    department?: string;
+    branch?: string;
     companyEmail: string;
     phoneNumber: string;
     employmentType: string;
+    status?: string;
+    supervisor?: string;
+    costCenter?: string;
     branchId?: string | null;
     supervisorEmployeeId?: string | null;
     currentGrossPay?: number;
+    profileSections?: Array<{
+      title: string;
+      items: Array<{ label: string; value: string }>;
+    }>;
+    documentSummary?: Array<{
+      name: string;
+      category: string;
+      status: string;
+      expiry: string;
+    }>;
+    movementHistory?: Array<{
+      title: string;
+      detail: string;
+      date: string;
+    }>;
   };
 };
 
@@ -114,6 +135,24 @@ type WorkflowAssistPayload = {
   summary?: string;
   model?: string;
 };
+
+function summarizeRecentItems(items: string[], emptyText: string) {
+  const filtered = items.map((item) => item.trim()).filter(Boolean);
+  return filtered.length ? filtered.slice(0, 3).join(" | ") : emptyText;
+}
+
+function readProfileSectionValue(
+  sections: EmployeeProfilePayload["employee"]["profileSections"] | undefined,
+  label: string
+) {
+  for (const section of sections ?? []) {
+    const match = section.items.find((item) => item.label.trim().toLowerCase() === label.trim().toLowerCase());
+    if (match?.value?.trim()) {
+      return match.value.trim();
+    }
+  }
+  return "";
+}
 
 const DEFAULT_LEAVE_START = new Date().toISOString().slice(0, 10);
 const DEFAULT_LEAVE_END = new Date(new Date(DEFAULT_LEAVE_START).getTime() + 2 * 24 * 60 * 60 * 1000)
@@ -571,6 +610,7 @@ export function EmployeeEditForm({
   const [documents, setDocuments] = useState<EmployeeDocumentsPayload["documents"]>([]);
   const [branches, setBranches] = useState<LookupRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeListPayload["employees"]>([]);
+  const [employeeContext, setEmployeeContext] = useState<EmployeeProfilePayload["employee"] | null>(null);
   const [form, setForm] = useState({
     fullName: "",
     companyEmail: "",
@@ -600,6 +640,39 @@ export function EmployeeEditForm({
     comments: "",
   });
 
+  const employeeDesignation = useMemo(
+    () => readProfileSectionValue(employeeContext?.profileSections, "Designation"),
+    [employeeContext?.profileSections]
+  );
+
+  const employeeContextLabel = useMemo(() => {
+    const parts = [
+      employeeDesignation,
+      employeeContext?.department,
+      employeeContext?.branch,
+      employeeContext?.employmentType,
+    ].filter(Boolean);
+    return parts.length ? parts.join(" | ") : "this role";
+  }, [employeeContext?.branch, employeeContext?.department, employeeContext?.employmentType, employeeDesignation]);
+
+  const recentMovementSummary = useMemo(
+    () =>
+      summarizeRecentItems(
+        (employeeContext?.movementHistory ?? []).map((item) => `${item.title}: ${item.detail}`),
+        "No recent movement history recorded."
+      ),
+    [employeeContext?.movementHistory]
+  );
+
+  const recentDocumentSummary = useMemo(
+    () =>
+      summarizeRecentItems(
+        (employeeContext?.documentSummary ?? []).map((item) => `${item.category}: ${item.name}`),
+        "No recent issued or uploaded staff documents recorded."
+      ),
+    [employeeContext?.documentSummary]
+  );
+
   const salaryReviewSuggestion = useMemo(() => {
     const currentSalary = Number(salaryReviewForm.currentSalary || 0);
     const proposedSalary = Number(salaryReviewForm.proposedSalary || 0);
@@ -611,14 +684,21 @@ export function EmployeeEditForm({
     return {
       reason:
         proposedSalary > 0
-          ? `I am recommending ${direction} effective ${salaryReviewForm.effectiveDate} to align this employee's pay with current responsibilities, contribution level, and the practical needs of the role.`
-          : "State the operational reason for the salary review and what has changed in the role, performance, or business need.",
+          ? `I am recommending ${direction} effective ${salaryReviewForm.effectiveDate} to align ${form.fullName || "this employee"}'s pay with the current demands of ${employeeContextLabel}, contribution level, and the practical needs of the business.`
+          : `State the operational reason for the salary review and what has changed in ${form.fullName || "the employee"}'s role, performance, or business need within ${employeeContextLabel}.`,
       comments:
         proposedSalary > 0
-          ? `Current gross pay is KES ${currentSalary.toLocaleString()}. Proposed gross pay is KES ${proposedSalary.toLocaleString()}${difference !== 0 ? `, a ${changePercent.toFixed(1)}% ${difference > 0 ? "increase" : "adjustment"}` : ""}. This change should take effect from ${salaryReviewForm.effectiveDate} and be reflected in the next applicable payroll period.`
-          : "Add short supporting comments on scope, performance, retention, market fit, or internal parity.",
+          ? `Current gross pay is KES ${currentSalary.toLocaleString()}. Proposed gross pay is KES ${proposedSalary.toLocaleString()}${difference !== 0 ? `, a ${changePercent.toFixed(1)}% ${difference > 0 ? "increase" : "adjustment"}` : ""}. This change should take effect from ${salaryReviewForm.effectiveDate} and be reflected in the next applicable payroll period. Recent context: ${recentMovementSummary}`
+          : `Add short supporting comments on scope, performance, retention, market fit, or internal parity for ${employeeContextLabel}.`,
     };
-  }, [salaryReviewForm.currentSalary, salaryReviewForm.effectiveDate, salaryReviewForm.proposedSalary]);
+  }, [
+    employeeContextLabel,
+    form.fullName,
+    recentMovementSummary,
+    salaryReviewForm.currentSalary,
+    salaryReviewForm.effectiveDate,
+    salaryReviewForm.proposedSalary,
+  ]);
 
   const salaryReviewWarnings = useMemo(() => {
     const warnings: string[] = [];
@@ -639,10 +719,10 @@ export function EmployeeEditForm({
         facts: "",
         desiredAction: "",
         roleDutyOverrides: [
-          "Carry out the assigned duties of the role in line with company standards and supervisor direction.",
+          `Carry out the assigned duties of the ${employeeDesignation || "role"} in line with company standards and supervisor direction.`,
           "Maintain professionalism, punctuality, and proper conduct while on duty.",
           "Follow operational, customer service, cash-handling, safety, and reporting procedures.",
-          "Work collaboratively with the team and support day-to-day branch operations as required.",
+          `Work collaboratively with the team and support day-to-day operations in ${employeeContext?.branch || "the assigned branch"} as required.`,
         ],
       };
     }
@@ -650,7 +730,7 @@ export function EmployeeEditForm({
     if (documentForm.kind === "salary_review") {
       return {
         reason:
-          "State the business basis for the salary change, the employee's current contribution level, and why the proposed adjustment should take effect now.",
+          `State the business basis for the salary change, ${form.fullName || "the employee"}'s current contribution in ${employeeContextLabel}, and why the proposed adjustment should take effect now.`,
         facts: "",
         desiredAction: "",
         roleDutyOverrides: [] as string[],
@@ -659,23 +739,23 @@ export function EmployeeEditForm({
 
     if (["commendation_letter", "recommendation_letter"].includes(documentForm.kind)) {
       return {
-        reason: "State the reason for recognition clearly, including the contribution, conduct, or achievement being acknowledged.",
-        facts: `During the relevant period, ${form.fullName || "the employee"} demonstrated strong contribution in the following areas: [achievement 1], [achievement 2], and [positive impact].`,
+        reason: `State the reason for recognition clearly, including the contribution, conduct, or achievement being acknowledged in ${employeeContextLabel}.`,
+        facts: `During the relevant period, ${form.fullName || "the employee"} demonstrated strong contribution in ${employeeContext?.branch || "the assigned branch"} through the following areas: [achievement 1], [achievement 2], and [positive impact].`,
         desiredAction: "Confirm the recognition being granted and the positive outcome or appreciation being recorded.",
         roleDutyOverrides: [] as string[],
       };
     }
 
     return {
-      reason: "State the policy, conduct, or operational basis for this letter in calm, factual language.",
-      facts: `On ${documentForm.incidentDate}, the following concern was raised: [brief incident summary]. The facts currently available are: [fact 1], [fact 2], and [impact on operations or policy].`,
+      reason: `State the policy, conduct, or operational basis for this letter in calm, factual language for ${form.fullName || "the employee"} in ${employeeContextLabel}.`,
+      facts: `On ${documentForm.incidentDate}, the following concern was raised in ${employeeContext?.branch || "the workplace"}: [brief incident summary]. The facts currently available are: [fact 1], [fact 2], and [impact on operations or policy].`,
       desiredAction:
         documentForm.kind === "show_cause"
           ? "State what response is required from the employee and by when."
           : "State the required action, consequence, or management decision clearly.",
       roleDutyOverrides: [] as string[],
     };
-  }, [documentForm.incidentDate, documentForm.kind, form.fullName]);
+  }, [documentForm.incidentDate, documentForm.kind, employeeContext?.branch, employeeContextLabel, employeeDesignation, form.fullName]);
 
   const documentWarnings = useMemo(() => {
     const warnings: string[] = [];
@@ -733,6 +813,7 @@ export function EmployeeEditForm({
 
         setBranches(branchPayload.records ?? []);
         setEmployees(employeePayload.employees ?? []);
+        setEmployeeContext(payload.employee);
         setForm({
           fullName: payload.employee.fullName,
           companyEmail: payload.employee.companyEmail === "-" ? "" : payload.employee.companyEmail,
@@ -957,16 +1038,34 @@ export function EmployeeEditForm({
                 mode,
                 variant,
                 employeeName: salaryReviewForm.employeeName,
+                employeeNumber: employeeContext?.employeeNumber,
+                department: employeeContext?.department,
+                branch: employeeContext?.branch,
+                designation: employeeDesignation,
+                supervisorName: employeeContext?.supervisor,
+                employmentType: employeeContext?.employmentType,
+                employeeStatus: employeeContext?.status,
+                costCenter: employeeContext?.costCenter,
                 currentSalary: salaryReviewForm.currentSalary,
                 newSalary: salaryReviewForm.proposedSalary,
                 effectiveDate: salaryReviewForm.effectiveDate,
                 reason: salaryReviewForm.reason,
                 comments: salaryReviewForm.comments,
+                recentMovementSummary,
+                recentDocumentSummary,
               }
             : {
                 mode,
                 variant,
                 employeeName: form.fullName,
+                employeeNumber: employeeContext?.employeeNumber,
+                department: employeeContext?.department,
+                branch: employeeContext?.branch,
+                designation: employeeDesignation,
+                supervisorName: employeeContext?.supervisor,
+                employmentType: employeeContext?.employmentType,
+                employeeStatus: employeeContext?.status,
+                costCenter: employeeContext?.costCenter,
                 kind: documentForm.kind,
                 currentSalary: documentForm.currentSalary,
                 newSalary: documentForm.newSalary,
@@ -977,6 +1076,8 @@ export function EmployeeEditForm({
                 reason: documentForm.reason,
                 responseHours: documentForm.responseHours,
                 roleDutyOverrides: parseRoleDutyOverrides(documentForm.roleDutyOverrides),
+                recentMovementSummary,
+                recentDocumentSummary,
               }
         ),
       });
@@ -1802,6 +1903,10 @@ export function LeaveRequestCreateForm({
           attachmentNote: form.attachmentNote,
           leaveAddress: form.leaveAddress,
           relievingOfficer: form.relievingOfficer,
+          leaveBalance:
+            selectedBalance && typeof selectedBalance.balance_days !== "undefined"
+              ? `${Number(selectedBalance.balance_days ?? 0).toFixed(2)} day(s)`
+              : "",
         }),
       });
 

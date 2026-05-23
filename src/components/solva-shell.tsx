@@ -1180,8 +1180,32 @@ function PeopleWorkbench({
           mode: "employee_exit",
           variant,
           employeeName: selectedEmployee.fullName,
+          employeeNumber: selectedEmployee.employeeNumber,
+          department: selectedEmployee.department,
+          branch: selectedEmployee.branch,
+          designation:
+            selectedEmployee.profileSections
+              .flatMap((section) => section.items)
+              .find((item) => item.label === "Designation")
+              ?.value ?? "",
+          supervisorName: selectedEmployee.supervisor,
+          employmentType: selectedEmployee.employmentType,
+          employeeStatus: selectedEmployee.status,
+          costCenter: selectedEmployee.costCenter,
           reason: staffExitReason,
           comments: staffExitComments,
+          recentDocumentSummary: (selectedEmployee.documentSummary ?? [])
+            .slice(0, 3)
+            .map((item) => `${item.category}: ${item.name}`)
+            .join(" | "),
+          recentMovementSummary: (selectedEmployee.movementHistory ?? [])
+            .slice(0, 3)
+            .map((item) => `${item.title}: ${item.detail}`)
+            .join(" | "),
+          recentLeaveSummary: (selectedEmployee.leaveHistory ?? [])
+            .slice(0, 3)
+            .map((item) => `${item.leaveType} ${item.startDate} to ${item.endDate} (${item.status})`)
+            .join(" | "),
         }),
       });
       const payload = (await response.json().catch(() => null)) as {

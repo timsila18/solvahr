@@ -1878,6 +1878,10 @@ function isSafaDairyCompany(companyId: string | null | undefined) {
   return SAFA_DAIRY_COMPANY_IDS.has(safeString(companyId));
 }
 
+function usesRobotCafePayrollStructure(companyId: string | null | undefined) {
+  return isRobotCafeCompany(companyId) || isSafaDairyCompany(companyId);
+}
+
 function readConfiguredEnv(value: string | undefined) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -1948,7 +1952,7 @@ function getRobotCafePaymentDetails(
     bankAccount?: string | null | undefined;
   }
 ) {
-  if (!isRobotCafeCompany(companyId)) {
+  if (!usesRobotCafePayrollStructure(companyId)) {
     return {
       bankName: safeString(fallback?.bankName),
       bankBranch: safeString(fallback?.bankBranch),
@@ -8380,9 +8384,15 @@ function buildPayrollAnomalySummary(input: {
     const shif = getPayrollRowAmount((row.deductions as Record<string, unknown> | null) ?? {}, ["SHIF", "Nhif", "NHIF", "shif"]);
     const nssf = getPayrollRowAmount((row.deductions as Record<string, unknown> | null) ?? {}, ["NSSF", "nssf"]);
     const housingLevy = getPayrollRowAmount((row.deductions as Record<string, unknown> | null) ?? {}, ["Housing Levy", "AHL", "housing levy"]);
-    const expectedShif = roundPayrollAmount(grossPay * 0.0275);
-    const expectedHousingLevy = roundPayrollAmount(grossPay * 0.015);
-    const expectedNssf = grossPay > 0 ? 1080 : 0;
+    const companyId = safeString(employee?.company_id);
+    const safaPolicy = isSafaDairyCompany(companyId)
+      ? getSafaDairyStatutoryPolicy(safeString(employee?.employment_type), grossPay, false)
+      : null;
+    const expectedShif = safaPolicy ? safaPolicy.shif : roundPayrollAmount(grossPay * 0.0275);
+    const expectedHousingLevy = safaPolicy
+      ? safaPolicy.housingLevy
+      : roundPayrollAmount(grossPay * 0.015);
+    const expectedNssf = safaPolicy ? safaPolicy.nssf : grossPay > 0 ? 1080 : 0;
 
     if (netPay < 0) {
       anomalies.push({
@@ -12342,7 +12352,7 @@ function calculatePayrollSnapshotForEmployee(input: {
   const monthlySalaryFactor = getMonthlySalaryFactor(employee, run);
   const isMidMonthRun = isMidMonthPayrollType(payrollType);
   const isMonthEndRun = isMonthEndPayrollType(payrollType);
-  const usesConsolidatedGrossSalary = isRobotCafeCompany(safeString(run.company_id));
+  const usesConsolidatedGrossSalary = usesRobotCafePayrollStructure(safeString(run.company_id));
   const priorMidMonthGrossPay = roundPayrollAmount(safeNumber(input.priorMidMonthGrossPay, 0));
   const payrollBounds = getPayrollPeriodBounds(run);
   const payrollDaysInMonth = Math.max(payrollBounds.daysInMonth, 1);
@@ -13893,7 +13903,7 @@ export async function getPayrollProcessData(): Promise<PayrollProcessData> {
     ["wagebill_report", "payroll_register", "earnings_deductions_analysis"].includes(item.exportType)
   );
   const isMidMonthRun = isMidMonthPayrollType(safeString(run.payroll_type));
-  const usesMpesaPayments = isRobotCafeCompany(safeString(run.company_id));
+  const usesMpesaPayments = usesRobotCafePayrollStructure(safeString(run.company_id));
   const requiredExportTypes = isMidMonthRun
     ? ["net_to_mpesa"]
     : usesMpesaPayments
@@ -14515,7 +14525,24 @@ async function listPayslipsForRun(
         getJsonAmount(deductions, ["Pension", "pension"])
     );
     const isMidMonthRun = isMidMonthPayrollType(payrollType);
-    const usesRobotCafeStatutoryRules = isRobotCafeCompany(safeString(run.company_id));
+    const companyId = safeString(run.company_id);
+    const safaPolicy = isSafaDairyCompany(companyId)
+      ? getSafaDairyStatutoryPolicy(safeString(employee?.employment_type), grossPay, isMidMonthRun)
+      : null;
+    const employerNssf = isMidMonthRun
+      ? 0
+      : safaPolicy
+        ? safaPolicy.employerNssf
+        : grossPay > 0
+          ? 1080
+          : 0;
+    const employerHousingLevy = isMidMonthRun
+      ? 0
+      : safaPolicy
+        ? safaPolicy.housingLevy
+        : grossPay > 0
+          ? roundPayrollAmount(grossPay * 0.015)
+          : 0;
     return {
       id: safeString(row.id),
       periodId: safeString(run.id),
@@ -14537,18 +14564,8 @@ async function listPayslipsForRun(
       allowances: row.allowances ?? {},
       deductions,
       employerContributions: {
-        "Employer NSSF": formatCurrency(
-          isMidMonthRun
-            ? 0
-            : usesRobotCafeStatutoryRules
-              ? grossPay > 0
-                ? 1080
-                : 0
-              : grossPay > 0
-                ? 1080
-                : 0
-        ),
-        "Employer Housing Levy": formatCurrency(isMidMonthRun ? 0 : grossPay * 0.015),
+        "Employer NSSF": formatCurrency(employerNssf),
+        "Employer Housing Levy": formatCurrency(employerHousingLevy),
       },
       taxableIncome: formatCurrency(taxableIncome),
     };
@@ -14732,7 +14749,7 @@ function buildPayslipDatasetFromRecords(input: {
       nssfNumber: adjustedMapped.nssfNumber,
       bankName: adjustedMapped.bankName,
       bankBranch: adjustedMapped.bankBranch,
-      bankAccount: isRobotCafeCompany(safeString(run.company_id))
+      bankAccount: usesRobotCafePayrollStructure(safeString(run.company_id))
         ? maskPaymentPhoneNumber(adjustedMapped.bankAccount)
         : adjustedMapped.bankAccount,
       hireDate: safeString(employee.hire_date)
@@ -15659,6 +15676,9 @@ function buildPayrollOutputRow(row: Record<string, unknown>): PayrollOutputEmplo
       bankAccount: safeString(employee.bank_account),
     }
   );
+  const customStatutoryPolicy = isSafaDairyCompany(safeString(employee.company_id))
+    ? getSafaDairyStatutoryPolicy(safeString(employee.employment_type), grossPay, false)
+    : null;
 
   return {
     employeeNumber: safeString(employee.employee_number),
@@ -15723,13 +15743,13 @@ function buildPayrollOutputRow(row: Record<string, unknown>): PayrollOutputEmplo
     selfAssessmentPaye: 0,
     helbAmount,
     voluntaryNssf,
-    employerNssf: grossPay > 0 ? 1080 : 0,
+    employerNssf: customStatutoryPolicy ? customStatutoryPolicy.employerNssf : grossPay > 0 ? 1080 : 0,
     employerPension: roundPayrollAmount(
       sumJsonAliases(deductions, ["employer_pension", "employer pension"], undefined)
     ),
-    employerHousingLevy: roundPayrollAmount(
-      sumJsonAliases(deductions, ["housing_levy", "housing levy", "ahl"], undefined)
-    ),
+    employerHousingLevy: customStatutoryPolicy
+      ? customStatutoryPolicy.housingLevy
+      : roundPayrollAmount(sumJsonAliases(deductions, ["housing_levy", "housing levy", "ahl"], undefined)),
     nita: grossPay > 0 ? 50 : 0,
     liveMonthlyGrossSalary: roundPayrollAmount(safeNumber(employee.salary)),
     standardPeriodGross: roundPayrollAmount(safeNumber(row.standard_period_gross)),
@@ -16046,8 +16066,8 @@ function preparePayrollOutputForGeneration(
     });
     nextDataset.rows = included.map((row) => ({
       ...row,
-      bankName: isRobotCafeCompany(safeString(run.company_id)) ? "Mobile Money - MPesa" : "MPESA",
-      bankBranch: isRobotCafeCompany(safeString(run.company_id)) ? "MPesa Wallet" : "",
+      bankName: usesRobotCafePayrollStructure(safeString(run.company_id)) ? "Mobile Money - MPesa" : "MPESA",
+      bankBranch: usesRobotCafePayrollStructure(safeString(run.company_id)) ? "MPesa Wallet" : "",
       bankBranchCode: "",
       bankAccount: isValidMpesaPhoneNumber(row.phone) ? normalisePhoneNumber(row.phone) : row.bankAccount,
     }));

@@ -2414,13 +2414,6 @@ function PayrollWorkbench({
   const [periodActionMessage, setPeriodActionMessage] = useState("");
   const [periodBusyAction, setPeriodBusyAction] = useState("");
   const [selectedExportPeriodId, setSelectedExportPeriodId] = useState("");
-  const undoablePeriods = useMemo(
-    () =>
-      periods.filter((period) =>
-        Array.isArray(period.allowedActions) ? period.allowedActions.includes("undo") : false
-      ),
-    [periods]
-  );
   const [warningFilter, setWarningFilter] = useState("all");
   const [payrollPanel, setPayrollPanel] = useState<
     | "overview"
@@ -3536,42 +3529,6 @@ function PayrollWorkbench({
                     <p className="section-description">No payroll periods have been opened yet.</p>
                   )}
                 </div>
-              )}
-            </section>
-            <section className="mini-panel">
-              <h4>Undo payroll</h4>
-              <p className="section-description">
-                Use this when updated salaries, unpaid-day deductions, or roster corrections must be pulled into a fresh rerun.
-              </p>
-              {periodsLoading ? (
-                <p className="section-description">Checking which payroll runs can be undone...</p>
-              ) : undoablePeriods.length ? (
-                <div className="mini-list queue-list">
-                  {undoablePeriods.slice(0, 6).map((period) => (
-                    <article key={`undo-${String(period.id)}`}>
-                      <strong>{String(period.period_label ?? "-")}</strong>
-                      <span>
-                        {String(period.payroll_type ?? "-")} | {String(period.status ?? "-")}
-                      </span>
-                      <small>
-                        Gross KES {Number(period.gross_pay ?? 0).toLocaleString()} | Net KES{" "}
-                        {Number(period.net_pay ?? 0).toLocaleString()}
-                      </small>
-                      <div className="queue-actions">
-                        <button
-                          className="primary-button"
-                          disabled={periodBusyAction === `undo-${String(period.id)}` || !canOperatePayroll}
-                          onClick={() => void handlePeriodAction(String(period.id), "undo")}
-                          type="button"
-                        >
-                          {periodBusyAction === `undo-${String(period.id)}` ? "Working..." : "Undo Payroll"}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="section-description">No payroll runs are currently available to undo.</p>
               )}
             </section>
           </>

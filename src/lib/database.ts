@@ -3884,9 +3884,23 @@ function parseImportInteger(value: unknown) {
 }
 
 function parseImportDate(value: unknown) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
   const raw = safeString(value).trim();
   if (!raw) {
     return "";
+  }
+
+  if (/^\d+(\.\d+)?$/.test(raw)) {
+    const excelSerial = Number(raw);
+    if (Number.isFinite(excelSerial) && excelSerial > 20000 && excelSerial < 100000) {
+      const utcDate = new Date(Date.UTC(1899, 11, 30) + Math.round(excelSerial) * 86_400_000);
+      if (!Number.isNaN(utcDate.getTime())) {
+        return utcDate.toISOString().slice(0, 10);
+      }
+    }
   }
 
   const isoMatch = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);

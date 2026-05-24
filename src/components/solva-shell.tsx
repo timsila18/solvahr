@@ -1435,7 +1435,11 @@ function PeopleWorkbench({
     for (const alias of aliases) {
       const match = entries.find(([key]) => normaliseImportHeader(key) === alias);
       if (match) {
-        return String(match[1] ?? "").trim();
+        const value = match[1];
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return value.toISOString().slice(0, 10);
+        }
+        return String(value ?? "").trim();
       }
     }
     return "";
@@ -1511,10 +1515,14 @@ function PeopleWorkbench({
     setBulkImportErrors([]);
 
     try {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", raw: false });
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
       const firstSheetName = workbook.SheetNames[0];
       const firstSheet = workbook.Sheets[firstSheetName];
-      const sourceRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+      const sourceRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+        defval: "",
+        raw: false,
+        dateNF: "yyyy-mm-dd",
+      });
       const rows = sourceRows
         .map((row) => ({
           fullName: readImportCell(row, ["full_name", "employee_name", "staff_name"]),

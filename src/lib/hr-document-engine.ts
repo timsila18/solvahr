@@ -83,6 +83,11 @@ export type HrDocumentRequest = {
   responseHours?: number;
   roleDutyOverrides?: string[];
   contractDurationLabel?: string;
+  roleContextSummary?: string;
+  workingHoursOverride?: string;
+  salaryClauseOverride?: string;
+  contractMode?: "employment" | "consulting";
+  startDateOverride?: string;
   signatories: {
     humanResources: HrSignatoryProfile;
     generalManager: HrSignatoryProfile;
@@ -284,6 +289,42 @@ function getContractEndDate(startDate: string, currentEndDate: string) {
   return next.toISOString().slice(0, 10);
 }
 
+function isSafaDairyDocument(input: HrDocumentRequest) {
+  return /safa dairy/i.test(clean(input.organization.name));
+}
+
+function buildDefaultRoleContextSummary(input: HrDocumentRequest, designation: string) {
+  if (clean(input.roleContextSummary)) {
+    return clean(input.roleContextSummary);
+  }
+
+  if (input.contractMode === "consulting") {
+    return `We are pleased to confirm your engagement as ${designation} to support workforce planning, people operations, payroll process support, staff documentation, and HR compliance for ${input.organization.name}.`;
+  }
+
+  if (isSafaDairyDocument(input)) {
+    return `We are pleased to appoint you as ${designation} at ${input.organization.name} to support the production, distribution, sales, and operational standards behind Rayan Ice Cream, Rayan Spices, and Rayan Syrups.`;
+  }
+
+  return `${ROBOT_CAFE_STYLE_PROFILE.openingPhrase} as ${designation} at ${input.organization.name}, effective ${formatDate(clean(input.startDateOverride, input.employee.hireDate))}.`;
+}
+
+function buildDefaultWorkingHoursParagraph(input: HrDocumentRequest) {
+  if (clean(input.workingHoursOverride)) {
+    return clean(input.workingHoursOverride);
+  }
+
+  if (input.contractMode === "consulting") {
+    return "Your consulting schedule shall follow the approved HR consulting working schedule and any reasonable coordination agreed with management. Services may be delivered on-site, remotely, or across operating locations as required by business needs and agreed deliverables.";
+  }
+
+  if (isSafaDairyDocument(input)) {
+    return "Your normal working schedule shall follow the approved company roster and operational requirements of production, warehousing, sales support, field execution, and office administration. Depending on business needs, you may be required to work across weekday, weekend, seasonal, or demand-driven schedules in line with company policy and Kenyan labour standards.";
+  }
+
+  return "Your normal working hours shall be not more than fifty-two (52) hours per week, spread over six (6) working days, with one (1) rest day per week. Due to the nature of the hospitality industry, you may be required to work shifts, weekends, and public holidays. Any authorized overtime will be compensated in accordance with applicable labour laws.";
+}
+
 function buildSignatureLines(input: HrDocumentRequest, mode: "contract" | "disciplinary" | "salary") {
   const employeeInitials = getInitials(input.employee.fullName);
   const issueDate = formatDate(input.issueDate);
@@ -362,16 +403,100 @@ export function buildRobotCafeHrDocument(input: HrDocumentRequest): HrDocumentMo
   const employeeName = input.employee.fullName;
   const designation = clean(input.employee.designation, "Employee");
   const department = clean(input.employee.department, "Operations");
-  const duties = inferRobotCafeRoleDuties(designation, department, input.roleDutyOverrides);
+  const duties = inferRobotCafeRoleDuties(designation, department, input.roleDutyOverrides).slice(0, 5);
   const salary = formatCurrency(input.employee.salary);
   const contractDuration = getDefaultContractDurationLabel(input);
   const probationMonths = Math.max(1, Number(input.employee.probationMonths || 3));
   const reportingLine = clean(input.employee.reportingLine, "the Restaurant Manager or any other person designated by management");
-  const startDateLabel = formatDate(input.employee.hireDate);
-  const contractEndLabel = formatDate(getContractEndDate(input.employee.hireDate, input.employee.contractEndDate), "______________");
+  const startDateLabel = formatDate(clean(input.startDateOverride, input.employee.hireDate));
+  const contractEndLabel = formatDate(
+    getContractEndDate(clean(input.startDateOverride, input.employee.hireDate), input.employee.contractEndDate),
+    "______________"
+  );
   const issueDateLabel = formatDate(input.issueDate);
 
   if (input.kind === "contract" || input.kind === "appointment_letter") {
+    if (input.contractMode === "consulting") {
+      const title =
+        input.kind === "contract"
+          ? "HR Consulting Services Agreement"
+          : `Consulting Engagement Letter - ${designation}`;
+
+      return {
+        kind: input.kind,
+        title,
+        recipientLabel: `Consultant Name: ${employeeName}`,
+        referenceLine: buildReferenceLine(input, title),
+        category: "Contracts",
+        fileName: `${employeeName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${input.kind}.pdf`,
+        sections: [
+          {
+            paragraphs: [
+              buildDefaultRoleContextSummary(input, designation),
+            ],
+          },
+          {
+            heading: "1. Engagement and Reporting",
+            paragraphs: [
+              `You are engaged as ${designation} and will report operationally to ${reportingLine}. You will provide independent HR consulting support to the business and keep management informed on agreed deliverables, risks, and recommendations.`,
+            ],
+          },
+          {
+            heading: "2. Consulting Fee",
+            paragraphs: [
+              clean(input.salaryClauseOverride)
+                ? clean(input.salaryClauseOverride)
+                : `You will be paid a monthly consulting fee of ${salary} in line with the applicable consulting agreement, approved schedules, and confirmed deliverables. This consultancy engagement is administered under its own agreed service terms.`,
+            ],
+          },
+          {
+            heading: "3. Term of Engagement",
+            paragraphs: [
+              `This consulting engagement takes effect from ${startDateLabel} and shall continue for the agreed contract period up to ${contractEndLabel}, unless reviewed, renewed, or terminated earlier in accordance with the governing services agreement.`,
+            ],
+          },
+          {
+            heading: "4. Scope of Services",
+            paragraphs: [
+              "Your key consulting responsibilities will include the following:",
+            ],
+            bullets: duties.map((duty, index) => {
+              const numerals = ["i)", "ii)", "iii)", "iv)", "v)", "vi)", "vii)", "viii)"];
+              return `${numerals[index] ?? `${index + 1})`} ${duty}`;
+            }),
+          },
+          {
+            heading: "5. Working Schedule and Service Delivery",
+            paragraphs: [buildDefaultWorkingHoursParagraph(input)],
+          },
+          {
+            heading: "6. Professional Standards and Confidentiality",
+            paragraphs: [
+              "You are expected to handle company information, employee records, payroll data, operational reports, and management discussions with strict confidentiality, professionalism, and sound judgment at all times.",
+              "All advisory support, letters, reports, and workforce recommendations should be delivered accurately, on time, and in a manner that protects the business, its brands, and its people processes.",
+            ],
+          },
+          {
+            heading: "7. Review and Coordination",
+            paragraphs: [
+              "You will work closely with management on staffing structure, compliance follow-up, payroll coordination, document control, and employee relations support across the organization as required.",
+            ],
+          },
+          {
+            heading: "8. Termination",
+            paragraphs: [
+              "Either party may review or terminate this consulting engagement in line with the governing agreement, applicable notice provisions, and any written operational arrangements already agreed between the parties.",
+            ],
+          },
+        ],
+        acknowledgements: [
+          `${ROBOT_CAFE_STYLE_PROFILE.acceptanceHeading}`,
+          "Please sign below to confirm your understanding and acceptance of this consulting engagement.",
+        ],
+        signatures: buildSignatureLines(input, "contract"),
+      };
+    }
+
     const title =
       input.kind === "contract"
         ? `Offer of Employment - ${designation}`
@@ -387,7 +512,7 @@ export function buildRobotCafeHrDocument(input: HrDocumentRequest): HrDocumentMo
       sections: [
         {
           paragraphs: [
-            `${ROBOT_CAFE_STYLE_PROFILE.openingPhrase} as ${designation} at ${input.organization.name}, effective ${startDateLabel}.`,
+            buildDefaultRoleContextSummary(input, designation),
           ],
         },
         {
@@ -399,7 +524,9 @@ export function buildRobotCafeHrDocument(input: HrDocumentRequest): HrDocumentMo
         {
           heading: "2. Salary",
           paragraphs: [
-            `You will earn a gross monthly salary of ${salary} payable monthly. This salary will be subject to statutory deductions including PAYE, NSSF, and SHIF as required by law.`,
+            clean(input.salaryClauseOverride)
+              ? clean(input.salaryClauseOverride)
+              : `You will earn a gross monthly salary of ${salary} payable monthly. This salary will be subject to statutory deductions including PAYE, NSSF, and SHIF as required by law.`,
           ],
         },
         {
@@ -425,7 +552,7 @@ export function buildRobotCafeHrDocument(input: HrDocumentRequest): HrDocumentMo
         {
           heading: "6. Working Hours",
           paragraphs: [
-            "Your normal working hours shall be not more than fifty-two (52) hours per week, spread over six (6) working days, with one (1) rest day per week. Due to the nature of the hospitality industry, you may be required to work shifts, weekends, and public holidays. Any authorized overtime will be compensated in accordance with applicable labour laws.",
+            buildDefaultWorkingHoursParagraph(input),
           ],
         },
         {

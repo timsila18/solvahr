@@ -1878,6 +1878,16 @@ function isSafaDairyCompany(companyId: string | null | undefined) {
   return SAFA_DAIRY_COMPANY_IDS.has(safeString(companyId));
 }
 
+function readConfiguredEnv(value: string | undefined) {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '""' || trimmed === "''") return "";
+  const quoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+  return quoted ? trimmed.slice(1, -1).trim() : trimmed;
+}
+
 function isSafaDairyZeroDeductionContract(employmentType: string | null | undefined) {
   const normalized = normalizeIdentity(employmentType);
   return normalized.includes("fixed contract") || normalized.includes("service provider");
@@ -16524,10 +16534,123 @@ type EmployeeHrDocumentRequestInput = {
   desiredAction?: string;
   responseHours?: number;
   roleDutyOverrides?: string[];
+  contractDurationLabel?: string;
+  roleContextSummary?: string;
+  workingHoursOverride?: string;
+  salaryClauseOverride?: string;
+  contractMode?: "employment" | "consulting";
+  startDateOverride?: string;
   autoApprove?: boolean;
   approvalTaskId?: string | null;
   approvedByUserId?: string | null;
 };
+
+async function generateAiHrDocumentAssist(input: {
+  companyId: string;
+  organizationName: string;
+  employeeName: string;
+  designation: string;
+  department: string;
+  branch: string;
+  employmentType: string;
+  reportingLine: string;
+  salary: number;
+  contractMode: "employment" | "consulting";
+}) {
+  const apiKey = readConfiguredEnv(process.env.OPENAI_API_KEY);
+  if (!apiKey) {
+    return null;
+  }
+
+  const model =
+    readConfiguredEnv(process.env.OPENAI_SOLVA_MODEL) ||
+    readConfiguredEnv(process.env.OPENAI_CV_PREMIUM_MODEL) ||
+    readConfiguredEnv(process.env.OPENAI_MODEL) ||
+    readConfiguredEnv(process.env.OPENAI_CV_MODEL) ||
+    "gpt-5.5";
+
+  const systemPrompt = [
+    "You draft employment-letter support content for Solva HR.",
+    "Return strict JSON only.",
+    "Write for Safa Dairy Limited, whose operations support Rayan Ice Cream, Rayan Spices, and Rayan Syrups.",
+    "Make the wording practical, professional, and operationally believable.",
+    "Generate no more than five duties.",
+    "Keep duties concrete and role-specific.",
+    "Do not invent laws, benefits, or compensation terms.",
+    'Return JSON with keys: "roleContextSummary", "roleDutyOverrides", "workingHoursOverride", "salaryClauseOverride".',
+  ].join(" ");
+
+  const userPrompt = [
+    `Organization: ${input.organizationName}`,
+    `Employee: ${input.employeeName}`,
+    `Designation: ${input.designation}`,
+    `Department: ${input.department}`,
+    `Branch: ${input.branch}`,
+    `Employment type: ${input.employmentType}`,
+    `Reporting line: ${input.reportingLine}`,
+    `Monthly amount: KES ${Math.max(0, input.salary).toLocaleString("en-KE")}`,
+    `Contract mode: ${input.contractMode}`,
+    input.contractMode === "consulting"
+      ? "This is an HR consulting engagement, not a standard staff contract."
+      : "This is a standard staff appointment/contract.",
+    "Make the context summary feel specific to Safa Dairy's product lines and operating reality.",
+  ].join("\n");
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.6,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "system", content: "Keep the response strictly in JSON. Do not wrap it in prose." },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string };
+    };
+
+    if (!response.ok) {
+      console.warn("openai_hr_document_assist_failed", safeString(payload.error?.message, "request_failed"));
+      return null;
+    }
+
+    const rawContent = safeString(payload.choices?.[0]?.message?.content);
+    if (!rawContent) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawContent) as Record<string, unknown>;
+    const roleDutyOverrides = Array.isArray(parsed.roleDutyOverrides)
+      ? parsed.roleDutyOverrides
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .slice(0, 5)
+      : [];
+
+    return {
+      roleContextSummary: safeString(parsed.roleContextSummary),
+      roleDutyOverrides,
+      workingHoursOverride: safeString(parsed.workingHoursOverride),
+      salaryClauseOverride: safeString(parsed.salaryClauseOverride),
+      model,
+    };
+  } catch (error) {
+    console.warn("openai_hr_document_assist_error", error instanceof Error ? error.message : "unknown_error");
+    return null;
+  }
+}
 
 async function getEmployeeDocumentGenerationContext(context: RequestContext, employeeId: string) {
   await assertEmployeeScope(context, employeeId);
@@ -16548,11 +16671,33 @@ async function getEmployeeDocumentGenerationContext(context: RequestContext, emp
   const branding = await getCompanyBrandingContext(companyId, "Robot Cafe & Bistro", "RCB");
   const signatories = await getCompanyHrSignatories(companyId);
   const designation = safeString(asRecord(employee.designation)?.title, "Employee");
-  const supervisorDesignation = safeString(asRecord(asRecord(employee.supervisor)?.designation)?.title);
+  const supervisor = asRecord(employee.supervisor);
+  const supervisorName = `${safeString(supervisor?.first_name)} ${safeString(supervisor?.last_name)}`.trim();
+  const supervisorDesignation = safeString(asRecord(supervisor?.designation)?.title);
   const confirmationDate = safeString(employee.confirmation_date);
   const probationMonths = confirmationDate && safeString(employee.hire_date)
     ? Math.max(1, Math.round((new Date(`${confirmationDate}T00:00:00.000Z`).getTime() - new Date(`${safeString(employee.hire_date)}T00:00:00.000Z`).getTime()) / (1000 * 60 * 60 * 24 * 30)))
     : 3;
+  const employeeNumber = safeString(employee.employee_number);
+  const fullName = `${safeString(employee.first_name)} ${safeString(employee.last_name)}`.trim();
+  const reportingLine = (() => {
+    if (isSafaDairyCompany(companyId) && ["SDL-001", "SDL-002"].includes(employeeNumber)) {
+      return "Board of Directors";
+    }
+    if (supervisorName && supervisorDesignation) {
+      return `${supervisorName}, ${supervisorDesignation}`;
+    }
+    if (supervisorName) {
+      return supervisorName;
+    }
+    if (supervisorDesignation) {
+      return supervisorDesignation;
+    }
+    if (isSafaDairyCompany(companyId) && /timothy sila kamwilwa/i.test(fullName)) {
+      return "John Kariuki, General Manager";
+    }
+    return "Supervisor";
+  })();
 
   return {
     companyId,
@@ -16560,8 +16705,8 @@ async function getEmployeeDocumentGenerationContext(context: RequestContext, emp
     signatories,
     employee: {
       id: safeString(employee.id),
-      employeeNumber: safeString(employee.employee_number),
-      fullName: `${safeString(employee.first_name)} ${safeString(employee.last_name)}`.trim(),
+      employeeNumber,
+      fullName,
       firstName: safeString(employee.first_name),
       lastName: safeString(employee.last_name),
       phoneNumber: safeString(employee.phone),
@@ -16572,7 +16717,7 @@ async function getEmployeeDocumentGenerationContext(context: RequestContext, emp
       hireDate: safeString(employee.hire_date),
       contractEndDate: safeString(employee.contract_end_date),
       probationMonths,
-      reportingLine: supervisorDesignation || "Supervisor",
+      reportingLine,
       salary: safeNumber(employee.salary),
       nationalId: safeString(employee.national_id),
       kraPin: safeString(employee.kra_pin),
@@ -16918,6 +17063,25 @@ export async function generateEmployeeHrDocument(input: EmployeeHrDocumentReques
   ensureRole(context.profile, ["Super Admin", "HR Admin", "Payroll Admin", "Operator", "Supervisor", "Manager"]);
   const docContext = await getEmployeeDocumentGenerationContext(context, input.employeeId);
   const issueDate = safeString(input.effectiveDate || input.incidentDate || new Date().toISOString().slice(0, 10));
+  const specialSafaConsultingContract =
+    isSafaDairyCompany(docContext.companyId) &&
+    isSafaDairyZeroDeductionContract(docContext.employee.employmentType) &&
+    /timothy sila kamwilwa/i.test(docContext.employee.fullName);
+  const aiAssist =
+    isSafaDairyCompany(docContext.companyId) && ["contract", "appointment_letter"].includes(input.kind)
+      ? await generateAiHrDocumentAssist({
+          companyId: docContext.companyId,
+          organizationName: docContext.branding.organizationName,
+          employeeName: docContext.employee.fullName,
+          designation: docContext.employee.designation,
+          department: docContext.employee.department,
+          branch: docContext.employee.branch,
+          employmentType: docContext.employee.employmentType,
+          reportingLine: docContext.employee.reportingLine,
+          salary: docContext.employee.salary,
+          contractMode: specialSafaConsultingContract ? "consulting" : "employment",
+        })
+      : null;
   const documentModel = buildRobotCafeHrDocument({
     kind: input.kind,
     employee: docContext.employee,
@@ -16937,7 +17101,25 @@ export async function generateEmployeeHrDocument(input: EmployeeHrDocumentReques
     facts: input.facts,
     desiredAction: input.desiredAction,
     responseHours: input.responseHours,
-    roleDutyOverrides: input.roleDutyOverrides,
+    roleDutyOverrides:
+      input.roleDutyOverrides?.length
+        ? input.roleDutyOverrides
+        : aiAssist?.roleDutyOverrides,
+    contractDurationLabel: input.contractDurationLabel,
+    roleContextSummary: input.roleContextSummary || aiAssist?.roleContextSummary,
+    workingHoursOverride:
+      input.workingHoursOverride ||
+      (specialSafaConsultingContract
+        ? "Your consulting schedule shall follow the approved HR Consulting Working Schedule and any reasonable coordination agreed with the General Manager. Services may be delivered on-site, remotely, or across operating locations as required by business needs and agreed deliverables."
+        : aiAssist?.workingHoursOverride),
+    salaryClauseOverride:
+      input.salaryClauseOverride ||
+      (specialSafaConsultingContract
+        ? `You will provide services as an independent HR consultant at an agreed monthly consulting fee of ${formatCurrency(docContext.employee.salary)} payable in line with the consulting services agreement and approved deliverables. This engagement follows the agreed consultancy terms rather than a standard employee deduction arrangement.`
+        : aiAssist?.salaryClauseOverride),
+    contractMode: input.contractMode || (specialSafaConsultingContract ? "consulting" : "employment"),
+    startDateOverride:
+      input.startDateOverride || (specialSafaConsultingContract ? "2026-03-06" : undefined),
     signatories: docContext.signatories,
   } satisfies HrDocumentRequest);
 
@@ -17003,11 +17185,12 @@ export async function generateEmployeeHrDocument(input: EmployeeHrDocumentReques
     mimeType: file.contentType,
     approvalTaskId: input.approvalTaskId ?? null,
     approvedByUserId: input.approvedByUserId ?? null,
-    metadata: {
-      robotCafeStyleProfile: ROBOT_CAFE_STYLE_PROFILE,
-      documentTitle: documentModel.title,
-      generatedByLabel: context.profile.full_name || context.profile.email,
-    },
+      metadata: {
+        robotCafeStyleProfile: ROBOT_CAFE_STYLE_PROFILE,
+        documentTitle: documentModel.title,
+        generatedByLabel: context.profile.full_name || context.profile.email,
+        aiAssistModel: aiAssist?.model ?? null,
+      },
   });
 
   return {

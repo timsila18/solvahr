@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -1046,6 +1046,7 @@ function PeopleWorkbench({
   selectedEmployee,
   onSelectEmployee,
   selectedRole,
+  onRefreshPeople,
   onCreateUserAccount,
   onCreateUserAccountsBulk,
   onRunUserAction,
@@ -1066,6 +1067,7 @@ function PeopleWorkbench({
   selectedEmployee: EmployeeProfile | null;
   onSelectEmployee: (employeeId: string) => void;
   selectedRole: RuntimeRoleProfile;
+  onRefreshPeople: () => Promise<void>;
   onCreateUserAccount: (employeeId: string) => void;
   onCreateUserAccountsBulk: (employeeIds: string[]) => void;
   onRunUserAction: (
@@ -1100,6 +1102,7 @@ function PeopleWorkbench({
   );
   const canDeleteDocuments = ["Manager", "HR Admin", "Payroll Admin", "Super Admin"].includes(selectedRole.role);
   const canViewUserAccess = ["Payroll Admin", "HR Admin", "Super Admin"].includes(selectedRole.role);
+  const canBulkOnboard = ["Manager", "HR Admin", "Super Admin"].includes(selectedRole.role);
   const [peoplePanel, setPeoplePanel] = useState<
     "directory" | "staff-file" | "accounts" | "lifecycle" | "onboarding" | "user-access"
   >("directory");
@@ -1112,6 +1115,9 @@ function PeopleWorkbench({
   const [salaryStopBusy, setSalaryStopBusy] = useState(false);
   const [salaryStopMessage, setSalaryStopMessage] = useState("");
   const [fileBusyKey, setFileBusyKey] = useState("");
+  const [bulkImportBusy, setBulkImportBusy] = useState(false);
+  const [bulkImportMessage, setBulkImportMessage] = useState("");
+  const [bulkImportErrors, setBulkImportErrors] = useState<Array<{ rowNumber: number; fullName: string; message: string }>>([]);
   const [actionThreads, setActionThreads] = useState<Array<Record<string, unknown>>>([]);
   const [actionThreadMessages, setActionThreadMessages] = useState<Array<Record<string, unknown>>>([]);
   const [activeActionThread, setActiveActionThread] = useState<{ entityType: string; entityId: string; title: string } | null>(null);
@@ -1414,6 +1420,159 @@ function PeopleWorkbench({
       await loadActionThreads(selectedEmployee.id);
     } finally {
       setActionThreadBusy("");
+    }
+  }
+
+  function normaliseImportHeader(value: unknown) {
+    return String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_");
+  }
+
+  function readImportCell(row: Record<string, unknown>, aliases: string[]) {
+    const entries = Object.entries(row);
+    for (const alias of aliases) {
+      const match = entries.find(([key]) => normaliseImportHeader(key) === alias);
+      if (match) {
+        return String(match[1] ?? "").trim();
+      }
+    }
+    return "";
+  }
+
+  function downloadBulkEmployeeTemplate() {
+    const workbook = XLSX.utils.book_new();
+    const staffRows = [
+      {
+        "Full Name": "Amina Noor",
+        "Phone Number": "0712345678",
+        "Employment Type": "Permanent",
+        "Gross Salary": 32000,
+        "Hire Date (YYYY-MM-DD)": "2026-06-01",
+        "Branch Name": "Head Office",
+        "Department Name": "General Administration",
+        "Designation Title": "Sales Representative",
+        "Supervisor Employee Number": "",
+        "KRA PIN": "",
+        "SHIF Number": "",
+        "NSSF Number": "",
+        "Probation Months": 3,
+        "Contract Duration Months": 12,
+      },
+    ];
+    const instructionRows = [
+      ["Column", "What to enter"],
+      ["Full Name", "Required. Use the staff member's full legal name."],
+      ["Phone Number", "Optional, but recommended for payroll and staff records."],
+      ["Employment Type", "If left blank, Solva HR will use Permanent."],
+      ["Gross Salary", "Required. Enter numbers only, no currency text."],
+      ["Hire Date (YYYY-MM-DD)", "Required. Example: 2026-06-01"],
+      ["Branch Name", "Optional if everyone belongs to your default branch. Use the exact branch name if filling it."],
+      ["Department Name", "Optional if everyone belongs to your default department. Use the exact department name if filling it."],
+      ["Designation Title", "Required. Must match an existing designation in this organization."],
+      ["Supervisor Employee Number", "Optional. Use the supervisor's employee number if this staff member reports to someone immediately."],
+      ["KRA PIN / SHIF Number / NSSF Number", "Optional now, but useful for payroll completeness."],
+      ["Probation Months", "Optional. Leave blank to use the normal probation setup."],
+      ["Contract Duration Months", "Optional. Leave blank to use the default contract duration."],
+    ];
+    const staffSheet = XLSX.utils.json_to_sheet(staffRows);
+    staffSheet["!cols"] = [
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 24 },
+    ];
+    const instructionSheet = XLSX.utils.aoa_to_sheet(instructionRows);
+    instructionSheet["!cols"] = [{ wch: 32 }, { wch: 88 }];
+    XLSX.utils.book_append_sheet(workbook, staffSheet, "Staff Upload");
+    XLSX.utils.book_append_sheet(workbook, instructionSheet, "Instructions");
+    XLSX.writeFile(workbook, "solva-hr-staff-upload-template.xlsx");
+  }
+
+  async function handleBulkEmployeeImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setBulkImportBusy(true);
+    setBulkImportMessage("");
+    setBulkImportErrors([]);
+
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", raw: false });
+      const firstSheetName = workbook.SheetNames[0];
+      const firstSheet = workbook.Sheets[firstSheetName];
+      const sourceRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+      const rows = sourceRows
+        .map((row) => ({
+          fullName: readImportCell(row, ["full_name", "employee_name", "staff_name"]),
+          phone: readImportCell(row, ["phone_number", "phone", "mobile_number"]),
+          employmentType: readImportCell(row, ["employment_type"]),
+          salary: readImportCell(row, ["gross_salary", "salary", "basic_salary"]),
+          hireDate: readImportCell(row, ["hire_date_yyyy_mm_dd", "hire_date", "start_date"]),
+          branchName: readImportCell(row, ["branch_name", "branch"]),
+          departmentName: readImportCell(row, ["department_name", "department"]),
+          designationTitle: readImportCell(row, ["designation_title", "designation", "job_title"]),
+          supervisorEmployeeNumber: readImportCell(row, ["supervisor_employee_number"]),
+          kraPin: readImportCell(row, ["kra_pin"]),
+          shifNumber: readImportCell(row, ["shif_number", "nhif_number"]),
+          nssfNumber: readImportCell(row, ["nssf_number"]),
+          probationMonths: readImportCell(row, ["probation_months"]),
+          contractDurationMonths: readImportCell(row, ["contract_duration_months"]),
+        }))
+        .filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+
+      if (!rows.length) {
+        throw new Error("The upload file is empty. Fill at least one staff row before uploading.");
+      }
+
+      const response = await fetch("/api/people/employees/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            createdCount?: number;
+            failedCount?: number;
+            errors?: Array<{ rowNumber: number; fullName: string; message: string }>;
+            error?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Could not upload those staff records right now.");
+      }
+
+      const createdCount = Number(payload?.createdCount ?? 0);
+      const failedCount = Number(payload?.failedCount ?? 0);
+      const importErrors = Array.isArray(payload?.errors) ? payload.errors : [];
+
+      setBulkImportErrors(importErrors);
+      setBulkImportMessage(
+        failedCount
+          ? `Imported ${createdCount} staff member${createdCount === 1 ? "" : "s"}. ${failedCount} row${failedCount === 1 ? "" : "s"} still need attention below.`
+          : `Imported ${createdCount} staff member${createdCount === 1 ? "" : "s"} and they are now ready in Staff Register for payroll setup.`
+      );
+      await onRefreshPeople();
+    } catch (error) {
+      setBulkImportMessage(error instanceof Error ? error.message : "Could not upload those staff records right now.");
+      setBulkImportErrors([]);
+    } finally {
+      setBulkImportBusy(false);
+      event.target.value = "";
     }
   }
 
@@ -2019,6 +2178,39 @@ function PeopleWorkbench({
                   </Link>
                 ) : null}
               </div>
+              {canBulkOnboard ? (
+                <div className="detail-section-card" style={{ marginTop: 18 }}>
+                  <h5>Bulk staff upload for payroll setup</h5>
+                  <p className="section-description">
+                    Download the template, fill the new staff rows, then upload it here. Imported staff land in Staff Register immediately and become available for payroll preparation.
+                  </p>
+                  <div className="inline-actions" style={{ marginTop: 12 }}>
+                    <button className="secondary-button" onClick={downloadBulkEmployeeTemplate} type="button">
+                      Download upload template
+                    </button>
+                    <input
+                      accept=".xlsx,.xls,.csv"
+                      disabled={bulkImportBusy}
+                      onChange={(event) => void handleBulkEmployeeImport(event)}
+                      type="file"
+                    />
+                  </div>
+                  <small>Use exact branch, department, and designation names where you fill those columns.</small>
+                  {bulkImportMessage ? <p className="section-description" style={{ marginTop: 12 }}>{bulkImportMessage}</p> : null}
+                  {bulkImportErrors.length ? (
+                    <div className="mini-list queue-list" style={{ marginTop: 12 }}>
+                      {bulkImportErrors.slice(0, 8).map((issue) => (
+                        <article key={`${issue.rowNumber}-${issue.fullName}`}>
+                          <strong>
+                            Row {issue.rowNumber} - {issue.fullName}
+                          </strong>
+                          <small>{issue.message}</small>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           ) : (
             <p className="section-description">
@@ -6130,6 +6322,7 @@ export function SolvaShell({
             }
             onOpenLeaveForm={(requestId) => handleLeaveFormDocument(requestId, "preview")}
             onRunUserAction={(userId, action) => void handleEmployeeUserLifecycleAction(userId, action)}
+            onRefreshPeople={refreshRuntime}
             onSelectEmployee={(employeeId) => void handleEmployeeSelect(employeeId)}
             onSetTemporaryPassword={(userId, userLabel) => handleSetTemporaryPassword(userId, userLabel)}
             onToggleSalaryStop={(employeeId, shouldStop, reason) =>

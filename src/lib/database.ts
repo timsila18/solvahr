@@ -3851,6 +3851,249 @@ export async function createEmployeeRecord(input: {
   return mapEmployeeRecord(data as EmployeeRow);
 }
 
+function normaliseImportLookup(value: unknown) {
+  return safeString(value).trim().toLowerCase().replace(/[\s_-]+/g, " ");
+}
+
+function parseImportNumber(value: unknown) {
+  const raw = safeString(value).replace(/,/g, "").trim();
+  if (!raw) {
+    return undefined;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseImportInteger(value: unknown) {
+  const parsed = parseImportNumber(value);
+  if (parsed === undefined || parsed === null) {
+    return parsed;
+  }
+  return Math.round(parsed);
+}
+
+export async function importEmployeeRecords(input: {
+  rows: Array<Record<string, unknown>>;
+}) {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "HR Admin", "Manager"]);
+
+  const rows = Array.isArray(input.rows) ? input.rows : [];
+  if (!rows.length) {
+    throw new Error("missing_import_rows");
+  }
+
+  const [branchResult, departmentResult, designationResult, supervisorResult] = await Promise.all([
+    context.supabase
+      .from("branches")
+      .select("id, name, code")
+      .eq("company_id", context.profile.company_id),
+    context.supabase
+      .from("departments")
+      .select("id, name, code, branch_id")
+      .eq("company_id", context.profile.company_id),
+    context.supabase
+      .from("designations")
+      .select("id, title")
+      .eq("company_id", context.profile.company_id),
+    context.supabase
+      .from("employees")
+      .select("id, employee_number, first_name, last_name, email")
+      .eq("company_id", context.profile.company_id),
+  ]);
+
+  if (branchResult.error) throw branchResult.error;
+  if (departmentResult.error) throw departmentResult.error;
+  if (designationResult.error) throw designationResult.error;
+  if (supervisorResult.error) throw supervisorResult.error;
+
+  const branchRows = (branchResult.data ?? []) as Array<Record<string, unknown>>;
+  const departmentRows = (departmentResult.data ?? []) as Array<Record<string, unknown>>;
+  const designationRows = (designationResult.data ?? []) as Array<Record<string, unknown>>;
+  const supervisorRows = (supervisorResult.data ?? []) as Array<Record<string, unknown>>;
+
+  const branchByName = new Map(branchRows.map((row) => [normaliseImportLookup(row.name), row]));
+  const branchByCode = new Map(branchRows.map((row) => [normaliseImportLookup(row.code), row]));
+  const departmentByName = new Map(departmentRows.map((row) => [normaliseImportLookup(row.name), row]));
+  const departmentByCode = new Map(departmentRows.map((row) => [normaliseImportLookup(row.code), row]));
+  const designationByTitle = new Map(designationRows.map((row) => [normaliseImportLookup(row.title), row]));
+  const supervisorByEmployeeNumber = new Map(
+    supervisorRows.map((row) => [normaliseImportLookup(row.employee_number), row])
+  );
+  const supervisorByName = new Map(
+    supervisorRows.map((row) => [
+      normaliseImportLookup(`${safeString(row.first_name)} ${safeString(row.last_name)}`),
+      row,
+    ])
+  );
+  const supervisorByEmail = new Map(supervisorRows.map((row) => [normaliseImportLookup(row.email), row]));
+
+  const created: EmployeeRecord[] = [];
+  const errors: Array<{ rowNumber: number; fullName: string; message: string }> = [];
+
+  for (const [index, row] of rows.entries()) {
+    const rowNumber = index + 2;
+    const fullName = safeString(row.fullName).trim();
+    const phone = safeString(row.phone).trim();
+    const employmentType = safeString(row.employmentType, "Permanent").trim() || "Permanent";
+    const hireDate = safeString(row.hireDate).trim();
+    const branchName = safeString(row.branchName).trim();
+    const branchCode = safeString(row.branchCode).trim();
+    const departmentName = safeString(row.departmentName).trim();
+    const departmentCode = safeString(row.departmentCode).trim();
+    const designationTitle = safeString(row.designationTitle).trim();
+    const supervisorEmployeeNumber = safeString(row.supervisorEmployeeNumber).trim();
+    const supervisorName = safeString(row.supervisorName).trim();
+    const supervisorEmail = safeString(row.supervisorEmail).trim();
+    const kraPin = safeString(row.kraPin).trim();
+    const shifNumber = safeString(row.shifNumber).trim();
+    const nssfNumber = safeString(row.nssfNumber).trim();
+    const salary = parseImportNumber(row.salary);
+    const probationMonths = parseImportInteger(row.probationMonths);
+    const contractDurationMonths = parseImportInteger(row.contractDurationMonths);
+    const rowHasValues = [
+      fullName,
+      phone,
+      hireDate,
+      branchName,
+      branchCode,
+      departmentName,
+      departmentCode,
+      designationTitle,
+      supervisorEmployeeNumber,
+      supervisorName,
+      supervisorEmail,
+      kraPin,
+      shifNumber,
+      nssfNumber,
+      safeString(row.salary).trim(),
+    ].some(Boolean);
+
+    if (!rowHasValues) {
+      continue;
+    }
+
+    try {
+      if (!fullName) {
+        throw new Error("Full name is required.");
+      }
+      if (!hireDate) {
+        throw new Error("Hire date is required.");
+      }
+      if (!designationTitle) {
+        throw new Error("Designation title is required.");
+      }
+      if (salary === undefined) {
+        throw new Error("Gross salary is required.");
+      }
+      if (salary === null) {
+        throw new Error("Gross salary must be a valid number.");
+      }
+      if (probationMonths === null) {
+        throw new Error("Probation months must be a whole number.");
+      }
+      if (contractDurationMonths === null) {
+        throw new Error("Contract duration months must be a whole number.");
+      }
+
+      const branchRow =
+        (branchCode ? branchByCode.get(normaliseImportLookup(branchCode)) : null) ??
+        (branchName ? branchByName.get(normaliseImportLookup(branchName)) : null) ??
+        null;
+      const departmentRow =
+        (departmentCode ? departmentByCode.get(normaliseImportLookup(departmentCode)) : null) ??
+        (departmentName ? departmentByName.get(normaliseImportLookup(departmentName)) : null) ??
+        null;
+      const designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
+      const supervisorRow =
+        (supervisorEmployeeNumber
+          ? supervisorByEmployeeNumber.get(normaliseImportLookup(supervisorEmployeeNumber))
+          : null) ??
+        (supervisorEmail ? supervisorByEmail.get(normaliseImportLookup(supervisorEmail)) : null) ??
+        (supervisorName ? supervisorByName.get(normaliseImportLookup(supervisorName)) : null) ??
+        null;
+
+      if ((branchName || branchCode) && !branchRow) {
+        throw new Error(`Branch "${branchName || branchCode}" was not found.`);
+      }
+      if ((departmentName || departmentCode) && !departmentRow) {
+        throw new Error(`Department "${departmentName || departmentCode}" was not found.`);
+      }
+      if (!designationRow) {
+        throw new Error(`Designation "${designationTitle}" was not found.`);
+      }
+      if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
+        throw new Error(
+          `Supervisor "${supervisorEmployeeNumber || supervisorName || supervisorEmail}" was not found.`
+        );
+      }
+
+      const resolvedBranchId = safeString(branchRow?.id, safeString(departmentRow?.branch_id)) || null;
+      const resolvedDepartmentId = safeString(departmentRow?.id) || null;
+
+      if (
+        resolvedBranchId &&
+        resolvedDepartmentId &&
+        safeString(departmentRow?.branch_id) &&
+        safeString(departmentRow?.branch_id) !== resolvedBranchId
+      ) {
+        throw new Error("The selected department does not belong to the selected branch.");
+      }
+
+      const scopedIds = await resolveScopedEmployeeSetupIds(context, {
+        branchId: resolvedBranchId,
+        departmentId: resolvedDepartmentId,
+      });
+
+      const createdRow = await createEmployeeRowFromApprovedRequest(context, {
+        fullName,
+        departmentId: scopedIds.departmentId,
+        branchId: scopedIds.branchId,
+        employmentType,
+        status: "Active",
+        salary,
+        hireDate,
+        designationId: safeString(designationRow.id, null as never),
+        phone,
+        kraPin,
+        shifNumber,
+        nssfNumber,
+        supervisorEmployeeId: safeString(supervisorRow?.id, null as never) || null,
+        probationMonths: probationMonths ?? undefined,
+        contractDurationMonths: contractDurationMonths ?? undefined,
+      });
+
+      await createAuditLog(context, {
+        moduleKey: "people",
+        entityType: "employee",
+        entityId: safeString(createdRow.id),
+        action: "bulk_imported_employee_record",
+        afterValue: createdRow as Record<string, unknown>,
+        approvalAction: "bulk_staff_import",
+      });
+
+      await generateEmployeeOnboardingDocuments(context, safeString(createdRow.id), {
+        generatedBy: context.profile.full_name || context.profile.email,
+      });
+
+      created.push(mapEmployeeRecord(createdRow as EmployeeRow));
+    } catch (error) {
+      errors.push({
+        rowNumber,
+        fullName: fullName || `Row ${rowNumber}`,
+        message: error instanceof Error ? error.message : "Could not import this staff row.",
+      });
+    }
+  }
+
+  return {
+    createdCount: created.length,
+    failedCount: errors.length,
+    employees: created,
+    errors,
+  };
+}
+
 export async function requestEmployeeHire(input: {
   fullName: string;
   employmentType: string;

@@ -1016,25 +1016,214 @@ input {
 }
 
 .theme-dark {
-  --bg: #050915;
-  --surface: #0c1527;
-  --surface-muted: #111d33;
-  --surface-strong: #16274a;
-  --line: #233453;
-  --line-strong: #35507c;
-  --text: #f5f8ff;
-  --text-muted: #a6b5c8;
-  --text-soft: #8493aa;
-  --brand: #73a3ff;
-  --brand-strong: #a3c3ff;
-  --brand-soft: rgba(115, 163, 255, 0.16);
-  --success: #4ad199;
-  --warning: #efbc61;
-  --danger: #ff7b90;
-  --sidebar-bg: linear-gradient(180deg, #06101f 0%, #070d17 100%);
-  --sidebar-line: rgba(255, 255, 255, 0.07);
-  --shadow-lg: 0 24px 50px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 16px 30px rgba(0, 0, 0, 0.28);
+  --bg: #07111f;
+  --surface: #0f1b2d;
+  --surface-muted: #12233a;
+  --surface-strong: #193253;
+  --line: #263a59;
+  --line-strong: #3a5a87;
+  --text: #edf4ff;
+  --text-muted: #aab9d0;
+  --text-soft: #8193af;
+  --brand: #6da8ff;
+  --brand-strong: #4f8dff;
+  --brand-soft: rgba(109, 168, 255, 0.18);
+  --success: #57d6a1;
+  --warning: #f0bf69;
+  --danger: #ff879a;
+  --sidebar-bg: linear-gradient(180deg, #08111f 0%, #0a1424 100%);
+  --sidebar-line: rgba(255, 255, 255, 0.06);
+  --shadow-lg: 0 28px 60px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 18px 34px rgba(0, 0, 0, 0.3);
+}
+
+.solva-app.theme-dark {
+  background:
+    radial-gradient(circle at top right, rgba(79, 141, 255, 0.13), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(38, 90, 170, 0.12), transparent 26%),
+    linear-gradient(180deg, #07111f 0%, #0b1424 100%);
+}
+
+.solva-app.theme-dark.is-employee-shell {
+  background:
+    radial-gradient(circle at top right, rgba(79, 141, 255, 0.12), transparent 24%),
+    radial-gradient(circle at top left, rgba(20, 65, 145, 0.1), transparent 28%),
+    linear-gradient(180deg, #081221 0%, #0d1829 100%);
+}
+
+.theme-dark .primary-sidebar {
+  background:
+    radial-gradient(circle at top left, rgba(79, 141, 255, 0.18), transparent 28%),
+    linear-gradient(180deg, #08111f 0%, #091321 100%);
+}
+
+.theme-dark .solva-logo {
+  background: linear-gradient(145deg, #dbe8ff, #8cb7ff);
+  color: #123da2;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.theme-dark .solva-logo-ring {
+  border-color: rgba(18, 61, 162, 0.16);
+}
+
+.theme-dark.solva-app.is-employee-shell .brand-card,
+.theme-dark .topbar-context-employee__brand {
+  border-color: rgba(109, 168, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(15, 27, 45, 0.96) 0%, rgba(20, 36, 60, 0.96) 100%);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+}
+
+.theme-dark .workflow-surface,
+.theme-dark .hero-panel,
+.theme-dark .surface-card,
+.theme-dark .metric-card,
+.theme-dark .mini-panel,
+.theme-dark .queue-card,
+.theme-dark .workspace-command-card,
+.theme-dark .guidance-modal,
+.theme-dark .help-panel,
+.theme-dark .search-card,
+.theme-dark .search-suggestions,
+.theme-dark .search-dialog,
+.theme-dark .ai-assist-panel,
+.theme-dark .report-export-card,
+.theme-dark .selection-card,
+.theme-dark .form-section-card,
+.theme-dark .marketing-form-card,
+.theme-dark .empty-state-card {
+  background:
+    linear-gradient(180deg, rgba(15, 27, 45, 0.96) 0%, rgba(18, 34, 56, 0.96) 100%);
+  border-color: rgba(92, 119, 163, 0.24);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.26);
+}
+
+.theme-dark .hero-side,
+.theme-dark .workflow-section-card,
+.theme-dark .form-section-card,
+.theme-dark .marketing-form-card,
+.theme-dark .search-suggestion,
+.theme-dark .selection-pill,
+.theme-dark .filter-pill,
+.theme-dark .auth-role-strip span,
+.theme-dark .upload-panel,
+.theme-dark .upload-dropzone,
+.theme-dark .empty-state-card,
+.theme-dark .report-export-card,
+.theme-dark .secondary-item:hover,
+.theme-dark .secondary-item.is-active {
+  background:
+    linear-gradient(180deg, rgba(18, 34, 56, 0.96) 0%, rgba(20, 38, 63, 0.96) 100%);
+  border-color: rgba(92, 119, 163, 0.22);
+}
+
+.theme-dark .upload-dropzone {
+  border-style: dashed;
+  border-color: rgba(109, 168, 255, 0.32);
+}
+
+.theme-dark .workspace-segment-button,
+.theme-dark .secondary-button,
+.theme-dark .neutral-button,
+.theme-dark .ghost-button,
+.theme-dark .ai-assist-fab {
+  color: var(--text);
+  border-color: rgba(109, 168, 255, 0.18);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.theme-dark .workspace-segment-button,
+.theme-dark .secondary-button,
+.theme-dark .ghost-button,
+.theme-dark .ai-assist-fab {
+  background:
+    linear-gradient(180deg, rgba(15, 27, 45, 0.98) 0%, rgba(20, 36, 60, 0.96) 100%);
+}
+
+.theme-dark .neutral-button {
+  background:
+    linear-gradient(180deg, rgba(24, 43, 70, 0.98) 0%, rgba(20, 36, 60, 0.96) 100%);
+}
+
+.theme-dark .workspace-segment-button:hover,
+.theme-dark .secondary-button:hover,
+.theme-dark .ghost-button:hover,
+.theme-dark .neutral-button:hover {
+  border-color: rgba(109, 168, 255, 0.36);
+  background:
+    linear-gradient(180deg, rgba(20, 36, 60, 1) 0%, rgba(25, 46, 74, 0.98) 100%);
+}
+
+.theme-dark .workspace-segment-button.is-active,
+.theme-dark .primary-button {
+  background: linear-gradient(180deg, #3a78ff 0%, #2863ea 100%);
+  border-color: #3a78ff;
+  color: #f8fbff;
+  box-shadow: 0 14px 28px rgba(58, 120, 255, 0.24);
+}
+
+.theme-dark .primary-button:hover {
+  background: linear-gradient(180deg, #4a86ff 0%, #2e6df0 100%);
+  border-color: #4a86ff;
+}
+
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea,
+.theme-dark .report-runner-grid select,
+.theme-dark .report-runner-grid input,
+.theme-dark .field-stack select {
+  background: rgba(9, 17, 31, 0.88);
+  color: var(--text);
+  border-color: rgba(92, 119, 163, 0.28);
+}
+
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #70839f;
+}
+
+.theme-dark .search-suggestion:hover,
+.theme-dark .selection-pill.is-active,
+.theme-dark .search-card:focus-within {
+  border-color: rgba(109, 168, 255, 0.4);
+  background:
+    linear-gradient(180deg, rgba(24, 43, 70, 1) 0%, rgba(26, 48, 78, 0.98) 100%);
+}
+
+.theme-dark .data-table thead th {
+  background: rgba(12, 20, 35, 0.96);
+  color: #d8e6ff;
+  border-bottom-color: rgba(92, 119, 163, 0.22);
+}
+
+.theme-dark .data-table tbody tr {
+  background: transparent;
+}
+
+.theme-dark .data-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.theme-dark .data-table td,
+.theme-dark .data-table th {
+  border-color: rgba(92, 119, 163, 0.18);
+}
+
+.theme-dark .task-banner,
+.theme-dark .status-banner,
+.theme-dark .warning-banner,
+.theme-dark .inline-message {
+  background:
+    linear-gradient(180deg, rgba(18, 34, 56, 0.96) 0%, rgba(22, 40, 65, 0.96) 100%);
+  border-color: rgba(92, 119, 163, 0.24);
+}
+
+.theme-dark .search-dialog-backdrop,
+.theme-dark .guidance-modal-backdrop,
+.theme-dark .help-panel-backdrop {
+  background: rgba(3, 8, 18, 0.68);
 }
 
 .solva-app {

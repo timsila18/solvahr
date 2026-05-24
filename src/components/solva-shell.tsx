@@ -5182,7 +5182,6 @@ export function SolvaShell({
   const [aiSuggestedActions, setAiSuggestedActions] = useState<string[]>([]);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiModelLabel, setAiModelLabel] = useState("");
   const [selectedRoleKey, setSelectedRoleKey] = useState("");
   const [activeItems, setActiveItems] = useState<Record<string, string>>(
     Object.fromEntries(
@@ -6458,7 +6457,6 @@ export function SolvaShell({
       }
       setAiResponse(payload.answer ?? "");
       setAiSuggestedActions(Array.isArray(payload.suggestedActions) ? payload.suggestedActions : []);
-      setAiModelLabel(payload.model ?? "");
     } catch (error) {
       setAiError(error instanceof Error ? error.message : "Solva AI could not complete that request right now.");
     } finally {
@@ -7549,7 +7547,6 @@ export function SolvaShell({
                       setAiResponse("");
                       setAiSuggestedActions([]);
                       setAiError("");
-                      setAiModelLabel("");
                     }}
                     type="button"
                   >
@@ -7561,7 +7558,7 @@ export function SolvaShell({
               {aiResponse ? (
                 <div className="mini-list queue-list" style={{ marginTop: 12 }}>
                   <article>
-                    <strong>{aiModelLabel || "Solva AI response"}</strong>
+                    <strong>Solva AI response</strong>
                     <small>{aiResponse}</small>
                   </article>
                   {aiSuggestedActions.length ? (

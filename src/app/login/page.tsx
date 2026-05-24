@@ -21,7 +21,7 @@ export default async function LoginPage({
       description={
         tenantBranding
           ? `${tenantBranding.displayName} is powered by Solva HR. Sign in to manage payroll, approvals, employee records, and self service in one secure workspace.`
-          : "Sign in to manage employee records, payroll, leave, attendance, approvals, and employee self service on the real Supabase backend."
+          : "Sign in to manage employee records, payroll, leave, attendance, approvals, and employee self service in one secure live workspace."
       }
       leftRailExtra={
         <section className="auth-cv-feature-card">

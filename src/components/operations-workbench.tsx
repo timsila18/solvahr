@@ -956,7 +956,7 @@ export function OperationsWorkbench({
       {tasksState.error ? <p className="section-description">{tasksState.error}</p> : null}
 
       {workspaceState.loading && !workspaceState.data ? (
-        <EmptyState title="Loading workspace" text="Pulling the latest live operational data from Supabase." />
+        <EmptyState title="Loading workspace" text="Pulling the latest live operational data." />
       ) : null}
 
       {!workspaceState.loading && !workspaceState.data ? (

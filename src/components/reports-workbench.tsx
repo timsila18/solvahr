@@ -2360,7 +2360,7 @@ export function ReportsWorkbench({
     return (
       <EmptyState
         title={activeItem}
-        text="This reports workspace is being prepared with live Supabase data."
+        text="This reports workspace is being prepared with live data."
       />
     );
   })();

@@ -19,7 +19,7 @@ export default async function NewEmployeePage() {
         { label: "Employees", href: workflowRoutes.peopleWorkspace },
         { label: "Add Employee" },
       ]}
-      description="Create a live employee record with real branch and department assignments from Supabase."
+      description="Create a live employee record with real branch and department assignments."
       eyebrow="People Workflow"
       title="Add Employee"
     >
@@ -27,4 +27,3 @@ export default async function NewEmployeePage() {
     </WorkflowPageShell>
   );
 }
-

@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
           <p className="section-eyebrow">Forgot password</p>
           <h2>Request a reset link</h2>
           <p className="section-description">
-            We will send a reset link to your email using the configured Supabase redirect URL.
+            We will send a reset link to your email using the configured account recovery link.
           </p>
         </div>
         <form className="action-form" onSubmit={handleSubmit}>

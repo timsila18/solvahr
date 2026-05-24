@@ -901,10 +901,10 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
                   <small>Downloads remain locked if payment is not confirmed.</small>
                 </article>
                 <article className="cv-download-card">
-                  <strong>AI engine</strong>
-                  <span>{draftOrder?.generationEngine || "Solva AI Structured Draft"}</span>
+                  <strong>Enhancement profile</strong>
+                  <span>Premium document refinement</span>
                   <small>
-                    Estimated internal AI processing cost: {draftOrder?.estimatedProcessingCostKes ? `KES ${draftOrder.estimatedProcessingCostKes}` : "KES 0"}.
+                    Processing complete for the selected package{draftOrder?.estimatedProcessingCostKes ? "." : "."}
                   </small>
                 </article>
               </div>

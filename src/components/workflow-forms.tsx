@@ -427,7 +427,7 @@ export function EmployeeCreateForm() {
       </SectionCard>
 
       <SectionCard
-        description="These selectors use live company setup data from Supabase."
+        description="These selectors use your live company setup data."
         title="Organization Assignment"
       >
         <label>
@@ -1593,8 +1593,7 @@ export function EmployeeEditForm({
                   <div>
                     <strong>{document.fileName}</strong>
                     <p>
-                      {document.category} | {humanizeDocumentKind(document.documentType as HrDocumentKind)} | Version{" "}
-                      {document.versionNumber}
+                      {document.category} | {humanizeDocumentKind(document.documentType as HrDocumentKind)}
                       {document.issueDate ? ` | Issued ${document.issueDate}` : ""}
                     </p>
                   </div>
@@ -1679,7 +1678,7 @@ export function PayrollPeriodCreateForm() {
       <StatusBanner error={error} success={success} />
 
       <SectionCard
-        description="This creates a live payroll run against the Supabase-backed payroll engine."
+        description="This creates a live payroll run against the payroll engine."
         title="Payroll Period"
       >
         <label>

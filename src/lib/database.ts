@@ -3964,7 +3964,7 @@ export async function importEmployeeRecords(input: {
     throw new Error("missing_import_rows");
   }
 
-  const [branchResult, departmentResult, designationResult, supervisorResult] = await Promise.all([
+  const [branchResult, departmentResult, designationResult, supervisorResult, userResult] = await Promise.all([
     context.supabase
       .from("branches")
       .select("id, name, code")
@@ -3981,17 +3981,23 @@ export async function importEmployeeRecords(input: {
       .from("employees")
       .select("id, employee_number, first_name, last_name, email, designation:designation_id(title)")
       .eq("company_id", context.profile.company_id),
+    context.supabase
+      .from("users")
+      .select("id, full_name, email, role, employee_id, branch_id, department_id, phone")
+      .eq("company_id", context.profile.company_id),
   ]);
 
   if (branchResult.error) throw branchResult.error;
   if (departmentResult.error) throw departmentResult.error;
   if (designationResult.error) throw designationResult.error;
   if (supervisorResult.error) throw supervisorResult.error;
+  if (userResult.error) throw userResult.error;
 
   const branchRows = (branchResult.data ?? []) as Array<Record<string, unknown>>;
   const departmentRows = (departmentResult.data ?? []) as Array<Record<string, unknown>>;
   const designationRows = (designationResult.data ?? []) as Array<Record<string, unknown>>;
   const supervisorRows = (supervisorResult.data ?? []) as Array<Record<string, unknown>>;
+  const userRows = (userResult.data ?? []) as Array<Record<string, unknown>>;
 
   const branchByName = new Map(branchRows.map((row) => [normaliseImportLookup(row.name), row]));
   const branchByCode = new Map(branchRows.map((row) => [normaliseImportLookup(row.code), row]));
@@ -4015,6 +4021,24 @@ export async function importEmployeeRecords(input: {
         return [normaliseImportLookup(designation?.title), row] as const;
       })
       .filter(([key]) => Boolean(key))
+  );
+  const userByEmail = new Map(userRows.map((row) => [normaliseImportLookup(row.email), row]));
+  const userByName = new Map(userRows.map((row) => [normaliseImportLookup(row.full_name), row]));
+  const userByRoleHint = new Map(
+    userRows.flatMap((row) => {
+      const role = safeString(row.role);
+      const hints = new Set<string>();
+      const normalizedRole = normaliseImportLookup(role);
+      if (normalizedRole) hints.add(normalizedRole);
+      if (normalizedRole === "manager") {
+        hints.add("general manager");
+        hints.add("gm");
+      }
+      if (normalizedRole === "payroll admin") {
+        hints.add("payroll operator");
+      }
+      return Array.from(hints).map((hint) => [hint, row] as const);
+    })
   );
 
   async function createBranchRecord(name: string, code?: string) {
@@ -4093,6 +4117,91 @@ export async function importEmployeeRecords(input: {
       afterValue: data as Record<string, unknown>,
     });
     return data as Record<string, unknown>;
+  }
+
+  async function ensureSupervisorEmployeeRow(reference: string, branchId: string | null, departmentId: string | null) {
+    const normalizedReference = normaliseImportLookup(reference);
+    if (!normalizedReference) {
+      return null;
+    }
+
+    const matchedUser =
+      userByEmail.get(normalizedReference) ??
+      userByName.get(normalizedReference) ??
+      userByRoleHint.get(normalizedReference) ??
+      userRows.find((row) => {
+        const fullName = normaliseImportLookup(row.full_name);
+        return fullName.includes(normalizedReference) || normalizedReference.includes(fullName);
+      }) ??
+      null;
+
+    if (!matchedUser) {
+      return null;
+    }
+
+    const linkedEmployeeId = safeString(matchedUser.employee_id, null as never);
+    if (linkedEmployeeId) {
+      const existingEmployee = supervisorRows.find((row) => safeString(row.id) === linkedEmployeeId) ?? null;
+      if (existingEmployee) {
+        return existingEmployee;
+      }
+    }
+
+    const designationTitle = reference || safeString(matchedUser.role, "Manager");
+    let designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
+    if (!designationRow) {
+      designationRow = await createDesignationRecord(designationTitle);
+    }
+
+    const scopedIds = await resolveScopedEmployeeSetupIds(context, {
+      branchId: safeString(matchedUser.branch_id, branchId as never) || branchId,
+      departmentId: safeString(matchedUser.department_id, departmentId as never) || departmentId,
+    });
+
+    const createdSupervisor = await createEmployeeRowFromApprovedRequest(context, {
+      fullName: safeString(matchedUser.full_name, designationTitle),
+      departmentId: scopedIds.departmentId,
+      branchId: scopedIds.branchId,
+      employmentType: "Permanent",
+      status: "Active",
+      salary: 0,
+      hireDate: new Date().toISOString().slice(0, 10),
+      designationId: safeString(designationRow.id, null as never),
+      phone: safeString(matchedUser.phone),
+      supervisorEmployeeId: null,
+      probationMonths: 0,
+      contractDurationMonths: 12,
+    });
+
+    await context.supabase.from("users").update({ employee_id: safeString(createdSupervisor.id) }).eq("id", safeString(matchedUser.id));
+
+    const supervisorRecord = {
+      id: safeString(createdSupervisor.id),
+      employee_number: safeString(createdSupervisor.employee_number),
+      first_name: safeString(createdSupervisor.first_name),
+      last_name: safeString(createdSupervisor.last_name),
+      email: safeString(createdSupervisor.email, safeString(matchedUser.email)),
+      designation: { title: designationTitle },
+    } as Record<string, unknown>;
+
+    supervisorRows.push(supervisorRecord);
+    supervisorByEmployeeNumber.set(normaliseImportLookup(supervisorRecord.employee_number), supervisorRecord);
+    supervisorByName.set(
+      normaliseImportLookup(`${safeString(supervisorRecord.first_name)} ${safeString(supervisorRecord.last_name)}`),
+      supervisorRecord
+    );
+    supervisorByEmail.set(normaliseImportLookup(supervisorRecord.email), supervisorRecord);
+    supervisorByDesignationTitle.set(normaliseImportLookup(designationTitle), supervisorRecord);
+
+    await createAuditLog(context, {
+      moduleKey: "people",
+      entityType: "employee",
+      entityId: safeString(createdSupervisor.id),
+      action: "created_supervisor_record_from_staff_import",
+      afterValue: createdSupervisor as Record<string, unknown>,
+    });
+
+    return supervisorRecord;
   }
 
   const created: EmployeeRecord[] = [];
@@ -4195,7 +4304,7 @@ export async function importEmployeeRecords(input: {
         (departmentName ? departmentByName.get(normaliseImportLookup(departmentName)) : null) ??
         null;
       let designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
-      const supervisorRow =
+      let supervisorRow =
         (supervisorEmployeeNumber
           ? supervisorByEmployeeNumber.get(normaliseImportLookup(supervisorEmployeeNumber))
           : null) ??
@@ -4220,9 +4329,15 @@ export async function importEmployeeRecords(input: {
         designationRow = await createDesignationRecord(designationTitle);
       }
       if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
-        throw new Error(
-          `Supervisor "${supervisorEmployeeNumber || supervisorName || supervisorEmail}" was not found.`
-        );
+        supervisorRow =
+          (await ensureSupervisorEmployeeRow(
+            supervisorEmployeeNumber || supervisorName || supervisorEmail,
+            safeString(branchRow?.id, null as never) || null,
+            safeString(departmentRow?.id, null as never) || null
+          )) ?? null;
+      }
+      if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
+        throw new Error(`Supervisor "${supervisorEmployeeNumber || supervisorName || supervisorEmail}" was not found.`);
       }
 
       const resolvedBranchId = safeString(branchRow?.id, safeString(departmentRow?.branch_id)) || null;

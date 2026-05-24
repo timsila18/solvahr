@@ -16680,6 +16680,10 @@ async function getEmployeeDocumentGenerationContext(context: RequestContext, emp
     : 3;
   const employeeNumber = safeString(employee.employee_number);
   const fullName = `${safeString(employee.first_name)} ${safeString(employee.last_name)}`.trim();
+  const isTimothySafaConsultant =
+    isSafaDairyCompany(companyId) &&
+    /timothy sila kamwilwa/i.test(fullName) &&
+    isSafaDairyZeroDeductionContract(safeString(employee.employment_type));
   const reportingLine = (() => {
     if (isSafaDairyCompany(companyId) && ["SDL-001", "SDL-002"].includes(employeeNumber)) {
       return "Board of Directors";
@@ -16698,11 +16702,28 @@ async function getEmployeeDocumentGenerationContext(context: RequestContext, emp
     }
     return "Supervisor";
   })();
+  const adjustedSignatories = isTimothySafaConsultant
+    ? {
+        ...signatories,
+        generalManager: {
+          name: "John Kariuki",
+          title: "General Manager - Safa Dairy Limited",
+          initials: "JK",
+          label: "Authorized Signatory",
+        },
+        authorized: {
+          name: "John Kariuki",
+          title: "General Manager - Safa Dairy Limited",
+          initials: "JK",
+          label: "Authorized Signatory",
+        },
+      }
+    : signatories;
 
   return {
     companyId,
     branding,
-    signatories,
+    signatories: adjustedSignatories,
     employee: {
       id: safeString(employee.id),
       employeeNumber,

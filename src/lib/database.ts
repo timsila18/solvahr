@@ -4136,7 +4136,63 @@ export async function importEmployeeRecords(input: {
       null;
 
     if (!matchedUser) {
-      return null;
+      let designationRow = designationByTitle.get(normaliseImportLookup(reference)) ?? null;
+      if (!designationRow) {
+        designationRow = await createDesignationRecord(reference);
+      }
+
+      const scopedIds = await resolveScopedEmployeeSetupIds(context, {
+        branchId,
+        departmentId,
+      });
+
+      const createdPlaceholderSupervisor = await createEmployeeRowFromApprovedRequest(context, {
+        fullName: reference,
+        departmentId: scopedIds.departmentId,
+        branchId: scopedIds.branchId,
+        employmentType: "Permanent",
+        status: "Active",
+        salary: 0,
+        hireDate: new Date().toISOString().slice(0, 10),
+        designationId: safeString(designationRow.id, null as never),
+        phone: "",
+        supervisorEmployeeId: null,
+        probationMonths: 0,
+        contractDurationMonths: 12,
+      });
+
+      const placeholderSupervisorRecord = {
+        id: safeString(createdPlaceholderSupervisor.id),
+        employee_number: safeString(createdPlaceholderSupervisor.employee_number),
+        first_name: safeString(createdPlaceholderSupervisor.first_name),
+        last_name: safeString(createdPlaceholderSupervisor.last_name),
+        email: safeString(createdPlaceholderSupervisor.email),
+        designation: { title: reference },
+      } as Record<string, unknown>;
+
+      supervisorRows.push(placeholderSupervisorRecord);
+      supervisorByEmployeeNumber.set(
+        normaliseImportLookup(placeholderSupervisorRecord.employee_number),
+        placeholderSupervisorRecord
+      );
+      supervisorByName.set(
+        normaliseImportLookup(
+          `${safeString(placeholderSupervisorRecord.first_name)} ${safeString(placeholderSupervisorRecord.last_name)}`
+        ),
+        placeholderSupervisorRecord
+      );
+      supervisorByEmail.set(normaliseImportLookup(placeholderSupervisorRecord.email), placeholderSupervisorRecord);
+      supervisorByDesignationTitle.set(normaliseImportLookup(reference), placeholderSupervisorRecord);
+
+      await createAuditLog(context, {
+        moduleKey: "people",
+        entityType: "employee",
+        entityId: safeString(createdPlaceholderSupervisor.id),
+        action: "created_placeholder_supervisor_from_staff_import",
+        afterValue: createdPlaceholderSupervisor as Record<string, unknown>,
+      });
+
+      return placeholderSupervisorRecord;
     }
 
     const linkedEmployeeId = safeString(matchedUser.employee_id, null as never);

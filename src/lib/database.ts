@@ -4262,6 +4262,37 @@ export async function importEmployeeRecords(input: {
 
   const created: EmployeeRecord[] = [];
   const errors: Array<{ rowNumber: number; fullName: string; message: string }> = [];
+  const pendingSupervisorAssignments: Array<{
+    employeeId: string;
+    rowNumber: number;
+    fullName: string;
+    supervisorReference: string;
+    branchId: string | null;
+    departmentId: string | null;
+  }> = [];
+  const sheetSupervisorCandidatesByName = new Map<string, { rowNumber: number; fullName: string; designationTitle: string }>();
+  const sheetSupervisorCandidatesByDesignation = new Map<
+    string,
+    { rowNumber: number; fullName: string; designationTitle: string }
+  >();
+
+  for (const [index, row] of rows.entries()) {
+    const rowNumber = index + 2;
+    const fullName = safeString(readImportValue(row, ["fullName", "full_name", "employee_name", "staff_name"])).trim();
+    const designationTitle = safeString(
+      readImportValue(row, ["designationTitle", "designation_title", "designation", "job_title"])
+    ).trim();
+    if (fullName) {
+      sheetSupervisorCandidatesByName.set(normaliseImportLookup(fullName), { rowNumber, fullName, designationTitle });
+    }
+    if (designationTitle) {
+      sheetSupervisorCandidatesByDesignation.set(normaliseImportLookup(designationTitle), {
+        rowNumber,
+        fullName,
+        designationTitle,
+      });
+    }
+  }
 
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 2;
@@ -4360,6 +4391,13 @@ export async function importEmployeeRecords(input: {
         (departmentName ? departmentByName.get(normaliseImportLookup(departmentName)) : null) ??
         null;
       let designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
+      const supervisorReference = supervisorEmployeeNumber || supervisorName || supervisorEmail;
+      const sheetSupervisorCandidate =
+        (supervisorEmployeeNumber
+          ? sheetSupervisorCandidatesByDesignation.get(normaliseImportLookup(supervisorEmployeeNumber))
+          : null) ??
+        (supervisorName ? sheetSupervisorCandidatesByName.get(normaliseImportLookup(supervisorName)) : null) ??
+        null;
       let supervisorRow =
         (supervisorEmployeeNumber
           ? supervisorByEmployeeNumber.get(normaliseImportLookup(supervisorEmployeeNumber))
@@ -4384,16 +4422,16 @@ export async function importEmployeeRecords(input: {
       if (!designationRow) {
         designationRow = await createDesignationRecord(designationTitle);
       }
-      if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
+      if (supervisorReference && !supervisorRow && (!sheetSupervisorCandidate || sheetSupervisorCandidate.rowNumber < rowNumber)) {
         supervisorRow =
           (await ensureSupervisorEmployeeRow(
-            supervisorEmployeeNumber || supervisorName || supervisorEmail,
+            supervisorReference,
             safeString(branchRow?.id, null as never) || null,
             safeString(departmentRow?.id, null as never) || null
           )) ?? null;
       }
-      if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
-        throw new Error(`Supervisor "${supervisorEmployeeNumber || supervisorName || supervisorEmail}" was not found.`);
+      if (supervisorReference && !supervisorRow && !sheetSupervisorCandidate) {
+        throw new Error(`Supervisor "${supervisorReference}" was not found.`);
       }
 
       const resolvedBranchId = safeString(branchRow?.id, safeString(departmentRow?.branch_id)) || null;
@@ -4448,12 +4486,77 @@ export async function importEmployeeRecords(input: {
         generatedBy: context.profile.full_name || context.profile.email,
       });
 
+      const createdSupervisorRecord = {
+        id: safeString(createdRow.id),
+        employee_number: safeString(createdRow.employee_number),
+        first_name: safeString(createdRow.first_name),
+        last_name: safeString(createdRow.last_name),
+        email: safeString(createdRow.email),
+        designation: { title: designationTitle },
+      } as Record<string, unknown>;
+      supervisorRows.push(createdSupervisorRecord);
+      supervisorByEmployeeNumber.set(normaliseImportLookup(createdSupervisorRecord.employee_number), createdSupervisorRecord);
+      supervisorByName.set(
+        normaliseImportLookup(`${safeString(createdSupervisorRecord.first_name)} ${safeString(createdSupervisorRecord.last_name)}`),
+        createdSupervisorRecord
+      );
+      supervisorByEmail.set(normaliseImportLookup(createdSupervisorRecord.email), createdSupervisorRecord);
+      supervisorByDesignationTitle.set(normaliseImportLookup(designationTitle), createdSupervisorRecord);
+
+      if (supervisorReference && !supervisorRow) {
+        pendingSupervisorAssignments.push({
+          employeeId: safeString(createdRow.id),
+          rowNumber,
+          fullName,
+          supervisorReference,
+          branchId: scopedIds.branchId,
+          departmentId: scopedIds.departmentId,
+        });
+      }
+
       created.push(mapEmployeeRecord(createdRow as EmployeeRow));
     } catch (error) {
       errors.push({
         rowNumber,
         fullName: fullName || `Row ${rowNumber}`,
         message: error instanceof Error ? error.message : "Could not import this staff row.",
+      });
+    }
+  }
+
+  for (const pendingAssignment of pendingSupervisorAssignments) {
+    try {
+      const resolvedSupervisorRow =
+        supervisorByEmployeeNumber.get(normaliseImportLookup(pendingAssignment.supervisorReference)) ??
+        supervisorByDesignationTitle.get(normaliseImportLookup(pendingAssignment.supervisorReference)) ??
+        supervisorByEmail.get(normaliseImportLookup(pendingAssignment.supervisorReference)) ??
+        supervisorByName.get(normaliseImportLookup(pendingAssignment.supervisorReference)) ??
+        (await ensureSupervisorEmployeeRow(
+          pendingAssignment.supervisorReference,
+          pendingAssignment.branchId,
+          pendingAssignment.departmentId
+        ));
+
+      if (!resolvedSupervisorRow) {
+        throw new Error(`Supervisor "${pendingAssignment.supervisorReference}" was not found.`);
+      }
+
+      const { error: updateError } = await context.supabase
+        .from("employees")
+        .update({ supervisor_employee_id: safeString(resolvedSupervisorRow.id, null as never) || null })
+        .eq("id", pendingAssignment.employeeId);
+
+      if (updateError) {
+        throw updateError;
+      }
+    } catch (error) {
+      errors.push({
+        rowNumber: pendingAssignment.rowNumber,
+        fullName: pendingAssignment.fullName || `Row ${pendingAssignment.rowNumber}`,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Supervisor "${pendingAssignment.supervisorReference}" could not be linked after import.`,
       });
     }
   }

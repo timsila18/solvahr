@@ -1033,11 +1033,7 @@ export function getPlatformSnapshot(): PlatformSnapshot {
         { item: "Employee activation batch", owner: "Supervisor", status: "Awaiting review", due: "Today 11:30" },
         { item: "Training request cycle", owner: "HR Admin", status: "Pending validation", due: "Tomorrow" },
       ],
-      announcements: [
-        { title: "SHIF compliance review pack ready", audience: "Payroll and Finance", time: "08:10" },
-        { title: "Q2 appraisal window opens Monday", audience: "All managers", time: "Yesterday" },
-        { title: "Mombasa biometric sync scheduled", audience: "Operations and HR", time: "Yesterday" },
-      ],
+      announcements: [],
     },
   };
 }

@@ -1111,7 +1111,17 @@ export function DashboardWorkbench({
                         </div>
                       </td>
                       <td>
-                        {task.status === "pending" && (task.ownerRole === roleName || roleName === "Super Admin") ? (
+                        {task.kind === "performance_review" ? (
+                          <div className="approval-action-cell">
+                            <button
+                              className="primary-button"
+                              onClick={() => onJump("Performance Reviews", "performance")}
+                              type="button"
+                            >
+                              Open review
+                            </button>
+                          </div>
+                        ) : task.status === "pending" && (task.ownerRole === roleName || roleName === "Super Admin") ? (
                           <div className="approval-action-cell">
                             <textarea
                               className="approval-inline-comment"

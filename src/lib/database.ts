@@ -975,6 +975,124 @@ function mapApprovalTask(row: TaskRow): ApprovalTask {
   };
 }
 
+function sortApprovalTasksByRecency(tasks: ApprovalTask[]) {
+  return [...tasks].sort((left, right) =>
+    safeString(right.submittedDate || right.updatedAt).localeCompare(safeString(left.submittedDate || left.updatedAt))
+  );
+}
+
+async function listSupplementalPerformanceApprovalTasks(context: RequestContext): Promise<ApprovalTask[]> {
+  const scopedEmployeeIds = await getScopedEmployeeIds(context);
+  let query = context.supabase
+    .from("appraisal_reviews")
+    .select(
+      "id, employee_id, review_cycle, status, created_at, updated_at, self_submitted_at, supervisor_submitted_at, self_comments, supervisor_comments, cycle:cycle_id(title, period_start, period_end), employee:employee_id(id, employee_number, first_name, last_name, department:department_id(name))"
+    )
+    .in("status", ["supervisor_review_pending", "gm_review_pending"])
+    .order("updated_at", { ascending: false })
+    .limit(200);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  query = applyScopedEmployeeIds(query as never, scopedEmployeeIds) as typeof query;
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  return rows.flatMap((row) => {
+    const status = safeString(row.status);
+    const employee = asRecord(row.employee);
+    const cycle = asRecord(row.cycle);
+    const employeeId = safeString(row.employee_id, safeString(employee?.id));
+    const employeeNumber = safeString(employee?.employee_number);
+    const employeeName =
+      `${employeeNumber} ${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim();
+    const departmentName = safeString(asRecord(employee?.department)?.name, "Unassigned");
+    const cycleTitle = safeString(cycle?.title, safeString(row.review_cycle, "Appraisal Review"));
+    const periodStart = safeString(cycle?.period_start);
+    const periodEnd = safeString(cycle?.period_end);
+    const periodLabel =
+      periodStart && periodEnd
+        ? `${formatDateLabel(periodStart)} - ${formatDateLabel(periodEnd)}`
+        : safeString(row.review_cycle, cycleTitle);
+
+    if (status === "supervisor_review_pending") {
+      if (!["Supervisor", "Manager", "HR Admin", "Super Admin"].includes(context.profile.role)) {
+        return [];
+      }
+
+      return [
+        {
+          id: `performance-review-${safeString(row.id)}`,
+          kind: "performance_review",
+          moduleKey: "performance",
+          entityId: safeString(row.id),
+          employeeId: employeeId || undefined,
+          requestType: "Performance Appraisal",
+          title: `${cycleTitle} review for ${employeeName || "employee"}`,
+          description: `Self-review submitted. ${employeeName || "Employee"} is waiting for supervisor review.`,
+          ownerRole: "Supervisor",
+          employee: employeeName || "-",
+          department: departmentName,
+          requestedBy: employeeName || "-",
+          requestedByName: employeeName || undefined,
+          requestedByRole: "Employee",
+          status: "pending",
+          stage: "Supervisor appraisal review",
+          due: "-",
+          submittedDate: safeString(row.self_submitted_at, safeString(row.created_at)),
+          priority: "Normal",
+          pendingApprover: "Supervisor",
+          latestComment: `Period: ${periodLabel}`,
+          linkHref: `/?module=performance&item=Performance%20Reviews&entityType=appraisal_review&entityId=${encodeURIComponent(safeString(row.id))}`,
+          updatedAt: safeString(row.updated_at, safeString(row.created_at)),
+        },
+      ];
+    }
+
+    if (status === "gm_review_pending") {
+      if (!["Manager", "HR Admin", "Super Admin"].includes(context.profile.role)) {
+        return [];
+      }
+
+      return [
+        {
+          id: `performance-review-${safeString(row.id)}`,
+          kind: "performance_review",
+          moduleKey: "performance",
+          entityId: safeString(row.id),
+          employeeId: employeeId || undefined,
+          requestType: "Performance Appraisal",
+          title: `${cycleTitle} final review for ${employeeName || "employee"}`,
+          description: `Supervisor review is complete. ${employeeName || "Employee"} is waiting for GM or HR final review.`,
+          ownerRole: context.profile.role === "HR Admin" ? "HR Admin" : "Manager",
+          employee: employeeName || "-",
+          department: departmentName,
+          requestedBy: employeeName || "-",
+          requestedByName: employeeName || undefined,
+          requestedByRole: "Employee",
+          status: "pending",
+          stage: "GM / HR appraisal review",
+          due: "-",
+          submittedDate: safeString(row.supervisor_submitted_at, safeString(row.created_at)),
+          priority: "Normal",
+          pendingApprover: "GM / HR Admin",
+          latestComment: `Period: ${periodLabel}`,
+          linkHref: `/?module=performance&item=Performance%20Reviews&entityType=appraisal_review&entityId=${encodeURIComponent(safeString(row.id))}`,
+          updatedAt: safeString(row.updated_at, safeString(row.created_at)),
+        },
+      ];
+    }
+
+    return [];
+  });
+}
+
 function mapAuditEvent(row: Record<string, unknown>): AuditEvent {
   return {
     id: safeString(row.id),
@@ -5027,7 +5145,9 @@ export async function listApprovalTasks(): Promise<ApprovalTask[]> {
     });
   }
 
-  return filtered.map(mapApprovalTask);
+  const mapped = filtered.map(mapApprovalTask);
+  const supplemental = await listSupplementalPerformanceApprovalTasks(context);
+  return sortApprovalTasksByRecency([...mapped, ...supplemental]);
 }
 
 async function createTask(
@@ -9077,7 +9197,7 @@ async function fetchApprovalTasksInternal(context: RequestContext) {
   const rows = (data ?? []) as TaskRow[];
 
   if (context.profile.role === "Manager") {
-    return rows
+    const mapped = rows
       .filter((row) => {
         const metadata = asRecord(row.metadata);
         const allowedApproverRoles = Array.isArray(metadata?.allowed_approver_roles)
@@ -9086,11 +9206,13 @@ async function fetchApprovalTasksInternal(context: RequestContext) {
         return safeString(row.owner_role) === "Manager" || allowedApproverRoles.includes("Manager");
       })
       .map((row) => mapApprovalTask(row));
+    const supplemental = await listSupplementalPerformanceApprovalTasks(context);
+    return sortApprovalTasksByRecency([...mapped, ...supplemental]);
   }
 
   if (context.profile.role === "Supervisor" && context.profile.employee_id) {
     const scopedEmployeeIds = new Set((await getScopedEmployeeIds(context)) ?? []);
-    return rows
+    const mapped = rows
       .filter((row) => {
         if (safeString(row.entity_type) !== "staff_complaint") {
           return true;
@@ -9100,9 +9222,13 @@ async function fetchApprovalTasksInternal(context: RequestContext) {
         return scopedEmployeeIds.has(safeString(metadata?.employeeId));
       })
       .map((row) => mapApprovalTask(row));
+    const supplemental = await listSupplementalPerformanceApprovalTasks(context);
+    return sortApprovalTasksByRecency([...mapped, ...supplemental]);
   }
 
-  return rows.map((row) => mapApprovalTask(row));
+  const mapped = rows.map((row) => mapApprovalTask(row));
+  const supplemental = await listSupplementalPerformanceApprovalTasks(context);
+  return sortApprovalTasksByRecency([...mapped, ...supplemental]);
 }
 
 async function listRecruitmentRequisitionsInternal(context: RequestContext) {

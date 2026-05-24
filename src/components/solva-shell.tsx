@@ -1432,8 +1432,11 @@ function PeopleWorkbench({
 
   function readImportCell(row: Record<string, unknown>, aliases: string[]) {
     const entries = Object.entries(row);
+    const normalisedEntries = entries.map(([key, value]) => [normaliseImportHeader(key), value] as const);
     for (const alias of aliases) {
-      const match = entries.find(([key]) => normaliseImportHeader(key) === alias);
+      const match =
+        normalisedEntries.find(([key]) => key === alias) ??
+        normalisedEntries.find(([key]) => key.includes(alias) || alias.includes(key));
       if (match) {
         const value = match[1];
         if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -1529,7 +1532,14 @@ function PeopleWorkbench({
           phone: readImportCell(row, ["phone_number", "phone", "mobile_number"]),
           employmentType: readImportCell(row, ["employment_type"]),
           salary: readImportCell(row, ["gross_salary", "salary", "basic_salary"]),
-          hireDate: readImportCell(row, ["hire_date_yyyy_mm_dd", "hire_date", "start_date"]),
+          hireDate: readImportCell(row, [
+            "hire_date_yyyy_mm_dd",
+            "hire_date",
+            "date_of_hire",
+            "employment_date",
+            "joining_date",
+            "start_date",
+          ]),
           branchName: readImportCell(row, ["branch_name", "branch"]),
           departmentName: readImportCell(row, ["department_name", "department"]),
           designationTitle: readImportCell(row, ["designation_title", "designation", "job_title"]),

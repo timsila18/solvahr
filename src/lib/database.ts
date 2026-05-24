@@ -3929,6 +3929,20 @@ function parseImportDate(value: unknown) {
   return "";
 }
 
+function readImportValue(row: Record<string, unknown>, aliases: string[]) {
+  const entries = Object.entries(row).map(([key, value]) => [normaliseImportLookup(key), value] as const);
+  for (const alias of aliases) {
+    const normalizedAlias = normaliseImportLookup(alias);
+    const match =
+      entries.find(([key]) => key === normalizedAlias) ??
+      entries.find(([key]) => key.includes(normalizedAlias) || normalizedAlias.includes(key));
+    if (match) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
 export async function importEmployeeRecords(input: {
   rows: Array<Record<string, unknown>>;
 }) {
@@ -3998,24 +4012,47 @@ export async function importEmployeeRecords(input: {
 
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 2;
-    const fullName = safeString(row.fullName).trim();
-    const phone = safeString(row.phone).trim();
-    const employmentType = safeString(row.employmentType, "Permanent").trim() || "Permanent";
-    const hireDate = parseImportDate(row.hireDate);
-    const branchName = safeString(row.branchName).trim();
-    const branchCode = safeString(row.branchCode).trim();
-    const departmentName = safeString(row.departmentName).trim();
-    const departmentCode = safeString(row.departmentCode).trim();
-    const designationTitle = safeString(row.designationTitle).trim();
-    const supervisorEmployeeNumber = safeString(row.supervisorEmployeeNumber).trim();
-    const supervisorName = safeString(row.supervisorName).trim();
-    const supervisorEmail = safeString(row.supervisorEmail).trim();
-    const kraPin = safeString(row.kraPin).trim();
-    const shifNumber = safeString(row.shifNumber).trim();
-    const nssfNumber = safeString(row.nssfNumber).trim();
-    const salary = parseImportNumber(row.salary);
-    const probationMonths = parseImportInteger(row.probationMonths);
-    const contractDurationMonths = parseImportInteger(row.contractDurationMonths);
+    const fullName = safeString(readImportValue(row, ["fullName", "full_name", "employee_name", "staff_name"])).trim();
+    const phone = safeString(readImportValue(row, ["phone", "phone_number", "mobile_number"])).trim();
+    const employmentType =
+      safeString(readImportValue(row, ["employmentType", "employment_type"]), "Permanent").trim() || "Permanent";
+    const hireDate = parseImportDate(
+      readImportValue(row, [
+        "hireDate",
+        "hire_date_yyyy_mm_dd",
+        "hire_date",
+        "date_of_hire",
+        "employment_date",
+        "joining_date",
+        "start_date",
+      ])
+    );
+    const branchName = safeString(readImportValue(row, ["branchName", "branch_name", "branch"])).trim();
+    const branchCode = safeString(readImportValue(row, ["branchCode", "branch_code"])).trim();
+    const departmentName = safeString(readImportValue(row, ["departmentName", "department_name", "department"])).trim();
+    const departmentCode = safeString(readImportValue(row, ["departmentCode", "department_code"])).trim();
+    const designationTitle = safeString(
+      readImportValue(row, ["designationTitle", "designation_title", "designation", "job_title"])
+    ).trim();
+    const supervisorEmployeeNumber = safeString(
+      readImportValue(row, [
+        "supervisorEmployeeNumber",
+        "supervisor_employee_number",
+        "supervisor_employee_number_title",
+        "supervisor_title",
+        "supervisor_designation_title",
+      ])
+    ).trim();
+    const supervisorName = safeString(readImportValue(row, ["supervisorName", "supervisor_name"])).trim();
+    const supervisorEmail = safeString(readImportValue(row, ["supervisorEmail", "supervisor_email"])).trim();
+    const kraPin = safeString(readImportValue(row, ["kraPin", "kra_pin"])).trim();
+    const shifNumber = safeString(readImportValue(row, ["shifNumber", "shif_number", "nhif_number"])).trim();
+    const nssfNumber = safeString(readImportValue(row, ["nssfNumber", "nssf_number"])).trim();
+    const salary = parseImportNumber(readImportValue(row, ["salary", "gross_salary", "basic_salary"]));
+    const probationMonths = parseImportInteger(readImportValue(row, ["probationMonths", "probation_months"]));
+    const contractDurationMonths = parseImportInteger(
+      readImportValue(row, ["contractDurationMonths", "contract_duration_months"])
+    );
     const rowHasValues = [
       fullName,
       phone,

@@ -88,6 +88,9 @@ const LEAVE_FINAL_APPROVER_ROLES: AppRole[] = ["HR Admin", "Manager", "Super Adm
 const SOLVA_BUSINESS_GROUP_COMPANY_IDS = new Set([
   "2742dd9d-f689-48bf-aaec-652b9731de6a",
 ]);
+const SAFA_DAIRY_COMPANY_IDS = new Set([
+  "46604299-3e3b-43b5-8722-d088082ed3bd",
+]);
 const ROBOT_CAFE_SHARED_SERVICE_SUPERVISORS = new Set([
   "brian.niva@solvahr.co.ke",
   "grace.waruingi@solvahr.co.ke",
@@ -1871,6 +1874,10 @@ function isSolvaBusinessGroupCompany(companyId: string | null | undefined) {
   return SOLVA_BUSINESS_GROUP_COMPANY_IDS.has(safeString(companyId));
 }
 
+function isSafaDairyCompany(companyId: string | null | undefined) {
+  return SAFA_DAIRY_COMPANY_IDS.has(safeString(companyId));
+}
+
 function normalizeIdentity(value: string | null | undefined) {
   return safeString(value).trim().toLowerCase();
 }
@@ -3002,7 +3009,11 @@ async function resolveScopedEmployeeSetupIds(
 }
 
 async function resolveEmployeeNumberForCompany(context: RequestContext) {
-  const prefix = isRobotCafeCompany(context.profile.company_id) ? "RC" : "SOL";
+  const prefix = isRobotCafeCompany(context.profile.company_id)
+    ? "RC"
+    : isSafaDairyCompany(context.profile.company_id)
+      ? "SDL"
+      : "SOL";
   const employeeQuery = context.supabase
     .from("employees")
     .select("employee_number")
@@ -3872,6 +3883,38 @@ function parseImportInteger(value: unknown) {
   return Math.round(parsed);
 }
 
+function parseImportDate(value: unknown) {
+  const raw = safeString(value).trim();
+  if (!raw) {
+    return "";
+  }
+
+  const isoMatch = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const localMatch = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (localMatch) {
+    let [, first, second, year] = localMatch;
+    const firstNumber = Number(first);
+    const secondNumber = Number(second);
+    const expandedYear = year.length === 2 ? `20${year}` : year;
+    const useDayFirst = firstNumber > 12 || secondNumber <= 12;
+    const day = useDayFirst ? first : second;
+    const month = useDayFirst ? second : first;
+    return `${expandedYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return "";
+}
+
 export async function importEmployeeRecords(input: {
   rows: Array<Record<string, unknown>>;
 }) {
@@ -3898,7 +3941,7 @@ export async function importEmployeeRecords(input: {
       .eq("company_id", context.profile.company_id),
     context.supabase
       .from("employees")
-      .select("id, employee_number, first_name, last_name, email")
+      .select("id, employee_number, first_name, last_name, email, designation:designation_id(title)")
       .eq("company_id", context.profile.company_id),
   ]);
 
@@ -3927,6 +3970,14 @@ export async function importEmployeeRecords(input: {
     ])
   );
   const supervisorByEmail = new Map(supervisorRows.map((row) => [normaliseImportLookup(row.email), row]));
+  const supervisorByDesignationTitle = new Map(
+    supervisorRows
+      .map((row) => {
+        const designation = asRecord(row.designation);
+        return [normaliseImportLookup(designation?.title), row] as const;
+      })
+      .filter(([key]) => Boolean(key))
+  );
 
   const created: EmployeeRecord[] = [];
   const errors: Array<{ rowNumber: number; fullName: string; message: string }> = [];
@@ -3936,7 +3987,7 @@ export async function importEmployeeRecords(input: {
     const fullName = safeString(row.fullName).trim();
     const phone = safeString(row.phone).trim();
     const employmentType = safeString(row.employmentType, "Permanent").trim() || "Permanent";
-    const hireDate = safeString(row.hireDate).trim();
+    const hireDate = parseImportDate(row.hireDate);
     const branchName = safeString(row.branchName).trim();
     const branchCode = safeString(row.branchCode).trim();
     const departmentName = safeString(row.departmentName).trim();
@@ -3978,7 +4029,7 @@ export async function importEmployeeRecords(input: {
         throw new Error("Full name is required.");
       }
       if (!hireDate) {
-        throw new Error("Hire date is required.");
+        throw new Error("Hire date is required and should be a real date like 2026-06-01, 01/06/2026, or 6/1/2026.");
       }
       if (!designationTitle) {
         throw new Error("Designation title is required.");
@@ -4008,6 +4059,9 @@ export async function importEmployeeRecords(input: {
       const supervisorRow =
         (supervisorEmployeeNumber
           ? supervisorByEmployeeNumber.get(normaliseImportLookup(supervisorEmployeeNumber))
+          : null) ??
+        (supervisorEmployeeNumber
+          ? supervisorByDesignationTitle.get(normaliseImportLookup(supervisorEmployeeNumber))
           : null) ??
         (supervisorEmail ? supervisorByEmail.get(normaliseImportLookup(supervisorEmail)) : null) ??
         (supervisorName ? supervisorByName.get(normaliseImportLookup(supervisorName)) : null) ??

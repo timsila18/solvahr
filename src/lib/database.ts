@@ -1882,6 +1882,22 @@ function usesRobotCafePayrollStructure(companyId: string | null | undefined) {
   return isRobotCafeCompany(companyId) || isSafaDairyCompany(companyId);
 }
 
+function isTimothySafaHrConsultant(profile: {
+  company_id?: string | null;
+  email?: string | null;
+  full_name?: string | null;
+  role?: string | null;
+}) {
+  return (
+    isSafaDairyCompany(profile.company_id) &&
+    safeString(profile.role) === "HR Admin" &&
+    (
+      normalizeIdentity(profile.email) === "timothy.kamwilwa@solvahr.co.ke" ||
+      /timothy sila kamwilwa/i.test(safeString(profile.full_name))
+    )
+  );
+}
+
 function readConfiguredEnv(value: string | undefined) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -2429,6 +2445,16 @@ export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
   const base = getStaticPlatformSnapshot();
   const workspace = await getWorkspaceIdentity(context);
   const moduleEntitlements = await getCompanyModuleEntitlements(context.profile.company_id);
+  const supplementalLoginProfiles = [
+    ...(isTimothySafaHrConsultant(context.profile)
+      ? [
+          {
+            role: "Payroll Admin" as const,
+            email: context.profile.email,
+          },
+        ]
+      : []),
+  ];
 
   const scopedBaseSnapshot = () => ({
     ...base,
@@ -2443,6 +2469,7 @@ export async function buildPlatformSnapshot(): Promise<PlatformSnapshot> {
         role: context.profile.role,
         email: context.profile.email,
       },
+      ...supplementalLoginProfiles,
       ...(context.profile.employee_id && context.profile.role !== "Employee"
         ? [
             {
@@ -14094,7 +14121,7 @@ export async function createPayrollPeriod(input: {
   payrollType: string;
 }) {
   const context = await getRequestContext();
-  ensureRole(context.profile, ["Super Admin", "Payroll Admin", "Finance Officer", "Manager"]);
+  ensureRole(context.profile, ["Super Admin", "Payroll Admin", "Finance Officer", "Manager", "HR Admin"]);
 
   if (!context.profile.company_id) {
     throw new Error("missing_company_context");

@@ -3943,6 +3943,16 @@ function readImportValue(row: Record<string, unknown>, aliases: string[]) {
   return undefined;
 }
 
+function buildImportLookupCode(value: string, fallback: string) {
+  const tokens = safeString(value)
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const initials = tokens.map((token) => token[0]?.toUpperCase() ?? "").join("");
+  const compact = safeString(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return (initials || compact || fallback).slice(0, 8);
+}
+
 export async function importEmployeeRecords(input: {
   rows: Array<Record<string, unknown>>;
 }) {
@@ -4006,6 +4016,84 @@ export async function importEmployeeRecords(input: {
       })
       .filter(([key]) => Boolean(key))
   );
+
+  async function createBranchRecord(name: string, code?: string) {
+    const payload = {
+      company_id: context.profile.company_id,
+      name,
+      code: safeString(code, buildImportLookupCode(name, "BR")),
+      location: name,
+      status: "active",
+    };
+    const { data, error } = await context.supabase.from("branches").insert(payload).select("id, name, code").single();
+    if (error || !data) {
+      throw error ?? new Error(`Could not create branch "${name}".`);
+    }
+    branchByName.set(normaliseImportLookup(data.name), data);
+    branchByCode.set(normaliseImportLookup(data.code), data);
+    await createAuditLog(context, {
+      moduleKey: "settings",
+      entityType: "branches",
+      entityId: safeString(data.id),
+      action: "created_lookup_record_from_staff_import",
+      afterValue: data as Record<string, unknown>,
+    });
+    return data as Record<string, unknown>;
+  }
+
+  async function createDepartmentRecord(name: string, branchId: string | null, code?: string) {
+    const payload = {
+      company_id: context.profile.company_id,
+      branch_id: branchId,
+      name,
+      code: safeString(code, buildImportLookupCode(name, "DEP")),
+      status: "active",
+    };
+    const { data, error } = await context.supabase
+      .from("departments")
+      .insert(payload)
+      .select("id, name, code, branch_id")
+      .single();
+    if (error || !data) {
+      throw error ?? new Error(`Could not create department "${name}".`);
+    }
+    departmentByName.set(normaliseImportLookup(data.name), data);
+    departmentByCode.set(normaliseImportLookup(data.code), data);
+    await createAuditLog(context, {
+      moduleKey: "settings",
+      entityType: "departments",
+      entityId: safeString(data.id),
+      action: "created_lookup_record_from_staff_import",
+      afterValue: data as Record<string, unknown>,
+    });
+    return data as Record<string, unknown>;
+  }
+
+  async function createDesignationRecord(title: string) {
+    const payload = {
+      company_id: context.profile.company_id,
+      title,
+      code: buildImportLookupCode(title, "DES"),
+      status: "active",
+    };
+    const { data, error } = await context.supabase
+      .from("designations")
+      .insert(payload)
+      .select("id, title, code")
+      .single();
+    if (error || !data) {
+      throw error ?? new Error(`Could not create designation "${title}".`);
+    }
+    designationByTitle.set(normaliseImportLookup(data.title), data);
+    await createAuditLog(context, {
+      moduleKey: "settings",
+      entityType: "designations",
+      entityId: safeString(data.id),
+      action: "created_lookup_record_from_staff_import",
+      afterValue: data as Record<string, unknown>,
+    });
+    return data as Record<string, unknown>;
+  }
 
   const created: EmployeeRecord[] = [];
   const errors: Array<{ rowNumber: number; fullName: string; message: string }> = [];
@@ -4098,15 +4186,15 @@ export async function importEmployeeRecords(input: {
         throw new Error("Contract duration months must be a whole number.");
       }
 
-      const branchRow =
+      let branchRow =
         (branchCode ? branchByCode.get(normaliseImportLookup(branchCode)) : null) ??
         (branchName ? branchByName.get(normaliseImportLookup(branchName)) : null) ??
         null;
-      const departmentRow =
+      let departmentRow =
         (departmentCode ? departmentByCode.get(normaliseImportLookup(departmentCode)) : null) ??
         (departmentName ? departmentByName.get(normaliseImportLookup(departmentName)) : null) ??
         null;
-      const designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
+      let designationRow = designationByTitle.get(normaliseImportLookup(designationTitle)) ?? null;
       const supervisorRow =
         (supervisorEmployeeNumber
           ? supervisorByEmployeeNumber.get(normaliseImportLookup(supervisorEmployeeNumber))
@@ -4119,13 +4207,17 @@ export async function importEmployeeRecords(input: {
         null;
 
       if ((branchName || branchCode) && !branchRow) {
-        throw new Error(`Branch "${branchName || branchCode}" was not found.`);
+        branchRow = await createBranchRecord(branchName || branchCode, branchCode || undefined);
       }
       if ((departmentName || departmentCode) && !departmentRow) {
-        throw new Error(`Department "${departmentName || departmentCode}" was not found.`);
+        departmentRow = await createDepartmentRecord(
+          departmentName || departmentCode,
+          safeString(branchRow?.id, null as never) || null,
+          departmentCode || undefined
+        );
       }
       if (!designationRow) {
-        throw new Error(`Designation "${designationTitle}" was not found.`);
+        designationRow = await createDesignationRecord(designationTitle);
       }
       if ((supervisorEmployeeNumber || supervisorName || supervisorEmail) && !supervisorRow) {
         throw new Error(
@@ -4142,7 +4234,11 @@ export async function importEmployeeRecords(input: {
         safeString(departmentRow?.branch_id) &&
         safeString(departmentRow?.branch_id) !== resolvedBranchId
       ) {
-        throw new Error("The selected department does not belong to the selected branch.");
+        departmentRow = await createDepartmentRecord(
+          departmentName || safeString(departmentRow?.name, departmentCode),
+          resolvedBranchId,
+          departmentCode || safeString(departmentRow?.code)
+        );
       }
 
       const scopedIds = await resolveScopedEmployeeSetupIds(context, {

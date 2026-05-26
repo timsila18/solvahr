@@ -65,6 +65,19 @@ type WorkflowAssistRequest = {
   recentRequestSummary?: string;
 };
 
+const MANAGEMENT_TO_EMPLOYEE_DOCUMENT_KINDS = new Set([
+  "warning_letter",
+  "show_cause",
+  "suspension_letter",
+  "dismissal_letter",
+  "summary_dismissal_letter",
+]);
+
+const POSITIVE_RECOGNITION_DOCUMENT_KINDS = new Set([
+  "commendation_letter",
+  "recommendation_letter",
+]);
+
 function readConfiguredEnv(value: string | undefined) {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -77,6 +90,14 @@ function readConfiguredEnv(value: string | undefined) {
 
 function safeString(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
+}
+
+function isManagementToEmployeeDocument(kind: string) {
+  return MANAGEMENT_TO_EMPLOYEE_DOCUMENT_KINDS.has(kind.trim().toLowerCase());
+}
+
+function isPositiveRecognitionDocument(kind: string) {
+  return POSITIVE_RECOGNITION_DOCUMENT_KINDS.has(kind.trim().toLowerCase());
 }
 
 function extractJsonObject(text: string) {
@@ -96,7 +117,8 @@ function extractJsonObject(text: string) {
 
 function buildSystemPrompt(
   mode: WorkflowAssistMode,
-  variant: WorkflowAssistRequest["variant"]
+  variant: WorkflowAssistRequest["variant"],
+  kind?: string
 ) {
   const variantInstruction =
     variant === "review"
@@ -175,6 +197,30 @@ function buildSystemPrompt(
         'Return JSON with keys: "reason", "comments", "summary", "issues".',
       ].join(" ");
     case "hr_document":
+      if (isManagementToEmployeeDocument(safeString(kind))) {
+        return [
+          "You help HR teams prepare employee-facing HR letter content inside Solva HR.",
+          "For this document, write as management directly addressing the employee.",
+          "The wording must sound like a formal letter to the staff member, not like internal notes or explanation to HR or management.",
+          "For disciplinary or action-oriented letters, keep the tone firm, factual, respectful, and clear.",
+          "For required action or outcome, state exactly what the employee is required to do, acknowledge, respond to, or refrain from doing, and include the deadline or consequence where supplied.",
+          "Do not invent incidents, misconduct, policy clauses, employment terms, or legal conclusions.",
+          variantInstruction,
+          'Return JSON with keys: "reason", "facts", "desiredAction", "roleDutyOverrides", "summary", "issues".',
+        ].join(" ");
+      }
+
+      if (isPositiveRecognitionDocument(safeString(kind))) {
+        return [
+          "You help HR teams prepare employee-facing HR letter content inside Solva HR.",
+          "For this document, write as management formally addressing the employee in a positive, professional tone.",
+          "The wording should read like an official recognition or recommendation letter, not like internal notes.",
+          "Do not invent achievements, decisions, or employment terms.",
+          variantInstruction,
+          'Return JSON with keys: "reason", "facts", "desiredAction", "roleDutyOverrides", "summary", "issues".',
+        ].join(" ");
+      }
+
       return [
         "You help HR teams prepare HR letter content inside Solva HR.",
         "Adapt tone to the document type: formal and positive for commendations or recommendations, careful and factual for disciplinary letters, clear and practical for contracts and appointment letters.",
@@ -300,7 +346,7 @@ export async function POST(request: Request) {
         model,
         temperature: 0.6,
         messages: [
-          { role: "system", content: buildSystemPrompt(mode, input.variant) },
+          { role: "system", content: buildSystemPrompt(mode, input.variant, input.kind) },
           { role: "system", content: `Keep the response strictly in JSON. Do not wrap it in prose.` },
           { role: "user", content: buildUserPrompt(mode, input, safeString(profile.role, "Employee")) },
         ],

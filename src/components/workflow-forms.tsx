@@ -253,6 +253,16 @@ function humanizeDocumentKind(value: HrDocumentKind) {
     .join(" ");
 }
 
+function isManagementToEmployeeDocument(kind: HrDocumentKind) {
+  return [
+    "warning_letter",
+    "show_cause",
+    "suspension_letter",
+    "dismissal_letter",
+    "summary_dismissal_letter",
+  ].includes(kind);
+}
+
 function parseRoleDutyOverrides(value: string) {
   return value
     .split(/\r?\n/)
@@ -751,8 +761,8 @@ export function EmployeeEditForm({
       facts: `On ${documentForm.incidentDate}, the following concern was raised in ${employeeContext?.branch || "the workplace"}: [brief incident summary]. The facts currently available are: [fact 1], [fact 2], and [impact on operations or policy].`,
       desiredAction:
         documentForm.kind === "show_cause"
-          ? "State what response is required from the employee and by when."
-          : "State the required action, consequence, or management decision clearly.",
+          ? "Address the employee directly and state what written response is required, what it should address, and by when it must be submitted."
+          : "Address the employee directly and state the required corrective action, warning, consequence, or management decision clearly.",
       roleDutyOverrides: [] as string[],
     };
   }, [documentForm.incidentDate, documentForm.kind, employeeContext?.branch, employeeContextLabel, employeeDesignation, form.fullName]);
@@ -1463,13 +1473,27 @@ export function EmployeeEditForm({
             </label>
 
             <label className="workflow-form-grid__full">
-              <span>{["commendation_letter", "recommendation_letter"].includes(documentForm.kind) ? "Manager note / recognition outcome" : "Required action / outcome"}</span>
+              <span>
+                {["commendation_letter", "recommendation_letter"].includes(documentForm.kind)
+                  ? "Manager note / recognition outcome"
+                  : isManagementToEmployeeDocument(documentForm.kind)
+                    ? "Required action / message to employee"
+                    : "Required action / outcome"}
+              </span>
               <textarea
                 onChange={(event) => setDocumentForm((current) => ({ ...current, desiredAction: event.target.value }))}
                 rows={3}
                 value={documentForm.desiredAction}
               />
             </label>
+            {isManagementToEmployeeDocument(documentForm.kind) ? (
+              <div className="workflow-form-grid__full workflow-readonly-card">
+                <strong>Letter voice</strong>
+                <span>
+                  Write this part as management directly addressing the employee. Do not explain the action to management or HR.
+                </span>
+              </div>
+            ) : null}
           </>
         ) : null}
 

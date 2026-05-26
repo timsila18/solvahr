@@ -2,6 +2,9 @@ import { Suspense } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { SignupScreen } from "@/components/signup-screen";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function SignupPage() {
   return (
     <AuthShell

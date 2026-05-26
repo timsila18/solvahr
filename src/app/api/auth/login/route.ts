@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { finalizeUserLogin, recordAuthAttempt } from "@/lib/administration";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function authJson(body: Record<string, unknown>, status: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
@@ -10,7 +21,7 @@ export async function POST(request: Request) {
     };
 
     if (!body.email || !body.password) {
-      return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+      return authJson({ error: "Email and password are required." }, 400);
     }
 
     const supabase = await createSupabaseServerClient();
@@ -30,7 +41,7 @@ export async function POST(request: Request) {
         deviceInfo,
         ipAddress,
       });
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return authJson({ error: error.message }, 400);
     }
 
     try {
@@ -49,7 +60,7 @@ export async function POST(request: Request) {
         ipAddress,
       });
 
-      return NextResponse.json(
+      return authJson(
         {
           error:
             message === "pending_approval"
@@ -58,25 +69,25 @@ export async function POST(request: Request) {
               ? "Your account has been suspended or deactivated. Please contact an administrator."
               : message,
         },
-        { status: 403 }
+        403
       );
     }
 
-    return NextResponse.json(
+    return authJson(
       {
         user: {
           id: data.user?.id ?? null,
           email: data.user?.email ?? body.email,
         },
       },
-      { status: 200 }
+      200
     );
   } catch (error) {
-    return NextResponse.json(
+    return authJson(
       {
         error: error instanceof Error ? error.message : "We could not sign you in right now.",
       },
-      { status: 500 }
+      500
     );
   }
 }

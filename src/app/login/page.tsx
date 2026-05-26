@@ -3,6 +3,9 @@ import { AuthShell } from "@/components/auth-shell";
 import { LoginScreen } from "@/components/login-screen";
 import { getPublicTenantBranding } from "@/lib/administration";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function LoginPage({
   searchParams,
 }: {

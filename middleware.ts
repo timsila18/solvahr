@@ -19,8 +19,27 @@ const publicPaths = [
   "/forbidden",
 ];
 
+const authNoStorePaths = [
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/pending-approval",
+];
+
 function isPublicPath(pathname: string) {
   return publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function isAuthNoStorePath(pathname: string) {
+  return authNoStorePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function applyNoStoreHeaders(response: NextResponse) {
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
 }
 
 const moduleRoutePrefixes: Array<{ prefix: string; moduleKey: string }> = [
@@ -98,16 +117,16 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(url);
+    return applyNoStoreHeaders(NextResponse.redirect(url));
   }
 
   if (user && isPublicPath(pathname)) {
     if (pathname === "/pending-approval" || pathname === "/cv-service") {
-      return response;
+      return isAuthNoStorePath(pathname) ? applyNoStoreHeaders(response) : response;
     }
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    return NextResponse.redirect(url);
+    return applyNoStoreHeaders(NextResponse.redirect(url));
   }
 
   let role = normalizeRole(typeof user?.app_metadata?.role === "string" ? user.app_metadata.role : "Employee");
@@ -132,7 +151,7 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("redirectTo", "/login?reason=session_timeout");
       const redirectResponse = NextResponse.redirect(url);
       redirectResponse.cookies.delete(LAST_ACTIVITY_COOKIE);
-      return redirectResponse;
+      return applyNoStoreHeaders(redirectResponse);
     }
   }
 
@@ -140,7 +159,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/pending-approval";
     url.search = "";
-    return NextResponse.redirect(url);
+    return applyNoStoreHeaders(NextResponse.redirect(url));
   }
   const employeeWorkflowException = role === "Employee" && pathname === "/leave/new";
   const restrictedModule = employeeWorkflowException ? null : getRestrictedModule(pathname);
@@ -151,7 +170,7 @@ export async function middleware(request: NextRequest) {
     url.search = "";
     url.searchParams.set("module", home.module);
     url.searchParams.set("item", home.item);
-    return NextResponse.redirect(url);
+    return applyNoStoreHeaders(NextResponse.redirect(url));
   }
 
   if (user) {
@@ -166,7 +185,7 @@ export async function middleware(request: NextRequest) {
     response.cookies.delete(LAST_ACTIVITY_COOKIE);
   }
 
-  return response;
+  return isAuthNoStorePath(pathname) ? applyNoStoreHeaders(response) : response;
 }
 
 export const config = {

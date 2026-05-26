@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 async function withAuthTimeout<T>(promise: Promise<T>, actionLabel: string) {
   return await Promise.race([
@@ -12,6 +12,21 @@ async function withAuthTimeout<T>(promise: Promise<T>, actionLabel: string) {
       }, 15000);
     }),
   ]);
+}
+
+function buildLoginRequest(targetUrl: string, email: string, password: string) {
+  return fetch(targetUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "same-origin",
+    cache: "no-store",
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
 }
 
 export function LoginScreen({
@@ -27,25 +42,45 @@ export function LoginScreen({
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(inboundMessage);
 
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        void registration.update();
+      });
+    });
+  }, []);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setMessage("");
 
     try {
-      const response = await withAuthTimeout(
-        fetch("/api/auth/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }),
-        "Sign in"
-      );
+      let response: Response;
+
+      try {
+        response = await withAuthTimeout(
+          buildLoginRequest("/api/auth/login", email, password),
+          "Sign in"
+        );
+      } catch (error) {
+        const shouldRetry =
+          error instanceof Error &&
+          (error.message.includes("Failed to fetch") || error.message.includes("NetworkError"));
+
+        if (!shouldRetry) {
+          throw error;
+        }
+
+        response = await withAuthTimeout(
+          buildLoginRequest(new URL("/api/auth/login", window.location.origin).toString(), email, password),
+          "Sign in"
+        );
+      }
 
       const payload = (await response.json()) as { error?: string };
 
@@ -57,7 +92,13 @@ export function LoginScreen({
 
       window.location.assign(redirectTo);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "We could not sign you in right now.");
+      setMessage(
+        error instanceof Error
+          ? error.message.includes("Failed to fetch")
+            ? "We could not reach sign-in right now. Refresh and try again."
+            : error.message
+          : "We could not sign you in right now."
+      );
       setSubmitting(false);
     }
   }

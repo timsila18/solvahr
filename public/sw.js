@@ -1,5 +1,12 @@
-const CACHE_NAME = "solva-hr-shell-v2";
-const STATIC_ROUTES = ["/", "/login", "/tools", "/insights", "/guided-setup"];
+const CACHE_NAME = "solva-hr-shell-v3";
+const STATIC_ROUTES = ["/", "/tools", "/insights", "/guided-setup"];
+const AUTH_ROUTES = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/pending-approval",
+]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,6 +35,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (AUTH_ROUTES.has(url.pathname)) {
+    return;
+  }
+
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -40,7 +51,7 @@ self.addEventListener("fetch", (event) => {
         if (cached) {
           return cached;
         }
-        return caches.match("/login");
+        return caches.match("/") || Response.error();
       })
   );
 });

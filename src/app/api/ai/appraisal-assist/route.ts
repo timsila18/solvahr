@@ -73,6 +73,37 @@ function takeFirstSentence(value: string) {
   return match ? match[0].trim() : normalized;
 }
 
+function describeRating(score: number | null) {
+  if (score === null) {
+    return "";
+  }
+  if (score <= 1) return "1 - Needs improvement";
+  if (score <= 2) return "2 - Fair";
+  if (score <= 3) return "3 - Good";
+  if (score <= 4) return "4 - Very good";
+  return "5 - Excellent";
+}
+
+function buildAreaNoteFromScore(title: string, score: number | null, reviewer: "Supervisor" | "GM") {
+  const label = safeString(title, "this area");
+  if (score === null) {
+    return `Provide a concise ${reviewer.toLowerCase()} note for ${label} based on the observed performance.`;
+  }
+  if (score <= 1) {
+    return `${label} requires immediate improvement. The employee did not consistently meet the expected standard and should improve performance with close follow-up.`;
+  }
+  if (score <= 2) {
+    return `${label} is below the expected standard in some areas. The employee should improve consistency, follow-through, and day-to-day execution.`;
+  }
+  if (score <= 3) {
+    return `${label} is meeting the basic expectation, though there is still room to improve consistency and strengthen overall delivery.`;
+  }
+  if (score <= 4) {
+    return `${label} is strong and dependable. The employee is performing well in this area and should maintain the current standard while refining consistency further.`;
+  }
+  return `${label} is excellent. The employee has demonstrated strong, reliable performance in this area and should maintain this high standard.`;
+}
+
 function buildAreaSummary(input: AppraisalAssistRequest) {
   return Array.isArray(input.areas)
     ? input.areas
@@ -85,9 +116,9 @@ function buildAreaSummary(input: AppraisalAssistRequest) {
           const selfScore = safeNumber(area.selfScore);
           const supervisorScore = safeNumber(area.supervisorScore);
           const gmScore = safeNumber(area.gmScore);
-          if (selfScore !== null) parts.push(`employee score ${selfScore}/5`);
-          if (supervisorScore !== null) parts.push(`supervisor score ${supervisorScore}/5`);
-          if (gmScore !== null) parts.push(`gm score ${gmScore}/5`);
+          if (selfScore !== null) parts.push(`employee score ${describeRating(selfScore)}`);
+          if (supervisorScore !== null) parts.push(`supervisor score ${describeRating(supervisorScore)}`);
+          if (gmScore !== null) parts.push(`gm score ${describeRating(gmScore)}`);
           if (safeString(area.evaluatorComments)) {
             parts.push(`notes: ${safeString(area.evaluatorComments)}`);
           }
@@ -115,6 +146,10 @@ function buildSystemPrompt(mode: AppraisalAssistMode) {
       "Base your suggestions on the employee self-review and the appraisal areas provided.",
       "Be balanced, specific, and operational.",
       "Do not invent performance incidents or disciplinary issues.",
+      "For every appraisal area provided, return one areaSuggestions entry.",
+      "If a supervisor score is already present, keep your note aligned to that score unless the context clearly contradicts it.",
+      "Scores 1-2 should sound corrective, 3 should be balanced, and 4-5 should clearly acknowledge stronger performance.",
+      "Area notes should be written as short appraisal comments ready to sit directly in the supervisor note field.",
       "Suggested scores must be integers from 1 to 5.",
       'Return JSON with keys: "supervisorComments", "correctiveAction", "trainingRecommendation", "summary", and "areaSuggestions" (array of { areaId, suggestedScore, note }).',
     ].join(" ");
@@ -124,6 +159,10 @@ function buildSystemPrompt(mode: AppraisalAssistMode) {
     "You are helping a General Manager finalize an appraisal inside Solva HR.",
     "Use a leadership tone that is concise, fair, and decisive.",
     "Do not invent facts that are not present in the supplied review context.",
+    "For every appraisal area provided, return one areaSuggestions entry.",
+    "If a GM score is already present, keep your note aligned to that score unless the context clearly contradicts it.",
+    "Scores 1-2 should sound corrective, 3 should be balanced, and 4-5 should acknowledge strong performance clearly.",
+    "Area notes should be written as short final-review comments ready to sit directly in the GM note field.",
     "Where an outcome is suggested, choose only from the allowed outcomes if they are provided.",
     "Suggested scores must be integers from 1 to 5.",
     'Return JSON with keys: "gmComments", "finalDecision", "nextQuarterActions", "summary", and "areaSuggestions" (array of { areaId, suggestedScore, note }).',
@@ -172,7 +211,11 @@ function buildSupervisorFallback(input: AppraisalAssistRequest) {
   const areaSuggestions = areas.slice(0, 8).map((area) => ({
     areaId: safeString(area.id),
     suggestedScore: safeNumber(area.supervisorScore) ?? safeNumber(area.selfScore) ?? 3,
-    note: safeString(area.expectedOutput || area.performanceIndicator, "Focus on consistent delivery in this area."),
+    note: buildAreaNoteFromScore(
+      safeString(area.title),
+      safeNumber(area.supervisorScore) ?? safeNumber(area.selfScore) ?? 3,
+      "Supervisor"
+    ),
   }));
 
   const strengths = takeFirstSentence(safeString(input.selfComments)) || "The employee has shown reasonable commitment to assigned duties during the review period.";
@@ -200,7 +243,11 @@ function buildGmFallback(input: AppraisalAssistRequest) {
   const areaSuggestions = areas.slice(0, 8).map((area) => ({
     areaId: safeString(area.id),
     suggestedScore: safeNumber(area.gmScore) ?? safeNumber(area.supervisorScore) ?? 3,
-    note: safeString(area.expectedOutput || area.performanceIndicator, "Confirm final expectations for this area."),
+    note: buildAreaNoteFromScore(
+      safeString(area.title),
+      safeNumber(area.gmScore) ?? safeNumber(area.supervisorScore) ?? 3,
+      "GM"
+    ),
   }));
 
   return {

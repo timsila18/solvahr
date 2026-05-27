@@ -110,6 +110,27 @@ function formatDate(value: unknown) {
   });
 }
 
+function buildAreaNoteFallback(title: string, scoreText: string, reviewer: "Supervisor" | "GM") {
+  const score = Number(scoreText);
+  if (!Number.isFinite(score) || score <= 0) {
+    return "";
+  }
+  const areaTitle = safeString(title, "this area");
+  if (score <= 1) {
+    return `${areaTitle} requires immediate improvement. The employee did not consistently meet the expected standard and should improve performance with close follow-up.`;
+  }
+  if (score <= 2) {
+    return `${areaTitle} is below the expected standard in some areas. The employee should improve consistency, follow-through, and day-to-day execution.`;
+  }
+  if (score <= 3) {
+    return `${areaTitle} is meeting the basic expectation, though there is still room to improve consistency and strengthen overall delivery.`;
+  }
+  if (score <= 4) {
+    return `${areaTitle} is strong and dependable. The employee is performing well in this area and should maintain the current standard while refining consistency further.`;
+  }
+  return `${areaTitle} is excellent. The employee has demonstrated strong, reliable performance in this area and should maintain this high standard.`;
+}
+
 function SectionMessage({ text }: { text: string }) {
   return <p className="section-description">{text}</p>;
 }
@@ -607,7 +628,16 @@ export function PerformanceWorkbench({
                 draft.stage === "gm" && suggestion.suggestedScore
                   ? String(suggestion.suggestedScore)
                   : existing.gmScore,
-              evaluatorComments: suggestion.note || existing.evaluatorComments,
+              evaluatorComments:
+                suggestion.note ||
+                existing.evaluatorComments ||
+                buildAreaNoteFallback(
+                  safeString(asRecordArray(review.items).find((item) => safeString(item.id) === areaId)?.title),
+                  draft.stage === "supervisor"
+                    ? (suggestion.suggestedScore ? String(suggestion.suggestedScore) : existing.supervisorScore)
+                    : (suggestion.suggestedScore ? String(suggestion.suggestedScore) : existing.gmScore),
+                  draft.stage === "gm" ? "GM" : "Supervisor"
+                ),
             };
           }
           return next;

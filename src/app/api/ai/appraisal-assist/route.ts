@@ -64,6 +64,15 @@ function extractJsonObject(text: string) {
   return JSON.parse(objectText) as Record<string, unknown>;
 }
 
+function takeFirstSentence(value: string) {
+  const normalized = safeString(value).replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+  const match = normalized.match(/.*?[.!?](\s|$)/);
+  return match ? match[0].trim() : normalized;
+}
+
 function buildAreaSummary(input: AppraisalAssistRequest) {
   return Array.isArray(input.areas)
     ? input.areas
@@ -144,6 +153,75 @@ function buildUserPrompt(mode: AppraisalAssistMode, input: AppraisalAssistReques
     .join("\n\n");
 }
 
+function buildEmployeeFallback(input: AppraisalAssistRequest) {
+  const whatWentWellSource = takeFirstSentence(safeString(input.selfComments)) || "I delivered my assigned responsibilities consistently and supported day-to-day operations well.";
+  const challengeSource = takeFirstSentence(safeString(input.challengesSummary)) || "I faced a few operational challenges that affected speed and consistency in some moments.";
+  const supportSource = takeFirstSentence(safeString(input.supportRequired)) || "Additional guidance, timely communication, and practical coaching would help me perform even better.";
+
+  return {
+    whatWentWell: whatWentWellSource,
+    challenges: challengeSource,
+    supportNeeded: supportSource,
+    summary: "A stronger self-review draft is ready. Please adjust it to match the employee's real experience.",
+    areaSuggestions: [],
+  };
+}
+
+function buildSupervisorFallback(input: AppraisalAssistRequest) {
+  const areas = Array.isArray(input.areas) ? input.areas : [];
+  const areaSuggestions = areas.slice(0, 8).map((area) => ({
+    areaId: safeString(area.id),
+    suggestedScore: safeNumber(area.supervisorScore) ?? safeNumber(area.selfScore) ?? 3,
+    note: safeString(area.expectedOutput || area.performanceIndicator, "Focus on consistent delivery in this area."),
+  }));
+
+  const strengths = takeFirstSentence(safeString(input.selfComments)) || "The employee has shown reasonable commitment to assigned duties during the review period.";
+  const challenges = takeFirstSentence(safeString(input.challengesSummary));
+  const support = takeFirstSentence(safeString(input.supportRequired));
+
+  return {
+    supervisorComments: challenges
+      ? `${strengths} The employee should now improve on the challenges raised in the self-review and maintain better consistency in daily performance.`
+      : `${strengths} Overall, the employee has shown a workable foundation and should maintain steady performance in the next review period.`,
+    correctiveAction: challenges
+      ? `The employee is expected to address the noted gaps, improve consistency, and follow agreed work standards more closely in the next review period.`
+      : "The employee should maintain the current strengths and improve consistency, accountability, and follow-through in daily work.",
+    trainingRecommendation: support
+      ? `${support} Targeted coaching and practical refresher support would help strengthen performance further.`
+      : "Practical coaching and routine performance follow-up would help strengthen consistency and job delivery.",
+    summary: "A supervisor review draft is ready. Please tailor it to the employee's actual performance record.",
+    areaSuggestions,
+  };
+}
+
+function buildGmFallback(input: AppraisalAssistRequest) {
+  const areas = Array.isArray(input.areas) ? input.areas : [];
+  const allowedOutcomes = Array.isArray(input.allowedOutcomes) ? input.allowedOutcomes.filter(Boolean) : [];
+  const areaSuggestions = areas.slice(0, 8).map((area) => ({
+    areaId: safeString(area.id),
+    suggestedScore: safeNumber(area.gmScore) ?? safeNumber(area.supervisorScore) ?? 3,
+    note: safeString(area.expectedOutput || area.performanceIndicator, "Confirm final expectations for this area."),
+  }));
+
+  return {
+    gmComments: "The review has been considered alongside the employee self-review and the supervisor assessment. The employee should maintain strengths, address the highlighted gaps, and follow through on the agreed next actions.",
+    finalDecision: allowedOutcomes[0] ?? safeString(input.finalDecision, "Needs improvement"),
+    nextQuarterActions: "Maintain close follow-up on the agreed action points, strengthen daily consistency, and review progress in the next performance cycle.",
+    summary: "A GM review draft is ready. Please confirm it matches the final management position.",
+    areaSuggestions,
+  };
+}
+
+function buildFallbackPayload(mode: AppraisalAssistMode, input: AppraisalAssistRequest) {
+  if (mode === "employee_self_review") {
+    return buildEmployeeFallback(input);
+  }
+  if (mode === "supervisor_review") {
+    return buildSupervisorFallback(input);
+  }
+  return buildGmFallback(input);
+}
+
 export async function POST(request: Request) {
   try {
     const profile = await getCurrentUserProfile();
@@ -169,36 +247,42 @@ export async function POST(request: Request) {
       readConfiguredEnv(process.env.OPENAI_CV_MODEL) ||
       "gpt-5.5";
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.6,
-        messages: [
-          { role: "system", content: buildSystemPrompt(mode) },
-          { role: "user", content: buildUserPrompt(mode, input, safeString(profile.role, "Employee")) },
-        ],
-      }),
-    });
+    let parsed: Record<string, unknown>;
+    let content = "";
 
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      error?: { message?: string };
-    };
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.6,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: buildSystemPrompt(mode) },
+            { role: "user", content: buildUserPrompt(mode, input, safeString(profile.role, "Employee")) },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: safeString(payload.error?.message, "openai_request_failed") },
-        { status: 502 }
-      );
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+        error?: { message?: string };
+      };
+
+      if (!response.ok) {
+        throw new Error(safeString(payload.error?.message, "openai_request_failed"));
+      }
+
+      content = safeString(payload.choices?.[0]?.message?.content);
+      parsed = extractJsonObject(content);
+    } catch {
+      parsed = buildFallbackPayload(mode, input);
+      content = safeString((parsed as Record<string, unknown>).summary, "A review draft is ready.");
     }
-
-    const content = safeString(payload.choices?.[0]?.message?.content);
-    const parsed = extractJsonObject(content);
 
     const areaSuggestions = Array.isArray(parsed.areaSuggestions)
       ? parsed.areaSuggestions

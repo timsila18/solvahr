@@ -669,8 +669,24 @@ export function PerformanceWorkbench({
       return;
     }
 
+    const fallbackNote = buildAreaNoteFallback(
+      safeString(item.title),
+      String(selectedScore),
+      reviewer
+    );
+
+    setReviewItemDrafts((current) => {
+      const existing = current[itemId] ?? itemDraft;
+      return {
+        ...current,
+        [itemId]: {
+          ...existing,
+          evaluatorComments: fallbackNote || existing.evaluatorComments,
+        },
+      };
+    });
     setBusyAction(`review-area-ai-${reviewId}-${itemId}`);
-    setActionMessage("");
+    setActionMessage(`Drafting a ${reviewer.toLowerCase()} note for ${safeString(item.title, "this appraisal area")}...`);
     try {
       const payload = await readJson<ReviewAssistPayload>("/api/ai/appraisal-assist", {
         method: "POST",
@@ -710,25 +726,21 @@ export function PerformanceWorkbench({
       );
       const note =
         safeString(suggestion?.note) ||
-        buildAreaNoteFallback(
-          safeString(item.title),
-          String(selectedScore),
-          reviewer
-        );
+        fallbackNote;
 
       setReviewItemDrafts((current) => ({
         ...current,
         [itemId]: {
-          ...itemDraft,
-          evaluatorComments: note,
+          ...(current[itemId] ?? itemDraft),
+          evaluatorComments: note || (current[itemId]?.evaluatorComments ?? itemDraft.evaluatorComments),
           supervisorScore:
             draft.stage === "supervisor" && suggestion?.suggestedScore
               ? String(suggestion.suggestedScore)
-              : itemDraft.supervisorScore,
+              : (current[itemId]?.supervisorScore ?? itemDraft.supervisorScore),
           gmScore:
             draft.stage === "gm" && suggestion?.suggestedScore
               ? String(suggestion.suggestedScore)
-              : itemDraft.gmScore,
+              : (current[itemId]?.gmScore ?? itemDraft.gmScore),
         },
       }));
 
@@ -737,16 +749,11 @@ export function PerformanceWorkbench({
           `${reviewer} note drafted for ${safeString(item.title, "this appraisal area")}. Review it and adjust if needed.`
       );
     } catch (error) {
-      const fallbackNote = buildAreaNoteFallback(
-        safeString(item.title),
-        String(selectedScore),
-        reviewer
-      );
       if (fallbackNote) {
         setReviewItemDrafts((current) => ({
           ...current,
           [itemId]: {
-            ...itemDraft,
+            ...(current[itemId] ?? itemDraft),
             evaluatorComments: fallbackNote,
           },
         }));

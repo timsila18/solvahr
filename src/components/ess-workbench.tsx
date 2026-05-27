@@ -1253,9 +1253,12 @@ export function EssWorkbench({
     const appraisal = appraisalsState.data?.find((item) => item.id === reviewId) ?? null;
     const appraisalStatus = (appraisal?.status ?? "").trim().toLowerCase();
     const isResubmittingToSupervisor = appraisalStatus === "supervisor_review_pending";
+    const isResubmittingToHr = appraisalStatus === "hr_review_pending";
     const confirmationMessage = isResubmittingToSupervisor
       ? "Are you sure you want to update and resubmit this appraisal to your supervisor? Your latest answers will replace the earlier self-review."
-      : "Are you sure you want to submit this appraisal to your supervisor?";
+      : isResubmittingToHr
+        ? "Are you sure you want to update and resubmit this appraisal to HR Admin? Your latest answers will replace the earlier self-review."
+        : "Are you sure you want to submit this appraisal for review?";
     if (typeof window !== "undefined" && !window.confirm(confirmationMessage)) {
       return;
     }
@@ -1290,7 +1293,9 @@ export function EssWorkbench({
       setActionMessage(
         isResubmittingToSupervisor
           ? "Your self-review has been updated and sent back to your supervisor."
-          : "Your self-review has been submitted to your supervisor."
+          : isResubmittingToHr
+            ? "Your self-review has been updated and sent back to HR Admin."
+            : "Your self-review has been submitted for review."
       );
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "Could not submit your self-review.");
@@ -3231,7 +3236,11 @@ export function EssWorkbench({
               const normalizedStatus = (item.status ?? "").trim().toLowerCase();
               const employeeCanStillEdit =
                 item.workflowMode === "robot_cafe_simple" &&
-                (normalizedStatus === "self_review_pending" || normalizedStatus === "supervisor_review_pending");
+                (
+                  normalizedStatus === "self_review_pending" ||
+                  normalizedStatus === "supervisor_review_pending" ||
+                  normalizedStatus === "hr_review_pending"
+                );
 
               return (
               <article key={item.id}>
@@ -3267,7 +3276,9 @@ export function EssWorkbench({
                         : employeeCanStillEdit
                           ? normalizedStatus === "supervisor_review_pending"
                             ? "Your supervisor is reviewing this appraisal. You can still update your self-review until it is forwarded to GM."
-                            : "Your self-review is needed before your supervisor can continue."
+                            : normalizedStatus === "hr_review_pending"
+                              ? "HR Admin is reviewing this appraisal. You can still update your self-review until it is forwarded to GM."
+                            : "Your self-review is needed before the next reviewer can continue."
                           : `Current stage: ${item.status}`}
                     </p>
                     {employeeCanStillEdit ? (
@@ -3365,7 +3376,7 @@ export function EssWorkbench({
                           </div>
                         ) : null}
                         <p className="section-description">
-                          After you submit, you can still come back and update this appraisal while your supervisor is reviewing it.
+                          After you submit, you can still come back and update this appraisal while it is being reviewed before the GM stage.
                         </p>
                         <div className="inline-actions">
                           <button
@@ -3385,7 +3396,7 @@ export function EssWorkbench({
                         >
                           {busyAction === `self-review-${item.id}`
                             ? "Submitting..."
-                            : normalizedStatus === "supervisor_review_pending"
+                            : normalizedStatus === "supervisor_review_pending" || normalizedStatus === "hr_review_pending"
                               ? "Update self-review"
                               : "Submit self-review"}
                         </button>

@@ -32,6 +32,7 @@ import { ReportsWorkbench } from "@/components/reports-workbench";
 import { AdminWorkbench } from "@/components/admin-workbench";
 import { DashboardWorkbench } from "@/components/dashboard-workbench";
 import { OperationsWorkbench } from "@/components/operations-workbench";
+import { INSTALL_REQUEST_EVENT } from "@/components/pwa-registrar";
 import {
   GuidedTour,
   HelpPanel,
@@ -5165,6 +5166,7 @@ export function SolvaShell({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [taskMessage, setTaskMessage] = useState("");
   const [runtimeError, setRuntimeError] = useState("");
+  const [showInstallAppAction, setShowInstallAppAction] = useState(false);
   const [guidanceState, setGuidanceState] = useState<GuidanceState>({
     welcomeDismissed: false,
     checklistDismissed: false,
@@ -5174,6 +5176,29 @@ export function SolvaShell({
   const [guidanceReady, setGuidanceReady] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [activeTourKey, setActiveTourKey] = useState<keyof typeof TOUR_DEFINITIONS | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updateInstallVisibility = () => {
+      const standalone =
+        window.matchMedia?.("(display-mode: standalone)").matches === true ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+      const desktop = window.matchMedia?.("(min-width: 1024px)").matches === true;
+      setShowInstallAppAction(desktop && !standalone);
+    };
+
+    updateInstallVisibility();
+    window.addEventListener("resize", updateInstallVisibility);
+    window.addEventListener("appinstalled", updateInstallVisibility);
+
+    return () => {
+      window.removeEventListener("resize", updateInstallVisibility);
+      window.removeEventListener("appinstalled", updateInstallVisibility);
+    };
+  }, []);
 
   const refreshRuntime = async () => {
     try {
@@ -7192,6 +7217,15 @@ export function SolvaShell({
             >
               {theme === "light" ? "Dark mode" : "Light mode"}
             </button>
+            {showInstallAppAction ? (
+              <button
+                className="ghost-button"
+                onClick={() => window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT))}
+                type="button"
+              >
+                Install app
+              </button>
+            ) : null}
             <button className="ghost-button" onClick={() => setShowHelpPanel(true)} type="button">
               Need Help?
             </button>

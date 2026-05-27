@@ -151,6 +151,7 @@ const SIMPLE_ROBOT_CAFE_TOTAL_SHARE =
 const SIMPLE_ROBOT_CAFE_REVIEW_STATUSES = {
   self: "self_review_pending",
   supervisor: "supervisor_review_pending",
+  hr: "hr_review_pending",
   gm: "gm_review_pending",
   final: "finalized",
 } as const;
@@ -213,8 +214,38 @@ function canEmployeeEditSimpleSelfReview(status: string) {
   const normalizedStatus = safeString(status);
   return (
     normalizedStatus === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.self ||
-    normalizedStatus === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.supervisor
+    normalizedStatus === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.supervisor ||
+    normalizedStatus === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.hr
   );
+}
+
+async function listLinkedEmployeeRoles(context: PerformanceContext, employeeId: string) {
+  if (!employeeId) {
+    return [];
+  }
+
+  let query = context.supabase
+    .from("users")
+    .select("role, status")
+    .eq("employee_id", employeeId);
+
+  if (context.profile.company_id) {
+    query = query.eq("company_id", context.profile.company_id);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as Array<RecordMap>)
+    .filter((row) => !["deactivated", "revoked", "suspended"].includes(safeString(row.status).toLowerCase()))
+    .map((row) => safeString(row.role))
+    .filter(Boolean);
+}
+
+function reviewRequiresHrAdminStage(linkedRoles: string[]) {
+  return linkedRoles.includes("Supervisor");
 }
 
 function getInitialsFromName(value: string) {
@@ -1037,7 +1068,11 @@ function buildPerformanceSummary(data: {
   const finalizedReviews = data.reviews.filter((review) => review.status === "finalized").length;
   const q2Reviews = data.reviews.filter((review) => review.cycleType.toLowerCase().includes("quarter") || safeString(review.title).toLowerCase().includes("q2"));
   const q2Completion = q2Reviews.length ? Number(((q2Reviews.filter((review) => review.status === "finalized").length / q2Reviews.length) * 100).toFixed(1)) : null;
-  const pendingSupervisorReviews = data.reviews.filter((review) => review.status === "supervisor_review_pending").length;
+  const pendingSupervisorReviews = data.reviews.filter(
+    (review) =>
+      review.status === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.supervisor ||
+      review.status === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.hr
+  ).length;
   const pendingGmRatings = data.reviews.filter((review) => review.status === "gm_review_pending").length;
   const performanceDistribution = {
     excellent: data.reviews.filter((review) => review.ratingBand === "Excellent").length,
@@ -1803,9 +1838,12 @@ export async function updateAppraisalReview(
   const review = reviewRow as RecordMap;
   const cycle = asRecord(review.cycle);
   await assertEmployeeScope(context, safeString(review.employee_id));
+  const subjectRoles = await listLinkedEmployeeRoles(context, safeString(review.employee_id));
+  const requiresHrAdminStage = reviewRequiresHrAdminStage(subjectRoles);
+  const currentStatus = safeString(review.status);
 
   if (input.stage === "self") {
-    if (context.profile.role !== "Employee" || safeString(context.profile.employee_id) !== safeString(review.employee_id)) {
+    if (safeString(context.profile.employee_id) !== safeString(review.employee_id)) {
       throw new Error("forbidden");
     }
     if (
@@ -1817,7 +1855,9 @@ export async function updateAppraisalReview(
   }
 
   if (input.stage === "supervisor") {
-    const allowed = ["Supervisor", "Manager", "HR Admin", "Super Admin"].includes(context.profile.role) || canPayrollAdminAct(context.profile, cycle);
+    const allowed = requiresHrAdminStage
+      ? ["HR Admin", "Super Admin"].includes(context.profile.role) && currentStatus === SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.hr
+      : ["Supervisor", "Manager", "HR Admin", "Super Admin"].includes(context.profile.role) || canPayrollAdminAct(context.profile, cycle);
     if (!allowed) {
       throw new Error("forbidden");
     }
@@ -1911,13 +1951,16 @@ export async function updateAppraisalReview(
     if (input.discussionHelped !== undefined) updatePayload.discussion_helped = input.discussionHelped;
     if (input.supervisorContributionComments !== undefined) updatePayload.supervisor_contribution_comments = input.supervisorContributionComments;
     if (input.submit) {
-      updatePayload.status = SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.supervisor;
+      updatePayload.status = requiresHrAdminStage
+        ? SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.hr
+        : SIMPLE_ROBOT_CAFE_REVIEW_STATUSES.supervisor;
       updatePayload.self_submitted_at = new Date().toISOString();
     }
   }
 
   if (input.stage === "supervisor") {
     if (input.supervisorComments !== undefined) updatePayload.supervisor_comments = input.supervisorComments;
+    if (requiresHrAdminStage && input.supervisorComments !== undefined) updatePayload.hr_comments = input.supervisorComments;
     if (input.challengesSummary !== undefined) updatePayload.challenges_summary = input.challengesSummary;
     if (input.issuesAffectingPerformance !== undefined) updatePayload.issues_affecting_performance = input.issuesAffectingPerformance;
     if (input.correctiveAction !== undefined) updatePayload.corrective_action = input.correctiveAction;

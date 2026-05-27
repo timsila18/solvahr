@@ -988,7 +988,7 @@ async function listSupplementalPerformanceApprovalTasks(context: RequestContext)
     .select(
       "id, employee_id, review_cycle, status, created_at, updated_at, self_submitted_at, supervisor_submitted_at, self_comments, supervisor_comments, cycle:cycle_id(title, period_start, period_end), employee:employee_id(id, employee_number, first_name, last_name, department:department_id(name))"
     )
-    .in("status", ["supervisor_review_pending", "gm_review_pending"])
+    .in("status", ["supervisor_review_pending", "hr_review_pending", "gm_review_pending"])
     .order("updated_at", { ascending: false })
     .limit(200);
 
@@ -1048,6 +1048,40 @@ async function listSupplementalPerformanceApprovalTasks(context: RequestContext)
           submittedDate: safeString(row.self_submitted_at, safeString(row.created_at)),
           priority: "Normal",
           pendingApprover: "Supervisor",
+          latestComment: `Period: ${periodLabel}`,
+          linkHref: `/?module=performance&item=Performance%20Reviews&entityType=appraisal_review&entityId=${encodeURIComponent(safeString(row.id))}`,
+          updatedAt: safeString(row.updated_at, safeString(row.created_at)),
+        },
+      ];
+    }
+
+    if (status === "hr_review_pending") {
+      if (!["HR Admin", "Super Admin"].includes(context.profile.role)) {
+        return [];
+      }
+
+      return [
+        {
+          id: `performance-review-${safeString(row.id)}`,
+          kind: "performance_review",
+          moduleKey: "performance",
+          entityId: safeString(row.id),
+          employeeId: employeeId || undefined,
+          requestType: "Performance Appraisal",
+          title: `${cycleTitle} review for ${employeeName || "employee"}`,
+          description: `Self-review submitted. ${employeeName || "Employee"} is waiting for HR Admin review before the GM stage.`,
+          ownerRole: "HR Admin",
+          employee: employeeName || "-",
+          department: departmentName,
+          requestedBy: employeeName || "-",
+          requestedByName: employeeName || undefined,
+          requestedByRole: "Supervisor",
+          status: "pending",
+          stage: "HR Admin appraisal review",
+          due: "-",
+          submittedDate: safeString(row.self_submitted_at, safeString(row.created_at)),
+          priority: "Normal",
+          pendingApprover: "HR Admin",
           latestComment: `Period: ${periodLabel}`,
           linkHref: `/?module=performance&item=Performance%20Reviews&entityType=appraisal_review&entityId=${encodeURIComponent(safeString(row.id))}`,
           updatedAt: safeString(row.updated_at, safeString(row.created_at)),

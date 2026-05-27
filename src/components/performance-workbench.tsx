@@ -8,8 +8,10 @@ type AsyncState<T> = {
   data: T | null;
 };
 
+type ReviewStage = "supervisor" | "gm";
+
 type ReviewDraft = {
-  stage: "supervisor" | "gm";
+  stage: ReviewStage;
   supervisorComments: string;
   gmComments: string;
   hrComments: string;
@@ -127,14 +129,57 @@ function EmptyState({
   );
 }
 
-function getDefaultReviewStage(role: string, payrollAdminActionEnabled: boolean) {
-  if (["Manager", "HR Admin", "Super Admin"].includes(role)) {
-    return "gm" as const;
+function getAvailableReviewStages(role: string, status: string, payrollAdminActionEnabled: boolean) {
+  const normalizedStatus = safeString(status);
+  const stages: ReviewStage[] = [];
+
+  if (normalizedStatus === "supervisor_review_pending") {
+    if (
+      role === "Supervisor" ||
+      ["Manager", "HR Admin", "Super Admin"].includes(role) ||
+      (role === "Payroll Admin" && payrollAdminActionEnabled)
+    ) {
+      stages.push("supervisor");
+    }
   }
-  if (role === "Payroll Admin" && payrollAdminActionEnabled) {
-    return "supervisor" as const;
+
+  if (normalizedStatus === "hr_review_pending") {
+    if (["HR Admin", "Super Admin"].includes(role)) {
+      stages.push("supervisor");
+    }
   }
-  return "supervisor" as const;
+
+  if (normalizedStatus === "gm_review_pending") {
+    if (["Manager", "HR Admin", "Super Admin"].includes(role)) {
+      stages.push("gm");
+    }
+  }
+
+  return stages;
+}
+
+function getDefaultReviewStage(role: string, payrollAdminActionEnabled: boolean, status = "") {
+  return getAvailableReviewStages(role, status, payrollAdminActionEnabled)[0] ?? (
+    ["Manager", "HR Admin", "Super Admin"].includes(role) ? "gm" : "supervisor"
+  );
+}
+
+function getReviewerLabel(status: string) {
+  return safeString(status) === "hr_review_pending" ? "HR Admin" : "Supervisor";
+}
+
+function getReviewStageOptionLabel(stage: ReviewStage, status: string) {
+  if (stage === "gm") {
+    return "GM final review";
+  }
+  return safeString(status) === "hr_review_pending" ? "HR Admin review" : "Supervisor review";
+}
+
+function getReviewSubmitLabel(stage: ReviewStage, status: string) {
+  if (stage === "gm") {
+    return "Finalize review";
+  }
+  return safeString(status) === "hr_review_pending" ? "Submit HR Admin review" : "Submit supervisor review";
 }
 
 export function PerformanceWorkbench({
@@ -414,8 +459,10 @@ export function PerformanceWorkbench({
   }
 
   async function handleReviewSubmit(reviewId: string) {
+    const review = reviews.find((item) => safeString(item.id) === reviewId);
+    const reviewStatus = safeString(review?.status);
     const draft = reviewDrafts[reviewId] ?? {
-      stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled),
+      stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled, reviewStatus),
       supervisorComments: "",
       gmComments: "",
       hrComments: "",
@@ -428,7 +475,6 @@ export function PerformanceWorkbench({
       pipRecommendation: false,
       promotionRecommendation: false,
     };
-    const review = reviews.find((item) => safeString(item.id) === reviewId);
     const items = asRecordArray(review?.items);
     const itemUpdates = items.map((item) => {
       const itemId = safeString(item.id);
@@ -992,7 +1038,7 @@ export function PerformanceWorkbench({
                 const draft =
                   reviewDrafts[safeString(review.id)] ??
                   ({
-                    stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled),
+                    stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled, safeString(review.status)),
                     supervisorComments: safeString(review.supervisorComments),
                     gmComments: safeString(review.gmComments),
                     hrComments: safeString(review.hrComments),
@@ -1007,8 +1053,12 @@ export function PerformanceWorkbench({
                   } satisfies ReviewDraft);
                 const items = asRecordArray(review.items);
                 const waitingForEmployee = safeString(review.status) === "self_review_pending";
+                const waitingForHr = safeString(review.status) === "hr_review_pending";
                 const waitingForSupervisor = safeString(review.status) === "supervisor_review_pending";
                 const waitingForGm = safeString(review.status) === "gm_review_pending";
+                const availableStages = getAvailableReviewStages(viewerRole, safeString(review.status), payrollAdminActionEnabled);
+                const canActOnReview = availableStages.length > 0 && !waitingForEmployee;
+                const reviewerLabel = getReviewerLabel(safeString(review.status));
 
                 return (
                   <article key={safeString(review.id)}>
@@ -1030,6 +1080,8 @@ export function PerformanceWorkbench({
                     <p className="section-description">
                       {waitingForEmployee
                         ? "Waiting for the employee to complete the short self-review."
+                        : waitingForHr
+                          ? "Ready for HR Admin review before the General Manager stage."
                         : waitingForSupervisor
                           ? "Ready for supervisor evaluation."
                           : waitingForGm
@@ -1044,7 +1096,7 @@ export function PerformanceWorkbench({
                       <p className="section-description"><strong>Support needed:</strong> {safeString(review.supportRequired, "-")}</p>
                     </div>
 
-                    {waitingForEmployee ? null : (
+                    {canActOnReview ? (
                       <div className="action-form compact-form">
                         <label>
                           <span>Review stage</span>
@@ -1061,8 +1113,11 @@ export function PerformanceWorkbench({
                               }))
                             }
                           >
-                            {viewerRole === "Supervisor" || viewerRole === "Payroll Admin" ? <option value="supervisor">Supervisor review</option> : null}
-                            {["Manager", "HR Admin", "Super Admin"].includes(viewerRole) ? <option value="gm">GM final review</option> : null}
+                            {availableStages.map((stage) => (
+                              <option key={stage} value={stage}>
+                                {getReviewStageOptionLabel(stage, safeString(review.status))}
+                              </option>
+                            ))}
                           </select>
                         </label>
                         <div className="inline-actions">
@@ -1076,7 +1131,9 @@ export function PerformanceWorkbench({
                               ? "Drafting..."
                               : draft.stage === "gm"
                                 ? "Help me finalize this"
-                                : "Help me draft this"}
+                                : waitingForHr
+                                  ? "Help me draft the HR review"
+                                  : "Help me draft this"}
                           </button>
                         </div>
 
@@ -1096,13 +1153,13 @@ export function PerformanceWorkbench({
                               <p className="section-description">{safeString(item.expectedOutput, safeString(item.targetText, safeString(item.performanceIndicator, "-")))}</p>
                               <div className="action-form compact-form">
                                 {draft.stage === "supervisor" ? (
-                                  <label><span>Supervisor score</span><select className="filter-pill" value={itemDraft.supervisorScore || "0"} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, supervisorScore: event.target.value } }))}><option value="0">Select</option><option value="1">1 - Needs improvement</option><option value="2">2 - Fair</option><option value="3">3 - Good</option><option value="4">4 - Very good</option><option value="5">5 - Excellent</option></select></label>
+                                  <label><span>{reviewerLabel} score</span><select className="filter-pill" value={itemDraft.supervisorScore || "0"} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, supervisorScore: event.target.value } }))}><option value="0">Select</option><option value="1">1 - Needs improvement</option><option value="2">2 - Fair</option><option value="3">3 - Good</option><option value="4">4 - Very good</option><option value="5">5 - Excellent</option></select></label>
                                 ) : null}
                                 {draft.stage === "gm" ? (
                                   <label><span>GM score</span><select className="filter-pill" value={itemDraft.gmScore || "0"} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, gmScore: event.target.value } }))}><option value="0">Select</option><option value="1">1 - Needs improvement</option><option value="2">2 - Fair</option><option value="3">3 - Good</option><option value="4">4 - Very good</option><option value="5">5 - Excellent</option></select></label>
                                 ) : null}
                                 {draft.stage === "supervisor" ? (
-                                  <label><span>Supervisor note</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
+                                  <label><span>{reviewerLabel} note</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
                                 ) : null}
                               </div>
                             </div>
@@ -1111,9 +1168,9 @@ export function PerformanceWorkbench({
 
                         {draft.stage === "supervisor" ? (
                           <>
-                            <label><span>Strengths observed</span><textarea rows={3} value={draft.supervisorComments} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, supervisorComments: event.target.value } }))} /></label>
+                            <label><span>{reviewerLabel} observations</span><textarea rows={3} value={draft.supervisorComments} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, supervisorComments: event.target.value } }))} /></label>
                             <label><span>Areas to improve</span><textarea rows={3} value={draft.correctiveAction} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, correctiveAction: event.target.value } }))} /></label>
-                            <label><span>Supervisor recommendation</span><textarea rows={3} value={draft.trainingRecommendation} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, trainingRecommendation: event.target.value } }))} /></label>
+                            <label><span>{reviewerLabel} recommendation</span><textarea rows={3} value={draft.trainingRecommendation} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, trainingRecommendation: event.target.value } }))} /></label>
                           </>
                         ) : null}
 
@@ -1126,10 +1183,18 @@ export function PerformanceWorkbench({
                         ) : null}
 
                         <button className="primary-button" disabled={busyAction === `review-${safeString(review.id)}`} onClick={() => void handleReviewSubmit(safeString(review.id))} type="button">
-                          {busyAction === `review-${safeString(review.id)}` ? "Saving..." : draft.stage === "gm" ? "Finalize review" : "Submit supervisor review"}
+                          {busyAction === `review-${safeString(review.id)}` ? "Saving..." : getReviewSubmitLabel(draft.stage, safeString(review.status))}
                         </button>
                       </div>
-                    )}
+                    ) : !waitingForEmployee ? (
+                      <p className="section-description">
+                        {waitingForHr
+                          ? "This appraisal is waiting for HR Admin review before the GM can finalize it."
+                          : waitingForGm
+                            ? "This appraisal is waiting for GM final review."
+                            : "This appraisal is not waiting for action from your current role."}
+                      </p>
+                    ) : null}
                   </article>
                 );
               })
@@ -1150,7 +1215,7 @@ export function PerformanceWorkbench({
               const draft =
                 reviewDrafts[safeString(review.id)] ??
                 ({
-                  stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled),
+                  stage: getDefaultReviewStage(viewerRole, payrollAdminActionEnabled, safeString(review.status)),
                   supervisorComments: safeString(review.supervisorComments),
                   gmComments: safeString(review.gmComments),
                   hrComments: safeString(review.hrComments),
@@ -1164,6 +1229,8 @@ export function PerformanceWorkbench({
                   promotionRecommendation: Boolean(review.promotionRecommendation),
                 } satisfies ReviewDraft);
               const items = asRecordArray(review.items);
+              const availableStages = getAvailableReviewStages(viewerRole, safeString(review.status), payrollAdminActionEnabled);
+              const reviewerLabel = getReviewerLabel(safeString(review.status));
               return (
                 <article key={safeString(review.id)}>
                   <strong>{safeString(review.employeeName)} | {safeString(review.title)}</strong>
@@ -1177,7 +1244,8 @@ export function PerformanceWorkbench({
                       Download report
                     </button>
                   </div>
-                  <div className="action-form compact-form">
+                  {availableStages.length ? (
+                    <div className="action-form compact-form">
                     <label>
                       <span>Review stage</span>
                       <select
@@ -1193,9 +1261,11 @@ export function PerformanceWorkbench({
                           }))
                         }
                       >
-                        {viewerRole === "Supervisor" ? <option value="supervisor">Supervisor evaluation</option> : null}
-                        {["Manager", "HR Admin", "Super Admin"].includes(viewerRole) ? <option value="gm">GM / calibration</option> : null}
-                        {viewerRole === "Payroll Admin" && payrollAdminActionEnabled ? <option value="supervisor">Payroll review support</option> : null}
+                        {availableStages.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {getReviewStageOptionLabel(stage, safeString(review.status))}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <div className="inline-actions">
@@ -1209,7 +1279,9 @@ export function PerformanceWorkbench({
                           ? "Drafting..."
                           : draft.stage === "gm"
                             ? "Help me finalize this"
-                            : "Help me draft this"}
+                            : safeString(review.status) === "hr_review_pending"
+                              ? "Help me draft the HR review"
+                              : "Help me draft this"}
                       </button>
                     </div>
                     {items.map((item) => {
@@ -1231,7 +1303,7 @@ export function PerformanceWorkbench({
                             <label><span>Actual value</span><input value={itemDraft.actualValue} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, actualValue: event.target.value } }))} /></label>
                             <label><span>Actual text</span><input value={itemDraft.actualText} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, actualText: event.target.value } }))} /></label>
                             {draft.stage === "supervisor" ? (
-                              <label><span>Supervisor score</span><input value={itemDraft.supervisorScore} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, supervisorScore: event.target.value } }))} /></label>
+                              <label><span>{reviewerLabel} score</span><input value={itemDraft.supervisorScore} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, supervisorScore: event.target.value } }))} /></label>
                             ) : null}
                             {draft.stage === "gm" ? (
                               <label><span>GM score</span><input value={itemDraft.gmScore} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, gmScore: event.target.value } }))} /></label>
@@ -1243,7 +1315,7 @@ export function PerformanceWorkbench({
                     })}
                     {draft.stage === "supervisor" ? (
                       <>
-                        <label><span>Supervisor comments</span><textarea rows={3} value={draft.supervisorComments} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, supervisorComments: event.target.value } }))} /></label>
+                        <label><span>{reviewerLabel} comments</span><textarea rows={3} value={draft.supervisorComments} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, supervisorComments: event.target.value } }))} /></label>
                         <label><span>Training recommendation</span><input value={draft.trainingRecommendation} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, trainingRecommendation: event.target.value } }))} /></label>
                         <label><span>Reward recommendation</span><input value={draft.rewardRecommendation} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, rewardRecommendation: event.target.value } }))} /></label>
                         <label><span>PIP recommendation</span><select className="filter-pill" value={draft.pipRecommendation ? "yes" : "no"} onChange={(event) => setReviewDrafts((current) => ({ ...current, [safeString(review.id)]: { ...draft, pipRecommendation: event.target.value === "yes" } }))}><option value="no">No</option><option value="yes">Yes</option></select></label>
@@ -1257,9 +1329,12 @@ export function PerformanceWorkbench({
                       </>
                     )}
                     <button className="primary-button" disabled={busyAction === `review-${safeString(review.id)}`} onClick={() => void handleReviewSubmit(safeString(review.id))} type="button">
-                      {busyAction === `review-${safeString(review.id)}` ? "Saving..." : "Submit review stage"}
+                      {busyAction === `review-${safeString(review.id)}` ? "Saving..." : getReviewSubmitLabel(draft.stage, safeString(review.status))}
                     </button>
-                  </div>
+                    </div>
+                  ) : (
+                    <p className="section-description">This appraisal is not waiting for action from your current role.</p>
+                  )}
                 </article>
               );
             })

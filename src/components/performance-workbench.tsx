@@ -652,6 +652,115 @@ export function PerformanceWorkbench({
     }
   }
 
+  async function handleReviewAreaAssist(
+    review: Record<string, unknown>,
+    draft: ReviewDraft,
+    item: Record<string, unknown>,
+    itemDraft: ReviewItemDraft
+  ) {
+    const reviewId = safeString(review.id);
+    const itemId = safeString(item.id);
+    const reviewer = draft.stage === "gm" ? "GM" : "Supervisor";
+    const selectedScore =
+      draft.stage === "gm" ? safeNumber(itemDraft.gmScore) : safeNumber(itemDraft.supervisorScore);
+
+    if (!selectedScore || selectedScore < 1 || selectedScore > 5) {
+      setActionMessage(`Select a ${reviewer.toLowerCase()} score first so I can draft the note for this area.`);
+      return;
+    }
+
+    setBusyAction(`review-area-ai-${reviewId}-${itemId}`);
+    setActionMessage("");
+    try {
+      const payload = await readJson<ReviewAssistPayload>("/api/ai/appraisal-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: draft.stage === "gm" ? "gm_review" : "supervisor_review",
+          employeeName: safeString(review.employeeName),
+          reviewTitle: safeString(review.title),
+          reviewPeriod: safeString(
+            review.reviewPeriodLabel,
+            `${safeString(review.periodStart)} to ${safeString(review.periodEnd)}`
+          ),
+          selfComments: safeString(review.selfComments),
+          challengesSummary: safeString(review.challengesSummary),
+          supportRequired: safeString(review.supportRequired),
+          supervisorComments: draft.supervisorComments,
+          gmComments: draft.gmComments,
+          finalDecision: draft.finalDecision,
+          allowedOutcomes: simpleWorkflowOutcomes,
+          areas: [
+            {
+              id: itemId,
+              title: safeString(item.title),
+              expectedOutput: safeString(item.expectedOutput),
+              performanceIndicator: safeString(item.performanceIndicator),
+              selfScore: safeNumber(item.selfScore),
+              supervisorScore: draft.stage === "supervisor" ? selectedScore : safeNumber(item.supervisorScore),
+              gmScore: draft.stage === "gm" ? selectedScore : safeNumber(item.gmScore),
+              evaluatorComments: safeString(itemDraft.evaluatorComments, safeString(item.evaluatorComments)),
+            },
+          ],
+        }),
+      });
+
+      const suggestion = (payload.areaSuggestions ?? []).find(
+        (entry) => safeString(entry.areaId) === itemId
+      );
+      const note =
+        safeString(suggestion?.note) ||
+        buildAreaNoteFallback(
+          safeString(item.title),
+          String(selectedScore),
+          reviewer
+        );
+
+      setReviewItemDrafts((current) => ({
+        ...current,
+        [itemId]: {
+          ...itemDraft,
+          evaluatorComments: note,
+          supervisorScore:
+            draft.stage === "supervisor" && suggestion?.suggestedScore
+              ? String(suggestion.suggestedScore)
+              : itemDraft.supervisorScore,
+          gmScore:
+            draft.stage === "gm" && suggestion?.suggestedScore
+              ? String(suggestion.suggestedScore)
+              : itemDraft.gmScore,
+        },
+      }));
+
+      setActionMessage(
+        payload.summary ||
+          `${reviewer} note drafted for ${safeString(item.title, "this appraisal area")}. Review it and adjust if needed.`
+      );
+    } catch (error) {
+      const fallbackNote = buildAreaNoteFallback(
+        safeString(item.title),
+        String(selectedScore),
+        reviewer
+      );
+      if (fallbackNote) {
+        setReviewItemDrafts((current) => ({
+          ...current,
+          [itemId]: {
+            ...itemDraft,
+            evaluatorComments: fallbackNote,
+          },
+        }));
+        setActionMessage(
+          `A quick ${reviewer.toLowerCase()} note draft is ready for ${safeString(item.title, "this area")}.`
+        );
+        return;
+      }
+      setActionMessage(error instanceof Error ? error.message : "Could not draft that review note right now.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
   async function handleOpenPerformanceReport(reviewId: string, disposition: "inline" | "attachment") {
     setBusyAction(`report-${reviewId}-${disposition}`);
     setActionMessage("");
@@ -1188,8 +1297,20 @@ export function PerformanceWorkbench({
                                 {draft.stage === "gm" ? (
                                   <label><span>GM score</span><select className="filter-pill" value={itemDraft.gmScore || "0"} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, gmScore: event.target.value } }))}><option value="0">Select</option><option value="1">1 - Needs improvement</option><option value="2">2 - Fair</option><option value="3">3 - Good</option><option value="4">4 - Very good</option><option value="5">5 - Excellent</option></select></label>
                                 ) : null}
-                                {draft.stage === "supervisor" ? (
-                                  <label><span>{reviewerLabel} note</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
+                                {draft.stage === "supervisor" || draft.stage === "gm" ? (
+                                  <>
+                                    <button
+                                      className="secondary-button"
+                                      disabled={busyAction === `review-area-ai-${safeString(review.id)}-${itemId}`}
+                                      onClick={() => void handleReviewAreaAssist(review, draft, item, itemDraft)}
+                                      type="button"
+                                    >
+                                      {busyAction === `review-area-ai-${safeString(review.id)}-${itemId}`
+                                        ? "Drafting..."
+                                        : "Help me draft this note"}
+                                    </button>
+                                    <label><span>{draft.stage === "gm" ? "GM note" : `${reviewerLabel} note`}</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
+                                  </>
                                 ) : null}
                               </div>
                             </div>
@@ -1338,7 +1459,19 @@ export function PerformanceWorkbench({
                             {draft.stage === "gm" ? (
                               <label><span>GM score</span><input value={itemDraft.gmScore} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, gmScore: event.target.value } }))} /></label>
                             ) : null}
-                            <label><span>Evaluator comments</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
+                            {draft.stage === "supervisor" || draft.stage === "gm" ? (
+                              <button
+                                className="secondary-button"
+                                disabled={busyAction === `review-area-ai-${safeString(review.id)}-${itemId}`}
+                                onClick={() => void handleReviewAreaAssist(review, draft, item, itemDraft)}
+                                type="button"
+                              >
+                                {busyAction === `review-area-ai-${safeString(review.id)}-${itemId}`
+                                  ? "Drafting..."
+                                  : "Help me draft this note"}
+                              </button>
+                            ) : null}
+                            <label><span>{draft.stage === "gm" ? "GM note" : "Evaluator comments"}</span><textarea rows={2} value={itemDraft.evaluatorComments} onChange={(event) => setReviewItemDrafts((current) => ({ ...current, [itemId]: { ...itemDraft, evaluatorComments: event.target.value } }))} /></label>
                           </div>
                         </div>
                       );

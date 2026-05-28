@@ -1192,6 +1192,260 @@ export async function updateCompanyOnboarding(input: {
   return getCompanyOnboardingDashboard();
 }
 
+function normalizeCompanyNameForComparison(name: string) {
+  const ignoredTokens = new Set([
+    "limited",
+    "ltd",
+    "co",
+    "company",
+    "the",
+    "and",
+    "group",
+    "holdings",
+    "holding",
+    "inc",
+    "llc",
+    "plc",
+  ]);
+
+  return safeString(name)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token && !ignoredTokens.has(token))
+    .join(" ");
+}
+
+function getCompanyNameTokens(name: string) {
+  return normalizeCompanyNameForComparison(name).split(/\s+/).filter(Boolean);
+}
+
+function isTokenSubset(subset: string[], superset: string[]) {
+  if (!subset.length || !superset.length) {
+    return false;
+  }
+  const supersetValues = new Set(superset);
+  return subset.every((token) => supersetValues.has(token));
+}
+
+function getLikelyFakePendingReason(
+  company: { companyId: string; name: string; status: string },
+  companies: Array<{ companyId: string; name: string; status: string }>
+) {
+  if (safeString(company.status) !== "pending_approval") {
+    return "";
+  }
+
+  const normalizedName = normalizeCompanyNameForComparison(company.name);
+  const nameTokens = getCompanyNameTokens(company.name);
+  if (!normalizedName || nameTokens.length === 0) {
+    return "";
+  }
+
+  const testKeywords = ["test", "trial", "codex", "demo", "sample", "fake", "dummy", "sandbox"];
+  if (testKeywords.some((keyword) => normalizedName.includes(keyword))) {
+    return "Looks like a test or trial signup.";
+  }
+
+  const duplicate = companies.find((candidate) => {
+    if (candidate.companyId === company.companyId) {
+      return false;
+    }
+    if (safeString(candidate.status) === "pending_approval") {
+      return false;
+    }
+    const candidateTokens = getCompanyNameTokens(candidate.name);
+    if (candidateTokens.length === 0) {
+      return false;
+    }
+    const candidateNormalized = normalizeCompanyNameForComparison(candidate.name);
+    return (
+      candidateNormalized === normalizedName ||
+      (nameTokens.length >= 2 &&
+        candidateTokens.length >= 2 &&
+        (isTokenSubset(nameTokens, candidateTokens) || isTokenSubset(candidateTokens, nameTokens)))
+    );
+  });
+
+  return duplicate ? `Looks like a duplicate of existing organization "${duplicate.name}".` : "";
+}
+
+async function getPendingRegistrationSummaries(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  companies: Array<{ companyId: string; name: string; status: string; submittedAt: string }>
+) {
+  const pendingCompanies = companies.filter((company) => safeString(company.status) === "pending_approval");
+  const companyIds = pendingCompanies.map((company) => company.companyId).filter(Boolean);
+
+  if (!companyIds.length) {
+    return new Map<string, Record<string, unknown>>();
+  }
+
+  const [usersResult, settingsResult] = await Promise.all([
+    admin
+      .from("users")
+      .select("id, company_id, full_name, email, phone, role, created_at, status")
+      .in("company_id", companyIds)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("company_settings")
+      .select("company_id, primary_email, phone")
+      .in("company_id", companyIds),
+  ]);
+
+  if (usersResult.error) {
+    throw usersResult.error;
+  }
+  if (settingsResult.error) {
+    throw settingsResult.error;
+  }
+
+  const usersByCompany = new Map<string, Array<Record<string, unknown>>>();
+  for (const user of usersResult.data ?? []) {
+    const companyId = safeString(user.company_id);
+    if (!companyId) continue;
+    const existing = usersByCompany.get(companyId) ?? [];
+    existing.push(user as Record<string, unknown>);
+    usersByCompany.set(companyId, existing);
+  }
+
+  const settingsByCompany = new Map<string, Record<string, unknown>>();
+  for (const setting of settingsResult.data ?? []) {
+    const companyId = safeString(setting.company_id);
+    if (!companyId) continue;
+    settingsByCompany.set(companyId, setting as Record<string, unknown>);
+  }
+
+  const summaries = new Map<string, Record<string, unknown>>();
+  for (const company of pendingCompanies) {
+    const users = usersByCompany.get(company.companyId) ?? [];
+    const primaryUser =
+      users.find((user) => {
+        const role = safeString(user.role).toLowerCase();
+        return role.includes("admin") || role.includes("manager");
+      }) ??
+      users[0] ??
+      null;
+    const settings = settingsByCompany.get(company.companyId) ?? {};
+    const likelyFakeReason = getLikelyFakePendingReason(company, companies);
+
+    summaries.set(company.companyId, {
+      adminName: primaryUser ? safeString(primaryUser.full_name) : "",
+      adminRole: primaryUser ? safeString(primaryUser.role) : "",
+      adminEmail: primaryUser ? safeString(primaryUser.email) : "",
+      adminPhone: primaryUser ? safeString(primaryUser.phone) : "",
+      companyEmail: safeString(settings.primary_email),
+      companyPhone: safeString(settings.phone),
+      likelyFakeReason,
+      isLikelyFakePending: Boolean(likelyFakeReason),
+    });
+  }
+
+  return summaries;
+}
+
+export async function listPendingEmployerRegistrations() {
+  const context = await getRequestContext();
+  if (!isPlatformOwner(context.profile)) {
+    throw new Error("forbidden");
+  }
+
+  const { data, error } = await context.admin
+    .from("companies")
+    .select("id, name, status, created_at")
+    .eq("status", "pending_approval")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const companies = ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    companyId: safeString(row.id),
+    name: safeString(row.name),
+    status: safeString(row.status),
+    submittedAt: safeString(row.created_at),
+  }));
+
+  const summaries = await getPendingRegistrationSummaries(context.admin, companies);
+
+  return companies.map((company) => {
+    const summary = summaries.get(company.companyId) ?? {};
+    return {
+      companyId: company.companyId,
+      companyName: company.name,
+      submittedAt: company.submittedAt,
+      adminName: safeString(summary.adminName),
+      adminRole: safeString(summary.adminRole),
+      adminEmail: safeString(summary.adminEmail),
+      adminPhone: safeString(summary.adminPhone),
+      companyEmail: safeString(summary.companyEmail),
+      companyPhone: safeString(summary.companyPhone),
+      isLikelyFakePending: Boolean(summary.isLikelyFakePending),
+      likelyFakeReason: safeString(summary.likelyFakeReason),
+    };
+  });
+}
+
+export async function cleanupFakePendingEmployerRegistrations() {
+  const context = await getRequestContext();
+  if (!isPlatformOwner(context.profile)) {
+    throw new Error("forbidden");
+  }
+
+  const pendingRegistrations = await listPendingEmployerRegistrations();
+  const fakeRegistrations = pendingRegistrations.filter((item) => item.isLikelyFakePending);
+
+  if (!fakeRegistrations.length) {
+    return { removed: [] as Array<Record<string, unknown>> };
+  }
+
+  const companyIds = fakeRegistrations.map((item) => item.companyId).filter(Boolean);
+
+  const { data: userRows, error: userLookupError } = await context.admin
+    .from("users")
+    .select("id, company_id")
+    .in("company_id", companyIds);
+
+  if (userLookupError) {
+    throw userLookupError;
+  }
+
+  const userIds = ((userRows ?? []) as Array<Record<string, unknown>>).map((row) => safeString(row.id)).filter(Boolean);
+
+  for (const userId of userIds) {
+    await context.admin.auth.admin.deleteUser(userId);
+  }
+
+  const cleanupStatements = [
+    context.admin.from("login_sessions").delete().in("company_id", companyIds),
+    context.admin.from("notifications").delete().in("company_id", companyIds),
+    context.admin.from("approval_tasks").delete().in("company_id", companyIds),
+    context.admin.from("audit_logs").delete().in("company_id", companyIds),
+    context.admin.from("organization_onboarding").delete().in("company_id", companyIds),
+    context.admin.from("organization_subscriptions").delete().in("company_id", companyIds),
+    context.admin.from("billing_invoices").delete().in("company_id", companyIds),
+    context.admin.from("company_settings").delete().in("company_id", companyIds),
+    context.admin.from("users").delete().in("company_id", companyIds),
+    context.admin.from("companies").delete().in("id", companyIds),
+  ];
+
+  await Promise.all(cleanupStatements.map((statement) => Promise.resolve(statement)));
+
+  return {
+    removed: fakeRegistrations.map((item) => ({
+      companyId: item.companyId,
+      companyName: item.companyName,
+      adminName: item.adminName,
+      adminEmail: item.adminEmail,
+      adminPhone: item.adminPhone,
+      reason: item.likelyFakeReason,
+    })),
+  };
+}
+
 export async function getPlatformOwnerDashboard() {
   const context = await getRequestContext();
   if (!isPlatformOwner(context.profile)) {
@@ -1218,6 +1472,13 @@ export async function getPlatformOwnerDashboard() {
   if (payrollRuns.error) throw payrollRuns.error;
 
   const plans = await listPublicSubscriptionPlans();
+  const companyRows = ((companies.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    companyId: safeString(row.id),
+    name: safeString(row.name),
+    status: safeString(row.status, "active"),
+    submittedAt: safeString(row.created_at),
+  }));
+  const pendingRegistrationSummaries = await getPendingRegistrationSummaries(context.admin, companyRows);
   const subscriptionByCompany = new Map(
     ((subscriptions.error ? [] : subscriptions.data) ?? []).map((row) => [
       safeString((row as Record<string, unknown>).company_id),
@@ -1229,6 +1490,7 @@ export async function getPlatformOwnerDashboard() {
     (companies.data ?? []).map(async (row) => {
       const company = row as Record<string, unknown>;
       const companyId = safeString(company.id);
+      const pendingRegistrationSummary = pendingRegistrationSummaries.get(companyId) ?? {};
       try {
         const branding = await getCompanyBranding(context.admin, companyId);
         const subscription = subscriptionByCompany.get(companyId) ?? null;
@@ -1301,6 +1563,15 @@ export async function getPlatformOwnerDashboard() {
           onboardingProgress: progressPercent,
           failedExports,
           missingDataPoints,
+          submittedAt: safeString(company.created_at),
+          adminName: safeString(pendingRegistrationSummary.adminName),
+          adminRole: safeString(pendingRegistrationSummary.adminRole),
+          adminEmail: safeString(pendingRegistrationSummary.adminEmail),
+          adminPhone: safeString(pendingRegistrationSummary.adminPhone),
+          companyEmail: safeString(pendingRegistrationSummary.companyEmail),
+          companyPhone: safeString(pendingRegistrationSummary.companyPhone),
+          isLikelyFakePending: Boolean(pendingRegistrationSummary.isLikelyFakePending),
+          likelyFakeReason: safeString(pendingRegistrationSummary.likelyFakeReason),
         };
       } catch {
         return {
@@ -1322,22 +1593,32 @@ export async function getPlatformOwnerDashboard() {
           onboardingProgress: 0,
           failedExports: 0,
           missingDataPoints: 0,
+          submittedAt: safeString(company.created_at),
+          adminName: safeString(pendingRegistrationSummary.adminName),
+          adminRole: safeString(pendingRegistrationSummary.adminRole),
+          adminEmail: safeString(pendingRegistrationSummary.adminEmail),
+          adminPhone: safeString(pendingRegistrationSummary.adminPhone),
+          companyEmail: safeString(pendingRegistrationSummary.companyEmail),
+          companyPhone: safeString(pendingRegistrationSummary.companyPhone),
+          isLikelyFakePending: Boolean(pendingRegistrationSummary.isLikelyFakePending),
+          likelyFakeReason: safeString(pendingRegistrationSummary.likelyFakeReason),
         };
       }
     })
   );
 
-  const activeSubscriptions = organizations.filter((item) => ["trialing", "active", "past_due"].includes(item.subscriptionStatus)).length;
-  const trialAccounts = organizations.filter((item) => item.subscriptionStatus === "trialing").length;
-  const pendingApprovals = organizations.filter((item) => item.status === "pending_approval").length;
-  const totalMRR = organizations.reduce((sum, item) => {
+  const visibleOrganizations = organizations.filter((item) => !item.isLikelyFakePending);
+  const activeSubscriptions = visibleOrganizations.filter((item) => ["trialing", "active", "past_due"].includes(item.subscriptionStatus)).length;
+  const trialAccounts = visibleOrganizations.filter((item) => item.subscriptionStatus === "trialing").length;
+  const pendingApprovals = visibleOrganizations.filter((item) => item.status === "pending_approval").length;
+  const totalMRR = visibleOrganizations.reduce((sum, item) => {
     const plan = plans.find((entry) => entry.name === item.planName);
     return sum + (plan?.monthlyPrice ?? 0);
   }, 0);
 
   return {
     cards: [
-      { label: "Organizations", value: String(organizations.length), hint: "Live tenants on Solva HR" },
+      { label: "Organizations", value: String(visibleOrganizations.length), hint: "Live tenants on Solva HR" },
       { label: "Active subscriptions", value: String(activeSubscriptions), hint: "Trialing and paid workspaces" },
       { label: "MRR", value: formatMoney(totalMRR), hint: "Estimated monthly recurring revenue" },
       { label: "Trial accounts", value: String(trialAccounts), hint: "Organizations still in trial mode" },
@@ -1349,7 +1630,7 @@ export async function getPlatformOwnerDashboard() {
         hint: "Exports generated across tenants",
       },
     ],
-    organizations,
+    organizations: visibleOrganizations,
     leads: ((leads.error ? [] : leads.data) ?? []).map((row) => ({
       id: safeString((row as Record<string, unknown>).id),
       leadType: safeString((row as Record<string, unknown>).lead_type),

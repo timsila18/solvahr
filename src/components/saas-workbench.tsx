@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  cleanupPendingEmployerRegistrations,
   fetchBillingDashboard,
   fetchOnboardingDashboard,
+  fetchPendingEmployerRegistrations,
   fetchSaasHQDashboard,
   reviewEmployerRegistration,
   updateBillingSubscription,
@@ -75,6 +77,7 @@ export function SaasWorkbench({
     error: "",
     data: null,
   });
+  const [pendingRegistrationsCount, setPendingRegistrationsCount] = useState(0);
 
   const loadBilling = useCallback(async () => {
     setBillingState({ loading: true, error: "", data: null });
@@ -99,10 +102,20 @@ export function SaasWorkbench({
   const loadHq = useCallback(async () => {
     setHqState({ loading: true, error: "", data: null });
     try {
-      const payload = await fetchSaasHQDashboard();
+      const [payload, registrationsPayload] = await Promise.all([
+        fetchSaasHQDashboard(),
+        fetchPendingEmployerRegistrations().catch(() => ({ registrations: [] as Array<Record<string, unknown>> })),
+      ]);
       setHqState({ loading: false, error: "", data: payload.hq });
+      setPendingRegistrationsCount(
+        registrationsPayload.registrations.filter((item) => {
+          const row = asRecord(item);
+          return row ? !Boolean(row.isLikelyFakePending) : false;
+        }).length
+      );
     } catch (error) {
       setHqState({ loading: false, error: error instanceof Error ? error.message : "Could not load Solva HQ.", data: null });
+      setPendingRegistrationsCount(0);
     }
   }, []);
 
@@ -157,6 +170,25 @@ export function SaasWorkbench({
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not review the organization registration.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handlePendingCleanup() {
+    setBusyAction("cleanup:pending-signups");
+    setMessage("");
+    try {
+      const payload = await cleanupPendingEmployerRegistrations();
+      const removed = Array.isArray(payload.result?.removed) ? payload.result.removed.length : 0;
+      await loadHq();
+      setMessage(
+        removed
+          ? `Removed ${removed} likely fake pending signup${removed === 1 ? "" : "s"} from the admin queue.`
+          : "No likely fake pending signups were found."
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not clean pending signups.");
     } finally {
       setBusyAction("");
     }
@@ -409,6 +441,16 @@ export function SaasWorkbench({
 
           <section className="mini-panel saas-wide-panel">
             <h4>Organizations</h4>
+            <div className="queue-actions">
+              <button
+                className="ghost-button"
+                disabled={busyAction === "cleanup:pending-signups"}
+                onClick={() => void handlePendingCleanup()}
+                type="button"
+              >
+                {busyAction === "cleanup:pending-signups" ? "Cleaning..." : "Remove likely fake pending signups"}
+              </button>
+            </div>
             <div className="mini-list queue-list">
               {organizations.map((organization) => (
                 <article key={safeString(organization.companyId)}>
@@ -417,6 +459,20 @@ export function SaasWorkbench({
                   <small>
                     {safeNumber(organization.employeeCount)} employees | {safeNumber(organization.adminCount)} admins | {safeString(organization.paymentStatus)} | Onboarding {safeString(organization.onboardingProgress, String(organization.onboardingProgress ?? 0))}% | Failed exports {safeString(organization.failedExports, String(organization.failedExports ?? 0))}
                   </small>
+                  {safeString(organization.status) === "pending_approval" ? (
+                    <>
+                      <small>
+                        Submitted {formatDate(safeString(organization.submittedAt))} | Pending contact {safeString(organization.adminName, "Unassigned")}
+                        {safeString(organization.adminRole) ? ` (${safeString(organization.adminRole)})` : ""}
+                      </small>
+                      <small>
+                        {safeString(organization.adminPhone, "-")} | {safeString(organization.adminEmail, "-")}
+                      </small>
+                      <small>
+                        Company line {safeString(organization.companyPhone, "-")} | {safeString(organization.companyEmail, "-")}
+                      </small>
+                    </>
+                  ) : null}
                   {safeString(organization.status) === "pending_approval" ? (
                     <div className="queue-actions">
                       <button
@@ -457,6 +513,7 @@ export function SaasWorkbench({
 
           <section className="mini-panel">
             <h4>Recent invoices</h4>
+            <p className="section-description">{pendingRegistrationsCount} real pending organization signup{pendingRegistrationsCount === 1 ? "" : "s"} in the admin queue.</p>
             <div className="mini-list queue-list">
               {invoices.map((invoice) => (
                 <article key={safeString(invoice.id)}>

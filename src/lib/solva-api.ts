@@ -120,6 +120,19 @@ export function fetchSaasHQDashboard() {
   });
 }
 
+export function fetchPendingEmployerRegistrations() {
+  return readJson<{ registrations: Array<Record<string, unknown>> }>("/api/admin/pending-registrations", {
+    cache: "no-store",
+  });
+}
+
+export function cleanupPendingEmployerRegistrations() {
+  return readJson<{ result: { removed: Array<Record<string, unknown>> } }>("/api/admin/pending-registrations", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export function reviewEmployerRegistration(
   companyId: string,
   input: { action: "approve" | "reject"; reason?: string }

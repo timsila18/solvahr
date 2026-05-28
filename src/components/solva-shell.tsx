@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -32,6 +32,7 @@ import { ReportsWorkbench } from "@/components/reports-workbench";
 import { AdminWorkbench } from "@/components/admin-workbench";
 import { DashboardWorkbench } from "@/components/dashboard-workbench";
 import { OperationsWorkbench } from "@/components/operations-workbench";
+import { ERPModulePlaceholder, getERPPlaceholderContent } from "@/components/erp-components";
 import { INSTALL_REQUEST_EVENT } from "@/components/pwa-registrar";
 import {
   GuidedTour,
@@ -70,21 +71,96 @@ import { workflowRoutes } from "@/lib/workflow-routes";
 import * as XLSX from "xlsx";
 
 const WORKSPACE_GROUPS = [
-  { label: "Command Center", keys: ["dashboard"] },
-  { label: "Operations", keys: ["payroll", "leave", "assets"] },
-  { label: "People", keys: ["people", "performance", "recruitment", "training"] },
-  { label: "Employee", keys: ["ess"] },
-  { label: "Analytics", keys: ["reports", "audit", "consultancy"] },
-  { label: "Administration", keys: ["administration", "settings", "integrations"] },
+  { label: "Overview", keys: ["dashboard"] },
+  { label: "Solva HR", keys: ["people", "leave", "performance", "training", "ess"] },
+  { label: "Payroll", keys: ["payroll"] },
+  { label: "Solva Finance", keys: ["finance"] },
+  { label: "Expenses", keys: ["expenses"] },
+  { label: "Budgeting", keys: ["budgets"] },
+  { label: "Procurement", keys: ["procurement"] },
+  { label: "Assets", keys: ["assets"] },
+  { label: "Banking", keys: ["banking"] },
+  { label: "Analytics", keys: ["analytics", "reports", "audit", "consultancy"] },
+  { label: "Solva AI", keys: ["ai"] },
+  { label: "Communication", keys: ["communication"] },
+  { label: "Settings", keys: ["administration", "settings", "integrations"] },
 ] as const;
+
+const ERP_PLACEHOLDER_MODULE_KEYS = new Set(["finance", "expenses", "budgets", "procurement", "assets", "banking", "analytics", "ai", "communication"]);
+const ERP_ROUTE_ITEM_LABELS: Record<string, Record<string, string>> = {
+  finance: {
+    overview: "Finance Overview",
+    "chart-of-accounts": "Chart of Accounts",
+    journals: "Journals",
+    "general-ledger": "General Ledger",
+    "trial-balance": "Trial Balance",
+    reports: "Financial Reports",
+  },
+  expenses: {
+    requests: "Expense Requests",
+    "payment-vouchers": "Payment Vouchers",
+    imprest: "Imprest",
+    surrenders: "Surrenders",
+  },
+  budgets: {
+    departments: "Department Budgets",
+    allocations: "Budget Allocations",
+    variance: "Budget Variance",
+  },
+  procurement: {
+    suppliers: "Suppliers",
+    requisitions: "Purchase Requisitions",
+    lpos: "LPOs",
+    grns: "GRNs",
+    invoices: "Supplier Invoices",
+  },
+  assets: {
+    overview: "Asset Overview",
+    register: "Asset Register",
+    assignments: "Asset Assignments",
+    maintenance: "Maintenance",
+    depreciation: "Depreciation",
+  },
+  banking: {
+    cashbook: "Cashbook",
+    "bank-accounts": "Bank Accounts",
+    reconciliation: "Bank Reconciliation",
+  },
+  analytics: {
+    overview: "Analytics Overview",
+    reports: "Reports",
+    insights: "Insights",
+  },
+  ai: {
+    assistant: "AI Assistant",
+    "report-writer": "Report Writer",
+    "anomaly-detection": "Anomaly Detection",
+  },
+  communication: {
+    overview: "Communication Overview",
+    announcements: "Announcements",
+    meetings: "Meetings",
+    messages: "Messages",
+    "solco-integration": "Solco Integration",
+  },
+};
 
 function getWorkspaceGroups(role: AppRole) {
   if (usesApprovalsHome(role)) {
     return [
-      { label: "Operations", keys: ["dashboard", "payroll", "leave", "assets"] },
-      { label: "People", keys: ["people", "performance", "recruitment", "training"] },
-      { label: "Analytics", keys: ["reports", "audit", "consultancy"] },
-      { label: "Administration", keys: ["administration", "settings", "integrations"] },
+      { label: "Overview", keys: ["dashboard"] },
+      { label: "Solva HR", keys: ["people", "leave", "performance", "training", "ess"] },
+      { label: "Payroll", keys: ["payroll"] },
+      { label: "Solva Finance", keys: ["finance"] },
+      { label: "Expenses", keys: ["expenses"] },
+      { label: "Budgeting", keys: ["budgets"] },
+      { label: "Procurement", keys: ["procurement"] },
+      { label: "Assets", keys: ["assets"] },
+      { label: "Banking", keys: ["banking"] },
+      { label: "Analytics", keys: ["analytics", "reports", "audit", "consultancy"] },
+      { label: "Solva AI", keys: ["ai"] },
+      { label: "Communication", keys: ["communication"] },
+      { label: "Settings", keys: ["administration", "settings", "integrations"] },
     ] as const;
   }
 
@@ -137,20 +213,74 @@ const MODULE_PRESENTATION: Record<
     shortTitle: "Reports",
     tagline: "Live dashboards, statutory exports, payroll reports, and workforce insights.",
   },
+  finance: {
+    title: "Solva Finance",
+    shortTitle: "Finance",
+    tagline: "Financial periods, chart of accounts, journals, ledgers, and reports.",
+  },
+  expenses: {
+    title: "Expenses",
+    shortTitle: "Expenses",
+    tagline: "Expense requests, vouchers, imprest, and surrender workflows.",
+  },
+  budgets: {
+    title: "Budgeting",
+    shortTitle: "Budgets",
+    tagline: "Department budgets, allocations, and variance controls.",
+  },
+  procurement: {
+    title: "Procurement",
+    shortTitle: "Procure",
+    tagline: "Suppliers, requisitions, LPOs, GRNs, and supplier invoices.",
+  },
+  banking: {
+    title: "Banking",
+    shortTitle: "Banking",
+    tagline: "Cashbook, bank accounts, and reconciliation preparation.",
+  },
+  analytics: {
+    title: "Analytics",
+    shortTitle: "Analytics",
+    tagline: "ERP reporting and insights beside the existing HR report layer.",
+  },
+  ai: {
+    title: "Solva AI",
+    shortTitle: "Solva AI",
+    tagline: "AI assistant, report writer, and anomaly detection planning.",
+  },
+  communication: {
+    title: "Communication",
+    shortTitle: "Comms",
+    tagline: "Announcements, meetings, messages, and Solco integration.",
+  },
 };
 
 function usesApprovalsHome(role: AppRole) {
-  return ["Supervisor", "Payroll Admin", "HR Admin", "Manager", "Finance Officer", "Super Admin"].includes(role);
+  return [
+    "Supervisor",
+    "Payroll Admin",
+    "HR Admin",
+    "Manager",
+    "Finance Officer",
+    "Finance Manager",
+    "Accountant",
+    "Procurement Officer",
+    "Asset Manager",
+    "Budget Holder",
+    "Approver",
+    "Auditor",
+    "Super Admin",
+  ].includes(role);
 }
 
 function getDashboardHomeItem(role: AppRole) {
   return usesApprovalsHome(role) ? "Pending Approvals" : "Overview";
 }
 
-const ROLE_BOTTOM_NAV: Record<
+const ROLE_BOTTOM_NAV: Partial<Record<
   AppRole,
   Array<{ label: string; moduleKey: string; item: string }>
-> = {
+>> = {
   Employee: [
     { label: "Home", moduleKey: "ess", item: "My Dashboard" },
     { label: "My Work", moduleKey: "ess", item: "My Attendance" },
@@ -2453,6 +2583,7 @@ function PayrollWorkbench({
   const activeRunId = payroll?.runId ?? process?.currentRunId ?? "";
   const selectedPayrollRunId = selectedExportPeriodId || activeRunId;
   const selectedPayrollPeriod = periods.find((period) => String(period.id) === selectedPayrollRunId) ?? null;
+  const isSelectedHolidayRun = String(selectedPayrollPeriod?.payroll_type ?? "") === "Holiday Payroll";
   const isMidMonthRun = payroll?.payrollType === "15th Payroll";
   const prefersMpesa =
     process?.paymentMode === "MPESA" || workspaceName.toLowerCase().includes("robot cafe");
@@ -3498,6 +3629,12 @@ function PayrollWorkbench({
                           {Number(period.net_pay ?? 0).toLocaleString()} | Validation{" "}
                           {Number(period.validation_errors ?? 0)}
                         </small>
+                        {String(period.payroll_type ?? "") === "Holiday Payroll" ? (
+                          <small>
+                            {String(period.holidayName ?? "Holiday payroll")} | {String(period.holidayDate ?? "-")} |{" "}
+                            {String(period.holidayPayMode ?? "One-day gross pay")}
+                          </small>
+                        ) : null}
                         <div className="queue-actions">
                           {(Array.isArray(period.allowedActions) ? period.allowedActions : []).map((action) => (
                             <button
@@ -4393,226 +4530,238 @@ function PayrollWorkbench({
                 </select>
               </label>
               <div className="report-export-grid">
+                {!isSelectedHolidayRun ? (
+                  <>
+                    <div className="report-export-card">
+                      <strong>Generate Payslips PDF</strong>
+                      <small>Download the branded payslip pack for the selected payroll run.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "payslip-bundle:download"}
+                        onClick={() => onPayslipBundleAction({ mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "payslip-bundle:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>Wagebill Report PDF</strong>
+                      <small>Formal wagebill summary matching the uploaded layout.</small>
+                      <div className="inline-actions">
+                        <button
+                          className="ghost-button"
+                          disabled={exportBusy === "wagebill_report:preview"}
+                          onClick={() =>
+                            onExport("wagebill_report", { mode: "preview", periodId: selectedExportPeriodId })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "wagebill_report:preview" ? "Opening..." : "Preview"}
+                        </button>
+                        <button
+                          className="primary-button"
+                          disabled={exportBusy === "wagebill_report:download"}
+                          onClick={() =>
+                            onExport("wagebill_report", { mode: "download", periodId: selectedExportPeriodId })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "wagebill_report:download" ? "Generating..." : "Download"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>Earnings &amp; Deductions Analysis PDF</strong>
+                      <small>Structured earnings and deduction analysis in the template sequence.</small>
+                      <div className="inline-actions">
+                        <button
+                          className="ghost-button"
+                          disabled={exportBusy === "earnings_deductions_analysis:preview"}
+                          onClick={() =>
+                            onExport("earnings_deductions_analysis", {
+                              mode: "preview",
+                              periodId: selectedExportPeriodId,
+                            })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "earnings_deductions_analysis:preview" ? "Opening..." : "Preview"}
+                        </button>
+                        <button
+                          className="primary-button"
+                          disabled={exportBusy === "earnings_deductions_analysis:download"}
+                          onClick={() =>
+                            onExport("earnings_deductions_analysis", {
+                              mode: "download",
+                              periodId: selectedExportPeriodId,
+                            })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "earnings_deductions_analysis:download"
+                            ? "Generating..."
+                            : "Download"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>Monthly Deduction Posting List PDF</strong>
+                      <small>Multi-page remittance posting list with grouped subtotals.</small>
+                      <div className="inline-actions">
+                        <button
+                          className="ghost-button"
+                          disabled={exportBusy === "monthly_deduction_posting_list:preview"}
+                          onClick={() =>
+                            onExport("monthly_deduction_posting_list", {
+                              mode: "preview",
+                              periodId: selectedExportPeriodId,
+                            })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "monthly_deduction_posting_list:preview" ? "Opening..." : "Preview"}
+                        </button>
+                        <button
+                          className="primary-button"
+                          disabled={exportBusy === "monthly_deduction_posting_list:download"}
+                          onClick={() =>
+                            onExport("monthly_deduction_posting_list", {
+                              mode: "download",
+                              periodId: selectedExportPeriodId,
+                            })
+                          }
+                          type="button"
+                        >
+                          {exportBusy === "monthly_deduction_posting_list:download"
+                            ? "Generating..."
+                            : "Download"}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
                 <div className="report-export-card">
-                  <strong>Generate Payslips PDF</strong>
-                  <small>Download the branded payslip pack for the selected payroll run.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "payslip-bundle:download"}
-                    onClick={() => onPayslipBundleAction({ mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "payslip-bundle:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>Wagebill Report PDF</strong>
-                  <small>Formal wagebill summary matching the uploaded layout.</small>
-                  <div className="inline-actions">
-                    <button
-                      className="ghost-button"
-                      disabled={exportBusy === "wagebill_report:preview"}
-                      onClick={() =>
-                        onExport("wagebill_report", { mode: "preview", periodId: selectedExportPeriodId })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "wagebill_report:preview" ? "Opening..." : "Preview"}
-                    </button>
-                    <button
-                      className="primary-button"
-                      disabled={exportBusy === "wagebill_report:download"}
-                      onClick={() =>
-                        onExport("wagebill_report", { mode: "download", periodId: selectedExportPeriodId })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "wagebill_report:download" ? "Generating..." : "Download"}
-                    </button>
-                  </div>
-                </div>
-                <div className="report-export-card">
-                  <strong>Earnings &amp; Deductions Analysis PDF</strong>
-                  <small>Structured earnings and deduction analysis in the template sequence.</small>
-                  <div className="inline-actions">
-                    <button
-                      className="ghost-button"
-                      disabled={exportBusy === "earnings_deductions_analysis:preview"}
-                      onClick={() =>
-                        onExport("earnings_deductions_analysis", {
-                          mode: "preview",
-                          periodId: selectedExportPeriodId,
-                        })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "earnings_deductions_analysis:preview" ? "Opening..." : "Preview"}
-                    </button>
-                    <button
-                      className="primary-button"
-                      disabled={exportBusy === "earnings_deductions_analysis:download"}
-                      onClick={() =>
-                        onExport("earnings_deductions_analysis", {
-                          mode: "download",
-                          periodId: selectedExportPeriodId,
-                        })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "earnings_deductions_analysis:download"
-                        ? "Generating..."
-                        : "Download"}
-                    </button>
-                  </div>
-                </div>
-                <div className="report-export-card">
-                  <strong>Monthly Deduction Posting List PDF</strong>
-                  <small>Multi-page remittance posting list with grouped subtotals.</small>
-                  <div className="inline-actions">
-                    <button
-                      className="ghost-button"
-                      disabled={exportBusy === "monthly_deduction_posting_list:preview"}
-                      onClick={() =>
-                        onExport("monthly_deduction_posting_list", {
-                          mode: "preview",
-                          periodId: selectedExportPeriodId,
-                        })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "monthly_deduction_posting_list:preview" ? "Opening..." : "Preview"}
-                    </button>
-                    <button
-                      className="primary-button"
-                      disabled={exportBusy === "monthly_deduction_posting_list:download"}
-                      onClick={() =>
-                        onExport("monthly_deduction_posting_list", {
-                          mode: "download",
-                          periodId: selectedExportPeriodId,
-                        })
-                      }
-                      type="button"
-                    >
-                      {exportBusy === "monthly_deduction_posting_list:download"
-                        ? "Generating..."
-                        : "Download"}
-                    </button>
-                  </div>
-                </div>
-                <div className="report-export-card">
-                  <strong>{primaryPaymentExport === "net_to_mpesa" ? "Net to MPESA Excel" : "Net to Bank Excel"}</strong>
+                  <strong>{isSelectedHolidayRun ? "Holiday Net to Bank Excel" : primaryPaymentExport === "net_to_mpesa" ? "Net to MPESA Excel" : "Net to Bank Excel"}</strong>
                   <small>
-                    {primaryPaymentExport === "net_to_mpesa"
+                    {isSelectedHolidayRun
+                      ? "Standalone holiday worked-pay export. This run is kept outside monthly payroll, statutory reports, and payslips."
+                      : primaryPaymentExport === "net_to_mpesa"
                       ? "MPESA payout file with staff number, employee name, department, phone number, payment method, and payable amount."
                       : "Bank schedule with title row, branch, branch code, and final net pay."}
                   </small>
                   <button
                     className="primary-button"
-                    disabled={exportBusy === `${primaryPaymentExport}:download`}
+                    disabled={exportBusy === `${isSelectedHolidayRun ? "net_to_bank" : primaryPaymentExport}:download`}
                     onClick={() =>
-                      onExport(primaryPaymentExport, {
+                      onExport(isSelectedHolidayRun ? "net_to_bank" : primaryPaymentExport, {
                         mode: "download",
                         periodId: selectedExportPeriodId,
                       })
                     }
                     type="button"
                   >
-                    {exportBusy === `${primaryPaymentExport}:download`
+                    {exportBusy === `${isSelectedHolidayRun ? "net_to_bank" : primaryPaymentExport}:download`
                       ? "Generating..."
                       : "Download"}
                   </button>
                 </div>
-                <div className="report-export-card">
-                  <strong>PAYE Excel</strong>
-                  <small>KRA filing layout with SHIF, AHL, reliefs, and taxable pay columns.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "paye_report:download"}
-                    onClick={() => onExport("paye_report", { mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "paye_report:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>NSSF Excel</strong>
-                  <small>Filing-ready NSSF return with payroll number, names, ID, PIN, and voluntary value.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "nssf_report:download"}
-                    onClick={() => onExport("nssf_report", { mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "nssf_report:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>SHIF Excel</strong>
-                  <small>Same uploaded SHA layout, updated to SHIF number and contribution naming.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "shif_report:download"}
-                    onClick={() => onExport("shif_report", { mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "shif_report:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>HELB CSV</strong>
-                  <small>Exact header structure for HELB posting uploads.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "helb_report:download"}
-                    onClick={() => onExport("helb_report", { mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "helb_report:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>Housing Levy Excel</strong>
-                  <small>Filing-ready employee and employer AHL schedule for the selected payroll run.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "housing_levy_report:download"}
-                    onClick={() =>
-                      onExport("housing_levy_report", { mode: "download", periodId: selectedExportPeriodId })
-                    }
-                    type="button"
-                  >
-                    {exportBusy === "housing_levy_report:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>Payroll Register Excel</strong>
-                  <small>Gross pay, deductions, net pay, and employer cost in one payroll register workbook.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "payroll_register:download"}
-                    onClick={() =>
-                      onExport("payroll_register", { mode: "download", periodId: selectedExportPeriodId })
-                    }
-                    type="button"
-                  >
-                    {exportBusy === "payroll_register:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
-                <div className="report-export-card">
-                  <strong>P9 Excel</strong>
-                  <small>P9-ready tax summary workbook for payroll review and employee distribution.</small>
-                  <button
-                    className="primary-button"
-                    disabled={exportBusy === "p9_forms:download"}
-                    onClick={() => onExport("p9_forms", { mode: "download", periodId: selectedExportPeriodId })}
-                    type="button"
-                  >
-                    {exportBusy === "p9_forms:download" ? "Generating..." : "Download"}
-                  </button>
-                </div>
+                {!isSelectedHolidayRun ? (
+                  <>
+                    <div className="report-export-card">
+                      <strong>PAYE Excel</strong>
+                      <small>KRA filing layout with SHIF, AHL, reliefs, and taxable pay columns.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "paye_report:download"}
+                        onClick={() => onExport("paye_report", { mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "paye_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>NSSF Excel</strong>
+                      <small>Filing-ready NSSF return with payroll number, names, ID, PIN, and voluntary value.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "nssf_report:download"}
+                        onClick={() => onExport("nssf_report", { mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "nssf_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>SHIF Excel</strong>
+                      <small>Same uploaded SHA layout, updated to SHIF number and contribution naming.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "shif_report:download"}
+                        onClick={() => onExport("shif_report", { mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "shif_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>HELB CSV</strong>
+                      <small>Exact header structure for HELB posting uploads.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "helb_report:download"}
+                        onClick={() => onExport("helb_report", { mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "helb_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>Housing Levy Excel</strong>
+                      <small>Filing-ready employee and employer AHL schedule for the selected payroll run.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "housing_levy_report:download"}
+                        onClick={() =>
+                          onExport("housing_levy_report", { mode: "download", periodId: selectedExportPeriodId })
+                        }
+                        type="button"
+                      >
+                        {exportBusy === "housing_levy_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>Payroll Register Excel</strong>
+                      <small>Gross pay, deductions, net pay, and employer cost in one payroll register workbook.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "payroll_register:download"}
+                        onClick={() =>
+                          onExport("payroll_register", { mode: "download", periodId: selectedExportPeriodId })
+                        }
+                        type="button"
+                      >
+                        {exportBusy === "payroll_register:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>P9 Excel</strong>
+                      <small>P9-ready tax summary workbook for payroll review and employee distribution.</small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "p9_forms:download"}
+                        onClick={() => onExport("p9_forms", { mode: "download", periodId: selectedExportPeriodId })}
+                        type="button"
+                      >
+                        {exportBusy === "p9_forms:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <small className="section-description">
-                PDF reports open in preview or download mode. Excel and CSV exports download directly and are written into export history. Missing statutory identifiers generate warnings instead of stopping the whole report.
+                {isSelectedHolidayRun
+                  ? "Holiday payroll stays separate from monthly payroll. Only the holiday payment export is available here."
+                  : "PDF reports open in preview or download mode. Excel and CSV exports download directly and are written into export history. Missing statutory identifiers generate warnings instead of stopping the whole report."}
               </small>
               {lastExportWarningSummary ? (
                 <div className="mini-list queue-list" style={{ marginTop: 12 }}>
@@ -5176,6 +5325,7 @@ export function SolvaShell({
   const [guidanceReady, setGuidanceReady] = useState(false);
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [activeTourKey, setActiveTourKey] = useState<keyof typeof TOUR_DEFINITIONS | null>(null);
+  const initialRouteAppliedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -5522,7 +5672,7 @@ export function SolvaShell({
     }),
     [employees.length, payrollPackage?.validationErrors, pendingTaskCount, tasks]
   );
-  const mobileDockItems = ROLE_BOTTOM_NAV[selectedRole.role] ?? ROLE_BOTTOM_NAV.Operator;
+  const mobileDockItems = ROLE_BOTTOM_NAV[selectedRole.role] ?? ROLE_BOTTOM_NAV.Operator ?? [];
 
   useEffect(() => {
     function handleKeyboardShortcuts(event: KeyboardEvent) {
@@ -5551,6 +5701,36 @@ export function SolvaShell({
       [activeModule.key]: activeModule.items[0] ?? "",
     }));
   }, [activeItem, activeModule]);
+
+  useEffect(() => {
+    const pathParts = typeof window === "undefined" ? [] : window.location.pathname.split("/").filter(Boolean);
+    const routeModuleKey = initialModuleKey ?? pathParts[0];
+    if (initialRouteAppliedRef.current || !routeModuleKey) {
+      return;
+    }
+
+    const targetModule = presentedModules.find((module) => module.key === routeModuleKey);
+    if (!targetModule || selectedRole.role === "Employee") {
+      return;
+    }
+
+    const routePageKey = pathParts[1] ?? "";
+    const routeItem = ERP_ROUTE_ITEM_LABELS[routeModuleKey]?.[routePageKey];
+    const targetItem =
+      (initialItem && targetModule.items.includes(initialItem) ? initialItem : undefined) ??
+      (routeItem && targetModule.items.includes(routeItem) ? routeItem : undefined) ??
+      targetModule.items.find((item) => slugify(item) === routePageKey) ??
+      targetModule.items[0] ??
+      "";
+
+    initialRouteAppliedRef.current = true;
+    setModuleKey(targetModule.key);
+    setActiveItems((current) => ({
+      ...current,
+      [targetModule.key]: targetItem,
+    }));
+    setPageState(getPage(targetModule, targetItem));
+  }, [initialItem, initialModuleKey, presentedModules, selectedRole.role]);
 
   const checklistItems = useMemo<ChecklistItem[]>(() => {
     const manualDone = new Set(guidanceState.completedChecklist);
@@ -6205,7 +6385,8 @@ export function SolvaShell({
       activeItem === "P9 Forms" ||
       activeItem === "Statutory Reports" ||
       activeItem === "Payroll Audit Trail");
-  const rendersOperationsWorkbench = ["recruitment", "performance", "training", "assets", "integrations", "consultancy"].includes(activeModule.key);
+  const rendersOperationsWorkbench = ["recruitment", "performance", "training", "integrations", "consultancy"].includes(activeModule.key);
+  const rendersErpPlaceholder = ERP_PLACEHOLDER_MODULE_KEYS.has(activeModule.key);
   const rendersCustomWorkspace =
     activeModule.key === "dashboard" ||
     activeModule.key === "ess" ||
@@ -6213,6 +6394,7 @@ export function SolvaShell({
     activeModule.key === "reports" ||
     activeModule.key === "administration" ||
     activeModule.key === "audit" ||
+    rendersErpPlaceholder ||
     rendersPeopleWorkbench ||
     rendersPayrollWorkbench ||
     rendersOperationsWorkbench;
@@ -6240,6 +6422,16 @@ export function SolvaShell({
   }
 
   function renderCustomWorkspaceContent() {
+    if (rendersErpPlaceholder) {
+      return (
+        <ERPModulePlaceholder
+          content={getERPPlaceholderContent(activeModule.key, activeItem, activeModule.title)}
+          hasTenant={Boolean(snapshot?.workspace.name)}
+          role={selectedRole.role}
+        />
+      );
+    }
+
     if (activeModule.key === "dashboard") {
       return (
         <DashboardWorkbench
@@ -7095,8 +7287,8 @@ export function SolvaShell({
         <div className="brand-card">
           <WorkspaceLogo logoMark={workspaceLogoMark} logoUrl={workspaceLogoUrl} name={workspaceName} />
           <div>
-            <strong>{workspaceName}</strong>
-            <span>{selectedRole.role === "Employee" ? workspacePoweredByLabel : workspacePoweredByLabel}</span>
+            <strong>Solva ERP Suite</strong>
+            <span>{selectedRole.role === "Employee" ? workspacePoweredByLabel : `Solva HR - ${workspaceName}`}</span>
           </div>
         </div>
 
@@ -7157,7 +7349,7 @@ export function SolvaShell({
         <header className="topbar">
           <div className="topbar-summary">
             <div className="breadcrumbs">
-              <span>{selectedRole.role === "Employee" ? workspaceName : "Solva HR"}</span>
+              <span>{selectedRole.role === "Employee" ? workspaceName : "Solva ERP Suite"}</span>
               <strong>{activeModule.title}</strong>
               <small>{activeItem}</small>
             </div>

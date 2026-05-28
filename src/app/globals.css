@@ -320,6 +320,38 @@ a {
   background: var(--surface-muted);
 }
 
+.workflow-table {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.workflow-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.workflow-table th,
+.workflow-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.workflow-table th {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+}
+
+.workflow-table td input[type="text"],
+.workflow-table td input:not([type]) {
+  width: 100%;
+}
+
 .auth-cv-feature-card {
   display: grid;
   gap: 16px;
@@ -3369,6 +3401,61 @@ input {
   line-height: 1.6;
 }
 
+.erp-placeholder-page {
+  display: grid;
+  gap: 18px;
+}
+
+.erp-page-header {
+  align-items: flex-start;
+}
+
+.erp-page-header .section-description {
+  max-width: 760px;
+  margin-top: 8px;
+}
+
+.erp-placeholder-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+
+.erp-empty-state,
+.erp-setup-card,
+.erp-audit-preview,
+.erp-module-card {
+  min-width: 0;
+}
+
+.erp-empty-state .ghost-button,
+.erp-page-header .primary-button {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.erp-module-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.erp-module-card p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.erp-ai-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.erp-ai-results {
+  margin-top: 4px;
+}
+
 .upload-panel {
   display: grid;
   gap: 12px;
@@ -4258,6 +4345,10 @@ input {
   .surface-card,
   .metric-card {
     padding: 16px;
+  }
+
+  .erp-placeholder-grid {
+    grid-template-columns: 1fr;
   }
 
   .hero-copy h2 {

@@ -61,6 +61,17 @@ type EmployeeListPayload = {
   }>;
 };
 
+type PayrollPeriodSetupPayload = {
+  employees: Array<{
+    id: string;
+    employeeNumber: string;
+    fullName: string;
+    branch?: string;
+    department?: string;
+    status?: string;
+  }>;
+};
+
 type EmployeeDocumentsPayload = {
   documents: Array<{
     id: string;
@@ -123,6 +134,22 @@ type PerformanceWorkspacePayload = {
     }>;
   };
 };
+
+const KENYA_HOLIDAY_OPTIONS = [
+  "New Year's Day",
+  "Good Friday",
+  "Easter Monday",
+  "Labour Day",
+  "Madaraka Day",
+  "Idd-ul-Fitr",
+  "Idd-ul-Azha",
+  "Mazingira Day",
+  "Mashujaa Day",
+  "Jamhuri Day",
+  "Christmas Day",
+  "Boxing Day",
+  "Diwali",
+] as const;
 
 type WorkflowAssistPayload = {
   reason?: string;
@@ -1648,10 +1675,69 @@ export function EmployeeEditForm({
 export function PayrollPeriodCreateForm() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [loadingSetup, setLoadingSetup] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [periodMonth, setPeriodMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [payrollType, setPayrollType] = useState("15th Payroll");
+  const [holidayName, setHolidayName] = useState("Idd-ul-Azha");
+  const [holidayDate, setHolidayDate] = useState("");
+  const [setupEmployees, setSetupEmployees] = useState<PayrollPeriodSetupPayload["employees"]>([]);
+  const [excludedEmployees, setExcludedEmployees] = useState<Record<string, string>>({});
+
+  const isHolidayPayroll = payrollType === "Holiday Payroll";
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSetup() {
+      setLoadingSetup(true);
+      try {
+        const payload = await readJson<PayrollPeriodSetupPayload>("/api/payroll/periods/setup");
+        if (!active) return;
+        setSetupEmployees(payload.employees ?? []);
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : "Could not load payroll setup.");
+        }
+      } finally {
+        if (active) {
+          setLoadingSetup(false);
+        }
+      }
+    }
+
+    void loadSetup();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHolidayPayroll || !holidayDate) {
+      return;
+    }
+    setPeriodMonth(holidayDate.slice(0, 7));
+  }, [holidayDate, isHolidayPayroll]);
+
+  const includedCount = useMemo(
+    () => setupEmployees.filter((employee) => !excludedEmployees[employee.id]?.trim()).length,
+    [excludedEmployees, setupEmployees]
+  );
+
+  function toggleEmployeeExclusion(employeeId: string, excluded: boolean) {
+    setExcludedEmployees((current) => {
+      if (excluded) {
+        return {
+          ...current,
+          [employeeId]: current[employeeId] || "Off day",
+        };
+      }
+      const next = { ...current };
+      delete next[employeeId];
+      return next;
+    });
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1662,6 +1748,11 @@ export function PayrollPeriodCreateForm() {
     const [year, month] = periodMonth.split("-");
     if (!year || !month) {
       setError("Select the payroll month before opening the period.");
+      setPending(false);
+      return;
+    }
+    if (isHolidayPayroll && (!holidayName || !holidayDate)) {
+      setError("Choose the holiday name and holiday date before opening holiday payroll.");
       setPending(false);
       return;
     }
@@ -1676,10 +1767,22 @@ export function PayrollPeriodCreateForm() {
           year,
           month,
           payrollType,
+          holidayName: isHolidayPayroll ? holidayName : undefined,
+          holidayDate: isHolidayPayroll ? holidayDate : undefined,
+          holidayPayMode: isHolidayPayroll ? "One-day gross pay" : undefined,
+          excludedEmployees: isHolidayPayroll
+            ? Object.entries(excludedEmployees)
+                .filter(([, reason]) => reason.trim().length > 0)
+                .map(([employeeId, reason]) => ({ employeeId, reason }))
+            : undefined,
         }),
       });
 
-      setSuccess("Payroll period opened. Returning to payroll periods...");
+      setSuccess(
+        isHolidayPayroll
+          ? "Holiday payroll opened. Returning to payroll periods..."
+          : "Payroll period opened. Returning to payroll periods..."
+      );
       window.setTimeout(() => {
         router.push(workflowRoutes.payrollPeriodsWorkspace);
         router.refresh();
@@ -1716,11 +1819,102 @@ export function PayrollPeriodCreateForm() {
             <option value="15th Payroll">15th Payroll</option>
             <option value="Month-End Payroll">30th / Month-End Payroll</option>
             <option value="Full Monthly Payroll">Full Monthly Payroll</option>
+            <option value="Holiday Payroll">Holiday Payroll</option>
             <option value="Off-Cycle">Off-Cycle</option>
             <option value="Bonus Payroll">Bonus Payroll</option>
           </select>
         </label>
       </SectionCard>
+
+      {isHolidayPayroll ? (
+        <>
+          <SectionCard
+            description="Holiday payroll is processed separately from monthly payroll. It pays one-day gross salary only, with gross equal to net, and never appears in monthly payslips or monthly statutory reports."
+            title="Holiday Payroll Setup"
+          >
+            <label>
+              <span>Holiday name</span>
+              <select onChange={(event) => setHolidayName(event.target.value)} value={holidayName}>
+                {KENYA_HOLIDAY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Holiday date</span>
+              <input onChange={(event) => setHolidayDate(event.target.value)} required type="date" value={holidayDate} />
+            </label>
+
+            <label>
+              <span>Pay mode</span>
+              <input readOnly value="One-day gross pay (gross = net)" />
+            </label>
+          </SectionCard>
+
+          <SectionCard
+            description={`All active staff are included by default. Exclude anyone who was off, absent, on leave, or otherwise not eligible for the holiday worked pay. Included staff: ${includedCount}.`}
+            title="Include / Exclude Staff"
+          >
+            {loadingSetup ? (
+              <p className="section-description">Loading staff list...</p>
+            ) : setupEmployees.length ? (
+              <div className="workflow-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Include</th>
+                      <th>Staff</th>
+                      <th>Branch</th>
+                      <th>Department</th>
+                      <th>Exclusion reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {setupEmployees.map((employee) => {
+                      const excluded = Boolean(excludedEmployees[employee.id]?.trim());
+                      return (
+                        <tr key={employee.id}>
+                          <td>
+                            <input
+                              checked={!excluded}
+                              onChange={(event) => toggleEmployeeExclusion(employee.id, !event.target.checked)}
+                              type="checkbox"
+                            />
+                          </td>
+                          <td>
+                            <strong>{employee.employeeNumber}</strong>
+                            <div>{employee.fullName}</div>
+                          </td>
+                          <td>{employee.branch ?? "-"}</td>
+                          <td>{employee.department ?? "-"}</td>
+                          <td>
+                            <input
+                              disabled={!excluded}
+                              onChange={(event) =>
+                                setExcludedEmployees((current) => ({
+                                  ...current,
+                                  [employee.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Off day, absent, leave, other..."
+                              value={excludedEmployees[employee.id] ?? ""}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="section-description">No active staff were found for holiday payroll setup yet.</p>
+            )}
+          </SectionCard>
+        </>
+      ) : null}
 
       <FormActions
         cancelHref={workflowRoutes.payrollPeriodsWorkspace}

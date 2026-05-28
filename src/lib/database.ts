@@ -350,6 +350,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function asStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
 function formatCurrency(value: number) {
   return `KES ${new Intl.NumberFormat("en-KE", {
     maximumFractionDigits: 0,
@@ -1189,6 +1195,8 @@ const PAYROLL_STATUS_SEQUENCE = [
   "Closed",
   "Reopened",
 ] as const;
+const HOLIDAY_PAYROLL_TYPE = "Holiday Payroll";
+const HOLIDAY_PAYROLL_PAYMENT_MODE = "One-day gross pay";
 
 function roundPayrollAmount(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -1219,6 +1227,21 @@ function getPayrollPeriodBounds(run: PayrollRunRow) {
   const month = safeString(metadata?.period_month).padStart(2, "0");
   const fallbackLabel = safeString(run.period_label);
   const payrollType = normalisePayrollType(safeString(run.payroll_type, "Full Month"));
+
+  if (isHolidayPayrollType(payrollType)) {
+    const holidayDateText = safeString(metadata?.holiday_date);
+    const holidayDate = holidayDateText ? new Date(`${holidayDateText}T00:00:00.000Z`) : new Date(NaN);
+    if (!Number.isNaN(holidayDate.getTime())) {
+      const monthStart = new Date(Date.UTC(holidayDate.getUTCFullYear(), holidayDate.getUTCMonth(), 1));
+      const monthEnd = new Date(Date.UTC(holidayDate.getUTCFullYear(), holidayDate.getUTCMonth() + 1, 0));
+      const day = new Date(Date.UTC(holidayDate.getUTCFullYear(), holidayDate.getUTCMonth(), holidayDate.getUTCDate()));
+      return {
+        start: day,
+        end: day,
+        daysInMonth: monthEnd.getUTCDate(),
+      };
+    }
+  }
 
   let start: Date;
   if (/^\d{4}$/.test(year) && /^\d{2}$/.test(month)) {
@@ -1333,6 +1356,10 @@ function buildDateKeySetForOverlap(
 function normalisePayrollType(value: string) {
   const payrollType = safeString(value, "Full Monthly Payroll");
 
+  if (payrollType === HOLIDAY_PAYROLL_TYPE || payrollType === "Holiday" || payrollType === "Holiday Payroll Run") {
+    return HOLIDAY_PAYROLL_TYPE;
+  }
+
   if (payrollType === "Half Month" || payrollType === "15th Payroll" || payrollType === "MID-MONTH PAYROLL") {
     return "15th Payroll";
   }
@@ -1362,6 +1389,10 @@ function isMonthEndPayrollType(value: string) {
 
 function isFullMonthlyPayrollType(value: string) {
   return normalisePayrollType(value) === "Full Monthly Payroll";
+}
+
+function isHolidayPayrollType(value: string) {
+  return normalisePayrollType(value) === HOLIDAY_PAYROLL_TYPE;
 }
 
 function isOffboardedEmployeeStatus(status: unknown) {
@@ -2378,24 +2409,32 @@ async function adjustLeaveBalance(
     .eq("id", safeString(balanceRow.id));
 }
 
-async function getLatestPayrollRun(context: RequestContext) {
+async function getLatestPayrollRun(
+  context: RequestContext,
+  options?: { includeHoliday?: boolean }
+) {
   let query = context.supabase
     .from("payroll_runs")
     .select("*, payroll_employees(count)")
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(options?.includeHoliday ? 1 : 24);
 
   if (context.profile.company_id) {
     query = query.eq("company_id", context.profile.company_id);
   }
 
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = options?.includeHoliday ? await query.maybeSingle() : await query;
 
   if (error) {
     throw error;
   }
 
-  return data as PayrollRunRow | null;
+  if (options?.includeHoliday) {
+    return data as PayrollRunRow | null;
+  }
+
+  const rows = (data ?? []) as PayrollRunRow[];
+  return rows.find((row) => !isHolidayPayrollType(safeString(row.payroll_type, "Full Monthly Payroll"))) ?? null;
 }
 
 async function getWorkspaceIdentity(context: RequestContext) {
@@ -12867,8 +12906,10 @@ async function recalculatePayrollRun(
   }
 > {
   const run = await getPayrollRunById(context, payrollRunId);
+  const runMetadata = (asRecord(run.metadata) ?? {}) as Record<string, unknown>;
   const { start, end } = getPayrollPeriodBounds(run);
   const payrollType = normalisePayrollType(safeString(run.payroll_type, "Full Monthly Payroll"));
+  const isHolidayRun = isHolidayPayrollType(payrollType);
   const priorMidMonthGrossByEmployee = new Map<string, number>();
 
   if (isMonthEndPayrollType(payrollType)) {
@@ -12946,36 +12987,44 @@ async function recalculatePayrollRun(
   if (leaveResult.error) throw leaveResult.error;
   if (overtimeResult.error) throw overtimeResult.error;
 
-  const employees = ((employeesResult.data ?? []) as EmployeeRow[]).filter(
-    (employee) => !isOffboardedEmployeeStatus(employee.status) && !isSalaryStoppedEmployee(employee)
-  );
+  const includedEmployeeIds = new Set(asStringArray(runMetadata.included_employee_ids));
+  const employees = ((employeesResult.data ?? []) as EmployeeRow[])
+    .filter((employee) => !isOffboardedEmployeeStatus(employee.status) && !isSalaryStoppedEmployee(employee))
+    .filter((employee) =>
+      !isHolidayRun || includedEmployeeIds.size === 0 || includedEmployeeIds.has(safeString(employee.id))
+    );
   const existingRows = (existingRowsResult.data ?? []) as Array<Record<string, unknown>>;
   const leaveRows = (leaveResult.data ?? []) as Array<Record<string, unknown>>;
   const overtimeRows = (overtimeResult.data ?? []) as Array<Record<string, unknown>>;
-  const admin = createSupabaseAdminClient();
-  const [payrollDeductionResult, payrollAdditionResult] = await Promise.all([
-    admin
-      .from("attendance_adjustments")
-      .select("employee_id, work_date, end_date, deduction_mode, deduction_days, fixed_amount, deduction_category, status, target_payroll_run_id")
-      .eq("company_id", safeString(run.company_id))
-      .eq("adjustment_type", "payroll_deduction")
-      .in("status", ["approved", "active"]),
-    admin
-      .from("attendance_adjustments")
-      .select("employee_id, work_date, fixed_amount, deduction_category, status, target_payroll_run_id")
-      .eq("company_id", safeString(run.company_id))
-      .eq("adjustment_type", "payroll_addition")
-      .in("status", ["approved", "active"]),
-  ]);
+  let payrollDeductionRows: Array<Record<string, unknown>> | null = null;
+  let payrollAdditionRows: Array<Record<string, unknown>> | null = null;
 
-  if (payrollDeductionResult.error) {
-    throw payrollDeductionResult.error;
+  if (!isHolidayRun) {
+    const admin = createSupabaseAdminClient();
+    const [payrollDeductionResult, payrollAdditionResult] = await Promise.all([
+      admin
+        .from("attendance_adjustments")
+        .select("employee_id, work_date, end_date, deduction_mode, deduction_days, fixed_amount, deduction_category, status, target_payroll_run_id")
+        .eq("company_id", safeString(run.company_id))
+        .eq("adjustment_type", "payroll_deduction")
+        .in("status", ["approved", "active"]),
+      admin
+        .from("attendance_adjustments")
+        .select("employee_id, work_date, fixed_amount, deduction_category, status, target_payroll_run_id")
+        .eq("company_id", safeString(run.company_id))
+        .eq("adjustment_type", "payroll_addition")
+        .in("status", ["approved", "active"]),
+    ]);
+
+    if (payrollDeductionResult.error) {
+      throw payrollDeductionResult.error;
+    }
+    if (payrollAdditionResult.error) {
+      throw payrollAdditionResult.error;
+    }
+    payrollDeductionRows = (payrollDeductionResult.data ?? []) as Array<Record<string, unknown>>;
+    payrollAdditionRows = (payrollAdditionResult.data ?? []) as Array<Record<string, unknown>>;
   }
-  if (payrollAdditionResult.error) {
-    throw payrollAdditionResult.error;
-  }
-  const payrollDeductionRows = payrollDeductionResult.data;
-  const payrollAdditionRows = payrollAdditionResult.data;
 
   const existingMap = new Map(
     existingRows.map((row) => [safeString(row.employee_id), row])
@@ -12992,7 +13041,7 @@ async function recalculatePayrollRun(
     employeeNumberCounts.set(employeeNumber, (employeeNumberCounts.get(employeeNumber) ?? 0) + 1);
   }
 
-  for (const leaveRow of leaveRows) {
+  for (const leaveRow of isHolidayRun ? [] : leaveRows) {
     if (
       safeString(leaveRow.status).toLowerCase() === "approved" &&
       safeString(leaveRow.leave_type).toLowerCase().includes("unpaid")
@@ -13012,7 +13061,7 @@ async function recalculatePayrollRun(
     }
   }
 
-  for (const overtimeRow of overtimeRows) {
+  for (const overtimeRow of isHolidayRun ? [] : overtimeRows) {
     if (safeString(overtimeRow.status).toLowerCase() === "approved") {
       const employeeId = safeString(overtimeRow.employee_id);
       overtimeByEmployee.set(
@@ -13115,15 +13164,20 @@ async function recalculatePayrollRun(
       ...(asRecord(existing?.deductions) ?? {}),
       ...(fixedPayrollDeductionsByEmployee.get(safeString(employee.id)) ?? {}),
     };
-    const result = calculatePayrollSnapshotForEmployee({
-      employee,
-      run,
-      existingAllowances: mergedAllowances,
-      existingDeductions: mergedDeductions,
-      unpaidLeaveDays: unpaidLeaveByEmployee.get(safeString(employee.id)) ?? 0,
-      approvedOvertimeHours: overtimeByEmployee.get(safeString(employee.id)) ?? 0,
-      priorMidMonthGrossPay: priorMidMonthGrossByEmployee.get(safeString(employee.id)) ?? 0,
-    });
+    const result = isHolidayRun
+      ? calculateHolidayPayrollSnapshotForEmployee({
+          employee,
+          run,
+        })
+      : calculatePayrollSnapshotForEmployee({
+          employee,
+          run,
+          existingAllowances: mergedAllowances,
+          existingDeductions: mergedDeductions,
+          unpaidLeaveDays: unpaidLeaveByEmployee.get(safeString(employee.id)) ?? 0,
+          approvedOvertimeHours: overtimeByEmployee.get(safeString(employee.id)) ?? 0,
+          priorMidMonthGrossPay: priorMidMonthGrossByEmployee.get(safeString(employee.id)) ?? 0,
+        });
 
     if ((employeeNumberCounts.get(result.employeeNumber) ?? 0) > 1) {
       result.blockers.push("Duplicate employee number");
@@ -13159,11 +13213,11 @@ async function recalculatePayrollRun(
       accumulator.netPay += item.netPay;
       accumulator.totalDeductions += item.totalDeductions;
       accumulator.employerCost += item.employerCost;
-      accumulator.paye += safeNumber(item.deductions.PAYE);
-      accumulator.shif += safeNumber(item.deductions.SHIF);
-      accumulator.nssf += safeNumber(item.deductions.NSSF);
-      accumulator.housingLevy += safeNumber(item.deductions["Housing Levy"]);
-      accumulator.pension += safeNumber(item.deductions.Pension);
+      accumulator.paye += getJsonAmount(item.deductions, ["PAYE", "paye"]);
+      accumulator.shif += getJsonAmount(item.deductions, ["SHIF", "shif"]);
+      accumulator.nssf += getJsonAmount(item.deductions, ["NSSF", "nssf"]);
+      accumulator.housingLevy += getJsonAmount(item.deductions, ["Housing Levy", "housing_levy"]);
+      accumulator.pension += getJsonAmount(item.deductions, ["Pension", "pension"]);
       accumulator.validationErrors += item.blockers.length;
       return accumulator;
     },
@@ -13182,7 +13236,7 @@ async function recalculatePayrollRun(
   );
 
   const updatedMetadata = {
-    ...((asRecord(run.metadata) ?? {}) as Record<string, unknown>),
+    ...runMetadata,
     employee_count_snapshot: computations.length,
     last_processed_at: new Date().toISOString(),
     blockers: computations.reduce((sum, item) => sum + item.blockers.length, 0),
@@ -13220,6 +13274,52 @@ async function recalculatePayrollRun(
     pending_approvals: pendingApprovalsResult.count ?? 0,
     computations,
   };
+}
+
+function calculateHolidayPayrollSnapshotForEmployee(input: {
+  employee: EmployeeRow;
+  run: PayrollRunRow;
+}) {
+  const { employee, run } = input;
+  const fullName = titleFromEmployee(employee);
+  const employeeNumber = safeString(employee.employee_number);
+  const monthlySalary = roundPayrollAmount(Math.max(0, safeNumber(employee.salary)));
+  const { daysInMonth } = getPayrollPeriodBounds(run);
+  const dailyGross = roundPayrollAmount(monthlySalary / Math.max(daysInMonth, 1));
+  const phone = safeString((employee as Record<string, unknown>).phone);
+  const hasValidMpesaPhone = isValidMpesaPhoneNumber(phone);
+  const bankAccount = safeString(employee.bank_account);
+  const bankName = safeString(employee.bank_name);
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+
+  if (!fullName) blockers.push("Missing employee name");
+  if (!employeeNumber) blockers.push("Missing staff number");
+  if (monthlySalary <= 0) blockers.push("Missing or invalid salary");
+  if (!hasValidMpesaPhone && !bankAccount) warnings.push("No payment destination");
+  if (!bankName || !bankAccount) warnings.push("Missing bank details");
+
+  return {
+    employeeId: safeString(employee.id),
+    employeeNumber,
+    fullName,
+    department: safeString((employee.department as Record<string, unknown> | null)?.name, "Unassigned"),
+    branch: safeString((employee.branch as Record<string, unknown> | null)?.name, "Unassigned"),
+    basicSalary: dailyGross,
+    allowances: {},
+    deductions: {},
+    grossPay: dailyGross,
+    netPay: dailyGross,
+    totalDeductions: 0,
+    employerCost: dailyGross,
+    employerContributions: {},
+    taxableIncome: dailyGross,
+    overtimeAmount: 0,
+    unpaidLeaveDeduction: 0,
+    warnings,
+    blockers,
+    status: blockers.length ? "Validation error" : warnings.length ? "Validation warning" : "Ready",
+  } satisfies PayrollComputationResult;
 }
 
 async function transitionPayrollRun(
@@ -13763,6 +13863,7 @@ async function buildPayrollReviewHighlights(
     .select("*")
     .eq("company_id", safeString(run.company_id))
     .neq("id", safeString(run.id))
+    .neq("payroll_type", HOLIDAY_PAYROLL_TYPE)
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -13890,6 +13991,7 @@ export async function getPayrollVariance(): Promise<PayrollVarianceItem[]> {
   let query = context.supabase
     .from("payroll_runs")
     .select("*")
+    .neq("payroll_type", HOLIDAY_PAYROLL_TYPE)
     .order("processed_at", { ascending: false })
     .limit(2);
 
@@ -14271,14 +14373,51 @@ export async function listPayrollPeriods() {
     ...period,
     status: normalisePayrollStatus(safeString(period.status)),
     employee_count: safeNumber(asRecord(period.metadata)?.employee_count_snapshot, 0),
+    holidayName: safeString(asRecord(period.metadata)?.holiday_name),
+    holidayDate: safeString(asRecord(period.metadata)?.holiday_date),
+    holidayPayMode: safeString(asRecord(period.metadata)?.holiday_pay_mode),
     allowedActions: getPayrollAllowedActions(normalisePayrollStatus(safeString(period.status))),
   }));
+}
+
+export async function getPayrollPeriodSetupData() {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "Payroll Admin", "Finance Officer", "Manager", "HR Admin"]);
+
+  if (!context.profile.company_id) {
+    throw new Error("missing_company_context");
+  }
+
+  const { data, error } = await context.supabase
+    .from("employees")
+    .select("id, employee_number, first_name, last_name, branch:branch_id(name), department:department_id(name), status")
+    .eq("company_id", context.profile.company_id)
+    .order("employee_number", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter((row) => !isOffboardedEmployeeStatus(row.status))
+    .map((row) => ({
+      id: safeString(row.id),
+      employeeNumber: safeString(row.employee_number),
+      fullName: `${safeString(row.first_name)} ${safeString(row.last_name)}`.trim(),
+      branch: safeString(asRecord(row.branch)?.name, "Unassigned"),
+      department: safeString(asRecord(row.department)?.name, "Unassigned"),
+      status: safeString(row.status, "Active"),
+    }));
 }
 
 export async function createPayrollPeriod(input: {
   month: string;
   year: string;
   payrollType: string;
+  holidayName?: string;
+  holidayDate?: string;
+  holidayPayMode?: string;
+  excludedEmployees?: Array<{ employeeId?: string; reason?: string }>;
 }) {
   const context = await getRequestContext();
   ensureRole(context.profile, ["Super Admin", "Payroll Admin", "Finance Officer", "Manager", "HR Admin"]);
@@ -14287,9 +14426,24 @@ export async function createPayrollPeriod(input: {
     throw new Error("missing_company_context");
   }
 
-  const month = safeString(input.month).padStart(2, "0");
-  const year = safeString(input.year);
+  let month = safeString(input.month).padStart(2, "0");
+  let year = safeString(input.year);
   const payrollType = normalisePayrollType(safeString(input.payrollType, "Full Monthly Payroll"));
+  const isHolidayRun = isHolidayPayrollType(payrollType);
+
+  const holidayName = safeString(input.holidayName);
+  const holidayDateText = safeString(input.holidayDate);
+  if (isHolidayRun) {
+    if (!holidayName || !holidayDateText) {
+      throw new Error("missing_holiday_payroll_fields");
+    }
+    const holidayDate = new Date(`${holidayDateText}T00:00:00.000Z`);
+    if (Number.isNaN(holidayDate.getTime())) {
+      throw new Error("invalid_holiday_payroll_date");
+    }
+    year = String(holidayDate.getUTCFullYear());
+    month = String(holidayDate.getUTCMonth() + 1).padStart(2, "0");
+  }
 
   if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
     throw new Error("invalid_payroll_period");
@@ -14300,11 +14454,18 @@ export async function createPayrollPeriod(input: {
     throw new Error("invalid_payroll_period");
   }
 
-  const periodLabel = periodDate.toLocaleString("en-KE", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const periodLabel = isHolidayRun
+    ? `${holidayName} - ${new Date(`${safeString(input.holidayDate)}T00:00:00.000Z`).toLocaleDateString("en-KE", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      })}`
+    : periodDate.toLocaleString("en-KE", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      });
 
   const { data: existing } = await context.supabase
     .from("payroll_runs")
@@ -14327,7 +14488,27 @@ export async function createPayrollPeriod(input: {
   if (employeeCountError) {
     throw employeeCountError;
   }
-  const employeeCount = (employeeSnapshot ?? []).filter((row) => !isOffboardedEmployeeStatus(row.status)).length;
+  const activeEmployeeIds = (employeeSnapshot ?? [])
+    .filter((row) => !isOffboardedEmployeeStatus(row.status))
+    .map((row) => safeString(row.id))
+    .filter(Boolean);
+  const excludedEmployees = Array.isArray(input.excludedEmployees)
+    ? input.excludedEmployees
+        .map((row) => ({
+          employeeId: safeString(row?.employeeId),
+          reason: safeString(row?.reason),
+        }))
+        .filter((row) => row.employeeId)
+    : [];
+  const excludedIds = new Set(excludedEmployees.map((row) => row.employeeId));
+  const includedEmployeeIds = isHolidayRun
+    ? activeEmployeeIds.filter((id) => !excludedIds.has(id))
+    : activeEmployeeIds;
+  const employeeCount = includedEmployeeIds.length;
+
+  if (isHolidayRun && employeeCount <= 0) {
+    throw new Error("holiday_payroll_requires_included_staff");
+  }
 
   const now = new Date().toISOString();
   const insertPayload = {
@@ -14343,8 +14524,44 @@ export async function createPayrollPeriod(input: {
       opened_by: context.profile.email,
       opened_by_role: context.profile.role,
       employee_count_snapshot: employeeCount ?? 0,
+      ...(isHolidayRun
+        ? {
+            holiday_name: holidayName,
+            holiday_date: holidayDateText,
+            holiday_pay_mode: safeString(input.holidayPayMode, HOLIDAY_PAYROLL_PAYMENT_MODE),
+            excluded_employees: excludedEmployees,
+            included_employee_ids: includedEmployeeIds,
+          }
+        : {}),
     },
   };
+
+  if (isHolidayRun) {
+    const { data: existingHoliday, error: existingHolidayError } = await context.supabase
+      .from("holidays")
+      .select("id")
+      .eq("company_id", context.profile.company_id)
+      .eq("holiday_date", holidayDateText)
+      .eq("name", holidayName)
+      .maybeSingle();
+
+    if (existingHolidayError) {
+      throw existingHolidayError;
+    }
+
+    if (!existingHoliday) {
+      const { error: createHolidayError } = await context.supabase.from("holidays").insert({
+        company_id: context.profile.company_id,
+        name: holidayName,
+        holiday_date: holidayDateText,
+        scope: "company-wide",
+        is_paid: true,
+      });
+      if (createHolidayError) {
+        throw createHolidayError;
+      }
+    }
+  }
 
   const { data, error } = await context.supabase
     .from("payroll_runs")
@@ -14520,6 +14737,10 @@ export async function getStatutorySummary(options?: { periodId?: string | null }
     return [];
   }
 
+  if (isHolidayPayrollType(safeString(run.payroll_type, "Full Monthly Payroll"))) {
+    return [];
+  }
+
   const { data: exportRows, error } = await context.supabase
     .from("payroll_exports")
     .select("export_type, status")
@@ -14668,6 +14889,10 @@ async function listPayslipsForRun(
   run: PayrollRunRow,
   options?: { selfOnly?: boolean; periodId?: string | null }
 ) {
+  if (isHolidayPayrollType(safeString(run.payroll_type, "Full Monthly Payroll"))) {
+    return [];
+  }
+
   const reportingRunIds = await getSplitPayrollRunIdsForReporting(context, run);
   const payrollType = normalisePayrollType(safeString(run.payroll_type, "Full Monthly Payroll"));
   let query = context.supabase
@@ -16376,6 +16601,10 @@ export async function recordPayrollExport(input: { exportType: PayrollExportType
     throw new Error("payroll_run_not_found");
   }
 
+  if (isHolidayPayrollType(safeString(run.payroll_type, "Full Monthly Payroll")) && input.exportType !== "net_to_bank") {
+    throw new Error("holiday_payroll_export_not_supported");
+  }
+
   const label = isPayrollTemplateOutputType(input.exportType)
     ? PAYROLL_TEMPLATE_OUTPUT_DEFINITIONS[input.exportType].label
     : input.exportType === "payroll_register"
@@ -16404,6 +16633,10 @@ export async function getPayrollExportFile(
     : await getLatestPayrollRun(context);
   if (!run) {
     throw new Error("payroll_run_not_found");
+  }
+
+  if (isHolidayPayrollType(safeString(run.payroll_type, "Full Monthly Payroll")) && exportType !== "net_to_bank") {
+    throw new Error("holiday_payroll_export_not_supported");
   }
 
   try {

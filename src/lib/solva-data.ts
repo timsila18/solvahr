@@ -82,7 +82,7 @@ export type ApprovalTask = {
   requestedBy: string;
   requestedByName?: string;
   requestedByRole: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
   stage: string;
   due: string;
   submittedDate?: string;

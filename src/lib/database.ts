@@ -987,6 +987,187 @@ function sortApprovalTasksByRecency(tasks: ApprovalTask[]) {
   );
 }
 
+async function reconcileApprovalTaskRows(context: RequestContext, rows: TaskRow[]) {
+  const nextRows = rows.map((row) => ({ ...row }));
+  const staleUpdates = new Map<string, { status: ApprovalTask["status"]; stage?: string }>();
+
+  const markTask = (row: TaskRow, status: ApprovalTask["status"], stage?: string) => {
+    const id = safeString(row.id);
+    if (!id || safeString(row.status) === status) {
+      if (stage && !safeString(row.stage)) {
+        row.stage = stage;
+      }
+      return;
+    }
+
+    row.status = status;
+    if (stage) {
+      row.stage = stage;
+    }
+    staleUpdates.set(id, { status, ...(stage ? { stage } : {}) });
+  };
+
+  for (const row of nextRows) {
+    if (safeString(row.status) !== "pending") {
+      continue;
+    }
+
+    const stage = safeString(row.stage).toLowerCase();
+    if (stage === "completed") {
+      markTask(row, "approved", safeString(row.stage, "Completed"));
+      continue;
+    }
+    if (stage.startsWith("rejected")) {
+      markTask(row, "rejected", safeString(row.stage));
+      continue;
+    }
+    if (stage.startsWith("cancelled")) {
+      markTask(row, "cancelled", safeString(row.stage));
+    }
+  }
+
+  const pendingRows = nextRows.filter(
+    (row) => safeString(row.status) === "pending" && Boolean(safeString(row.entity_id))
+  );
+
+  const collectIds = (entityType: string) =>
+    pendingRows
+      .filter((row) => safeString(row.entity_type) === entityType)
+      .map((row) => safeString(row.entity_id))
+      .filter(Boolean);
+
+  const byEntityId = new Map<string, TaskRow[]>();
+  for (const row of pendingRows) {
+    const entityId = safeString(row.entity_id);
+    if (!entityId) continue;
+    const bucket = byEntityId.get(entityId) ?? [];
+    bucket.push(row);
+    byEntityId.set(entityId, bucket);
+  }
+
+  const applyEntityStatuses = (
+    records: Array<Record<string, unknown>> | null | undefined,
+    mapper: (status: string) => { status: ApprovalTask["status"]; stage?: string } | null
+  ) => {
+    for (const record of records ?? []) {
+      const entityId = safeString(record.id);
+      const mapped = mapper(safeString(record.status));
+      if (!entityId || !mapped) continue;
+      for (const row of byEntityId.get(entityId) ?? []) {
+        markTask(row, mapped.status, mapped.stage);
+      }
+    }
+  };
+
+  const [
+    leaveRows,
+    trainingRows,
+    assetRows,
+    requisitionRows,
+    overtimeRows,
+    attendanceRows,
+    timesheetRows,
+    performanceRows,
+    payrollRunRows,
+    employeeRows,
+  ] = await Promise.all([
+    collectIds("leave_request").length
+      ? context.supabase.from("leave_requests").select("id, status").in("id", collectIds("leave_request")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("training_request").length
+      ? context.supabase.from("training_requests").select("id, status").in("id", collectIds("training_request")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("asset_request").length
+      ? context.supabase.from("asset_requests").select("id, status").in("id", collectIds("asset_request")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("requisition_approval").length
+      ? context.supabase.from("recruitment_requisitions").select("id, status").in("id", collectIds("requisition_approval")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("overtime_request").length
+      ? context.supabase.from("overtime_requests").select("id, status").in("id", collectIds("overtime_request")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("attendance_adjustment").length
+      ? context.supabase.from("attendance_adjustments").select("id, status").in("id", collectIds("attendance_adjustment")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("timesheet").length
+      ? context.supabase.from("timesheets").select("id, status").in("id", collectIds("timesheet")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("performance_review").length
+      ? context.supabase.from("performance_reviews").select("id, status").in("id", collectIds("performance_review")).then(({ data }) => data)
+      : Promise.resolve(null),
+    collectIds("payroll_approval").length
+      ? context.supabase.from("payroll_runs").select("id, status").in("id", collectIds("payroll_approval")).then(({ data }) => data)
+      : Promise.resolve(null),
+    [
+      ...collectIds("employee_activation"),
+      ...collectIds("staff_exit_request"),
+    ].length
+      ? context.supabase
+          .from("employees")
+          .select("id, status")
+          .in("id", [...collectIds("employee_activation"), ...collectIds("staff_exit_request")])
+          .then(({ data }) => data)
+      : Promise.resolve(null),
+  ]);
+
+  const defaultMapper = (status: string) => {
+    if (!status) return null;
+    const normalized = status.toLowerCase();
+    if (["approved", "completed", "active", "finalized", "released", "processed"].includes(normalized)) {
+      return { status: "approved" as const, stage: "Completed" };
+    }
+    if (["rejected", "declined", "changes_requested"].includes(normalized)) {
+      return { status: "rejected" as const };
+    }
+    if (["cancelled", "canceled", "separated"].includes(normalized)) {
+      return { status: "cancelled" as const };
+    }
+    return null;
+  };
+
+  applyEntityStatuses(leaveRows, defaultMapper);
+  applyEntityStatuses(trainingRows, defaultMapper);
+  applyEntityStatuses(assetRows, defaultMapper);
+  applyEntityStatuses(requisitionRows, defaultMapper);
+  applyEntityStatuses(overtimeRows, defaultMapper);
+  applyEntityStatuses(attendanceRows, defaultMapper);
+  applyEntityStatuses(timesheetRows, defaultMapper);
+  applyEntityStatuses(performanceRows, defaultMapper);
+  applyEntityStatuses(payrollRunRows, (status) => {
+    const normalized = status.toLowerCase();
+    if (normalized === "approved") {
+      return { status: "approved" as const, stage: "Completed" };
+    }
+    if (normalized === "rejected") {
+      return { status: "rejected" as const };
+    }
+    return null;
+  });
+  applyEntityStatuses(employeeRows, (status) => {
+    const normalized = status.toLowerCase();
+    if (normalized === "active") {
+      return { status: "approved" as const, stage: "Completed" };
+    }
+    if (normalized === "separated") {
+      return { status: "approved" as const, stage: "Completed" };
+    }
+    return null;
+  });
+
+  if (staleUpdates.size) {
+    await Promise.all(
+      Array.from(staleUpdates.entries()).map(([taskId, patch]) =>
+        context.supabase
+          .from("approval_tasks")
+          .update(patch)
+          .eq("id", taskId)
+      )
+    );
+  }
+
+  return nextRows;
+}
+
 async function listSupplementalPerformanceApprovalTasks(context: RequestContext): Promise<ApprovalTask[]> {
   const scopedEmployeeIds = await getScopedEmployeeIds(context);
   let query = context.supabase
@@ -5189,7 +5370,7 @@ export async function listApprovalTasks(): Promise<ApprovalTask[]> {
     throw error;
   }
 
-  const rows = (data ?? []) as TaskRow[];
+  const rows = await reconcileApprovalTaskRows(context, (data ?? []) as TaskRow[]);
   let filtered =
     context.profile.role === "Super Admin"
       ? rows
@@ -5995,7 +6176,7 @@ export async function listLeaveApprovalQueue() {
     throw error;
   }
 
-  const rows = (data ?? []) as TaskRow[];
+  const rows = await reconcileApprovalTaskRows(context, (data ?? []) as TaskRow[]);
   const filtered =
     context.profile.role === "Super Admin"
       ? rows
@@ -9267,7 +9448,7 @@ async function fetchApprovalTasksInternal(context: RequestContext) {
 
   const { data, error } = await query;
   if (error) throw error;
-  const rows = (data ?? []) as TaskRow[];
+  const rows = await reconcileApprovalTaskRows(context, (data ?? []) as TaskRow[]);
 
   if (context.profile.role === "Manager") {
     const mapped = rows

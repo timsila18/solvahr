@@ -1386,17 +1386,17 @@ function roundPayrollAmount(value: number) {
 function getPayrollAllowedActions(status: string) {
   switch (status) {
     case "Draft":
-      return ["process", "undo"];
+      return ["process", "undo", "delete"];
     case "Open":
-      return ["process", "undo"];
+      return ["process", "undo", "delete"];
     case "Processing":
-      return ["send_for_approval", "undo"];
+      return ["send_for_approval", "undo", "delete"];
     case "Approved":
-      return ["close", "reopen", "undo"];
+      return ["close", "reopen", "undo", "delete"];
     case "Closed":
-      return ["reopen"];
+      return ["reopen", "delete"];
     case "Reopened":
-      return ["process", "send_for_approval", "undo"];
+      return ["process", "send_for_approval", "undo", "delete"];
     default:
       return [];
   }
@@ -14771,6 +14771,73 @@ export async function createPayrollPeriod(input: {
     ...processed,
     status: "Open",
     allowedActions: getPayrollAllowedActions("Open"),
+  };
+}
+
+export async function deletePayrollPeriod(payrollRunId: string, reason?: string) {
+  const context = await getRequestContext();
+  ensureRole(context.profile, ["Super Admin", "Payroll Admin", "Manager", "HR Admin"]);
+
+  const run = await getPayrollRunById(context, payrollRunId);
+  if (
+    context.profile.role !== "Super Admin" &&
+    safeString(run.company_id) !== safeString(context.profile.company_id)
+  ) {
+    throw new Error("forbidden");
+  }
+
+  const deletedAt = new Date().toISOString();
+  const deleteReason = safeString(reason).trim() || "Payroll period deleted from payroll workspace.";
+
+  await context.supabase
+    .from("attendance_adjustments")
+    .update({
+      target_payroll_run_id: null,
+      target_payroll_label: null,
+    })
+    .eq("company_id", safeString(run.company_id))
+    .eq("target_payroll_run_id", payrollRunId);
+
+  await context.supabase.from("payroll_employees").delete().eq("payroll_run_id", payrollRunId);
+  await context.supabase.from("payroll_approvals").delete().eq("payroll_run_id", payrollRunId);
+  await context.supabase.from("payroll_exports").delete().eq("payroll_run_id", payrollRunId);
+  await context.supabase
+    .from("approval_tasks")
+    .delete()
+    .eq("module_key", "payroll")
+    .eq("entity_id", payrollRunId);
+
+  const { error } = await context.supabase
+    .from("payroll_runs")
+    .delete()
+    .eq("id", payrollRunId);
+
+  if (error) {
+    throw error;
+  }
+
+  await createAuditLog(context, {
+    moduleKey: "payroll",
+    entityType: "payroll_run",
+    entityId: payrollRunId,
+    action: "deleted_payroll_period",
+    beforeValue: run,
+    afterValue: {
+      deleted: true,
+      deletedAt,
+      deletedBy: context.profile.email,
+      deletedByRole: context.profile.role,
+      reason: deleteReason,
+    },
+    approvalAction: `delete:${deleteReason}`,
+  });
+
+  return {
+    id: payrollRunId,
+    period_label: safeString(run.period_label),
+    payroll_type: safeString(run.payroll_type),
+    status: "Deleted",
+    deleted_at: deletedAt,
   };
 }
 

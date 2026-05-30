@@ -2519,6 +2519,7 @@ function PayrollWorkbench({
   const canExport = ["Payroll Admin", "Finance Officer", "HR Admin", "Manager", "Super Admin"].includes(selectedRole.role);
   const canOperatePayroll = ["Payroll Admin", "Finance Officer", "HR Admin", "Manager", "Super Admin"].includes(selectedRole.role);
   const canOpenPeriod = canOperatePayroll;
+  const canDeletePayrollPeriod = ["Payroll Admin", "HR Admin", "Manager", "Super Admin"].includes(selectedRole.role);
   const canSubmitApproval = ["Payroll Admin", "HR Admin", "Manager", "Super Admin"].includes(selectedRole.role);
   const canManageDayDeductions = ["Payroll Admin", "HR Admin", "Manager", "Super Admin", "Supervisor"].includes(selectedRole.role);
   const canApproveDayDeductions = ["Payroll Admin", "HR Admin", "Manager", "Super Admin"].includes(selectedRole.role);
@@ -3109,7 +3110,7 @@ function PayrollWorkbench({
     });
   }
 
-  async function handlePeriodAction(periodId: string, action: "process" | "preview" | "close" | "reopen" | "undo") {
+  async function handlePeriodAction(periodId: string, action: "process" | "preview" | "close" | "reopen" | "undo" | "delete") {
     setPeriodBusyAction(`${action}-${periodId}`);
     setPeriodActionMessage("");
     try {
@@ -3126,9 +3127,11 @@ function PayrollWorkbench({
       }
 
       const reason =
-        action === "reopen" || action === "undo"
+        action === "reopen" || action === "undo" || action === "delete"
           ? window.prompt(
-              action === "reopen"
+              action === "delete"
+                ? "Why are you deleting this payroll period?"
+                : action === "reopen"
                 ? "Why are you reopening this payroll run?"
                 : "Why are you undoing this payroll run?",
               ""
@@ -3136,23 +3139,24 @@ function PayrollWorkbench({
           : "";
 
       const payload = await readRuntimeJson<{ period?: Record<string, unknown> }>(`/api/payroll/periods/${periodId}`, {
-        method: "PATCH",
+        method: action === "delete" ? "DELETE" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify(action === "delete" ? { reason } : { action, reason }),
       });
 
       if (payload?.period && typeof payload.period === "object") {
-        setPeriods((current) => {
-          const next = current.map((period) =>
-            String(period.id) === periodId
-              ? {
-                  ...period,
-                  ...payload.period,
-                }
-              : period
-          );
-          return next;
-        });
+        setPeriods((current) =>
+          action === "delete"
+            ? current.filter((period) => String(period.id) !== periodId)
+            : current.map((period) =>
+                String(period.id) === periodId
+                  ? {
+                      ...period,
+                      ...payload.period,
+                    }
+                  : period
+              )
+        );
       }
 
       setPeriodActionMessage(
@@ -3164,6 +3168,8 @@ function PayrollWorkbench({
             ? "Payroll preview refreshed. Review the employee calculations and export the preview before running payroll."
           : action === "close"
             ? "Payroll run closed successfully."
+            : action === "delete"
+              ? "Payroll period deleted successfully."
             : action === "undo"
               ? "Payroll run reset to open state for rework."
               : "Payroll run reopened for corrections."
@@ -3638,13 +3644,22 @@ function PayrollWorkbench({
                         <div className="queue-actions">
                           {(Array.isArray(period.allowedActions) ? period.allowedActions : []).map((action) => (
                             <button
-                              className={action === "process" || action === "undo" ? "primary-button" : "ghost-button"}
-                              disabled={periodBusyAction === `${String(action)}-${String(period.id)}` || !canOperatePayroll}
+                              className={
+                                action === "process" || action === "undo"
+                                  ? "primary-button"
+                                  : action === "delete"
+                                    ? "ghost-button danger-button"
+                                    : "ghost-button"
+                              }
+                              disabled={
+                                periodBusyAction === `${String(action)}-${String(period.id)}` ||
+                                (action === "delete" ? !canDeletePayrollPeriod : !canOperatePayroll)
+                              }
                               key={`${String(period.id)}-${String(action)}`}
                               onClick={() =>
                                 void handlePeriodAction(
                                   String(period.id),
-                                  action as "process" | "close" | "reopen" | "undo"
+                                  action as "process" | "close" | "reopen" | "undo" | "delete"
                                 )
                               }
                               type="button"
@@ -3657,6 +3672,8 @@ function PayrollWorkbench({
                                     ? "Close"
                                     : action === "undo"
                                       ? "Undo Payroll"
+                                      : action === "delete"
+                                        ? "Delete Period"
                                       : "Reopen"}
                             </button>
                           ))}

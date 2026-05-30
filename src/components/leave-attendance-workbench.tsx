@@ -1055,6 +1055,39 @@ export function LeaveAttendanceWorkbench({
     setActionMessage("Approval history exported successfully.");
   }
 
+  function exportLeaveBalances(format: "xlsx" | "csv") {
+    const rows = ((balancesState.data ?? []) as Array<Record<string, unknown>>).map((item) => {
+      const employee = item.employee as Record<string, unknown> | undefined;
+      const department = employee?.department as Record<string, unknown> | undefined;
+      const branch = employee?.branch as Record<string, unknown> | undefined;
+      return {
+        "Staff Number": safeString(employee?.employee_number),
+        "Employee Name": `${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim(),
+        Branch: safeString(branch?.name),
+        Department: safeString(department?.name),
+        "Leave Type": safeString(item.leave_type),
+        "Opening Days": safeNumber(item.opening_balance),
+        "Accrued Days": safeNumber(item.accrued_days),
+        "Days Spent": safeNumber(item.taken_days),
+        "Pending Days": safeNumber(item.pending_days),
+        "Balance Left": safeNumber(item.balance_days),
+        "As Of Date": safeString(item.as_of_date),
+      };
+    });
+
+    if (!rows.length) {
+      setActionMessage("There are no leave balances available to export yet.");
+      return;
+    }
+
+    if (format === "xlsx") {
+      downloadXlsxFile("solva-leave-balances.xlsx", rows, "Leave Balances");
+    } else {
+      downloadCsvFile("solva-leave-balances.csv", rows);
+    }
+    setActionMessage("Leave balances exported successfully.");
+  }
+
   function renderLeaveDashboard() {
     const state = dashboardState;
     if (state.loading) return <SectionMessage text="Loading leave dashboard..." />;
@@ -1340,26 +1373,80 @@ export function LeaveAttendanceWorkbench({
     const state = balancesState;
     if (state.loading) return <SectionMessage text="Loading leave balances..." />;
     if (state.error) return <SectionMessage text={state.error} />;
+    const balanceRows = (state.data ?? []) as Array<Record<string, unknown>>;
+    const totals = balanceRows.reduce<{
+      opening: number;
+      accrued: number;
+      spent: number;
+      pending: number;
+      balance: number;
+    }>(
+      (summary, item) => ({
+        opening: summary.opening + safeNumber(item.opening_balance),
+        accrued: summary.accrued + safeNumber(item.accrued_days),
+        spent: summary.spent + safeNumber(item.taken_days),
+        pending: summary.pending + safeNumber(item.pending_days),
+        balance: summary.balance + safeNumber(item.balance_days),
+      }),
+      { opening: 0, accrued: 0, spent: 0, pending: 0, balance: 0 }
+    );
     return (
       <section className="surface-card action-workbench">
         <div className="section-heading">
           <div>
             <p className="section-eyebrow">Leave Balances</p>
-            <h3>Accrual, taken days, pending days, and remaining balance</h3>
+            <h3>Leave days spent and leave balances in spreadsheet view</h3>
+          </div>
+          <div className="queue-actions">
+            <button className="secondary-button" onClick={() => exportLeaveBalances("xlsx")} type="button">
+              Download Excel
+            </button>
+            <button className="ghost-button" onClick={() => exportLeaveBalances("csv")} type="button">
+              Download CSV
+            </button>
           </div>
         </div>
-        <div className="mini-list queue-list">
-          {state.data?.length ? state.data.slice(0, 16).map((item) => {
-            const employee = item.employee as Record<string, unknown> | undefined;
-            return (
-              <article key={safeString(item.id)}>
-                <strong>{safeString(employee?.employee_number)} {safeString(employee?.first_name)} {safeString(employee?.last_name)}</strong>
-                <span>{safeString(item.leave_type)} | Balance {safeNumber(item.balance_days)}</span>
-                <small>Accrued {safeNumber(item.accrued_days)} | Taken {safeNumber(item.taken_days)} | Pending {safeNumber(item.pending_days)}</small>
-              </article>
-            );
-          }) : <SectionMessage text="No leave balances available." />}
+        <div className="metric-grid compact-grid">
+          <article className="metric-card"><span>Opening days</span><strong>{totals.opening.toFixed(2)}</strong><small>Total opening entitlement in scope</small></article>
+          <article className="metric-card"><span>Accrued days</span><strong>{totals.accrued.toFixed(2)}</strong><small>Total days earned so far</small></article>
+          <article className="metric-card"><span>Days spent</span><strong>{totals.spent.toFixed(2)}</strong><small>Total leave already used</small></article>
+          <article className="metric-card"><span>Balance left</span><strong>{totals.balance.toFixed(2)}</strong><small>Total leave not yet spent</small></article>
         </div>
+        <ScheduleTable
+          columns={[
+            { key: "staffNumber", label: "Staff No." },
+            { key: "employeeName", label: "Employee" },
+            { key: "branch", label: "Branch" },
+            { key: "department", label: "Department" },
+            { key: "leaveType", label: "Leave Type" },
+            { key: "openingDays", label: "Opening", align: "right" },
+            { key: "accruedDays", label: "Accrued", align: "right" },
+            { key: "daysSpent", label: "Days Spent", align: "right" },
+            { key: "pendingDays", label: "Pending", align: "right" },
+            { key: "balanceLeft", label: "Balance Left", align: "right" },
+            { key: "asOfDate", label: "As Of" },
+          ]}
+          emptyText="No leave balances available."
+          rows={balanceRows.map((item) => {
+            const employee = item.employee as Record<string, unknown> | undefined;
+            const department = employee?.department as Record<string, unknown> | undefined;
+            const branch = employee?.branch as Record<string, unknown> | undefined;
+            return {
+              id: safeString(item.id),
+              staffNumber: safeString(employee?.employee_number, "-"),
+              employeeName: `${safeString(employee?.first_name)} ${safeString(employee?.last_name)}`.trim() || "-",
+              branch: safeString(branch?.name, "-"),
+              department: safeString(department?.name, "-"),
+              leaveType: safeString(item.leave_type, "-"),
+              openingDays: safeNumber(item.opening_balance).toFixed(2),
+              accruedDays: safeNumber(item.accrued_days).toFixed(2),
+              daysSpent: safeNumber(item.taken_days).toFixed(2),
+              pendingDays: safeNumber(item.pending_days).toFixed(2),
+              balanceLeft: safeNumber(item.balance_days).toFixed(2),
+              asOfDate: formatDate(safeString(item.as_of_date)),
+            };
+          })}
+        />
       </section>
     );
   }

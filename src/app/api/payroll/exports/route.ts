@@ -7,6 +7,7 @@ const allowed = [
   "net_to_bank",
   "net_to_mpesa",
   "paye_report",
+  "all_statutory_deductions_report",
   "helb_report",
   "payroll_register",
   "p9_forms",

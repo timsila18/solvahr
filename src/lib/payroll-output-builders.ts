@@ -11,6 +11,7 @@ export const PAYROLL_TEMPLATE_OUTPUT_TYPES = [
   "paye_report",
   "nssf_report",
   "shif_report",
+  "all_statutory_deductions_report",
   "helb_report",
 ] as const;
 
@@ -76,6 +77,13 @@ export const PAYROLL_TEMPLATE_OUTPUT_DEFINITIONS: Record<
   },
   shif_report: {
     label: "SHIF",
+    extension: "xlsx",
+    contentType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    previewable: false,
+  },
+  all_statutory_deductions_report: {
+    label: "All Statutory Deductions",
     extension: "xlsx",
     contentType:
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -2237,6 +2245,52 @@ function buildShifWorkbook(dataset: PayrollOutputDataset) {
   ]);
 }
 
+function buildAllStatutoryDeductionsWorkbook(dataset: PayrollOutputDataset) {
+  const rows: Array<Array<XlsxCell | null>> = [
+    [
+      buildStringCell("SERIAL NUMBER", 2),
+      buildStringCell("PAYROLL NUMBER", 2),
+      buildStringCell("FULL NAME", 2),
+      buildStringCell("GROSS PAY", 2),
+      buildStringCell("ID NUMBER", 2),
+      buildStringCell("KRA PIN", 2),
+      buildStringCell("PAYE PAYABLE", 2),
+      buildStringCell("HOUSING LEVY PAYABLE", 2),
+      buildStringCell("NSSF NO", 2),
+      buildStringCell("NSSF PAYABLE", 2),
+      buildStringCell("SHIF NO.", 2),
+      buildStringCell("SHIF PAYABLE", 2),
+      buildStringCell("PHONE NO.", 2),
+    ],
+  ];
+
+  dataset.rows.forEach((row, index) => {
+    rows.push([
+      buildNumberCell(index + 1),
+      buildStringCell(row.employeeNumber),
+      buildStringCell(row.fullName),
+      buildCurrencyCell(row.grossPay),
+      buildStringCell(row.nationalId),
+      buildStringCell(row.kraPin),
+      buildCurrencyCell(row.paye),
+      buildCurrencyCell(row.housingLevy),
+      buildStringCell(row.nssfNumber),
+      buildCurrencyCell(row.nssf),
+      buildStringCell(row.shifNumber),
+      buildCurrencyCell(row.shif),
+      buildStringCell(row.phone),
+    ]);
+  });
+
+  return buildWorkbook([
+    {
+      name: "All Statutories",
+      rows,
+      widths: [14, 18, 30, 16, 18, 18, 16, 22, 18, 16, 18, 16, 16],
+    },
+  ]);
+}
+
 function buildHelbCsv(dataset: PayrollOutputDataset) {
   return buildCsv([
     ["ID_NUMBER", "NAMES", "STAFF_NUMBER", "AMOUNT"],
@@ -4352,6 +4406,9 @@ export function buildPayrollTemplateOutput(
       break;
     case "shif_report":
       body = buildShifWorkbook(dataset);
+      break;
+    case "all_statutory_deductions_report":
+      body = buildAllStatutoryDeductionsWorkbook(dataset);
       break;
     case "helb_report":
       body = buildHelbCsv(dataset);

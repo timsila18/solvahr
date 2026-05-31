@@ -16759,6 +16759,26 @@ function preparePayrollOutputForGeneration(
       });
   }
 
+  if (exportType === "all_statutory_deductions_report") {
+    nextDataset.rows.forEach((row) => {
+      if (!row.kraPin) {
+        warnings.push(
+          `${row.fullName} (${row.employeeNumber}) is missing a KRA PIN. Row included with a blank tax PIN.`
+        );
+      }
+      if (!row.nssfNumber) {
+        warnings.push(
+          `${row.fullName} (${row.employeeNumber}) is missing an NSSF number. Row included with a blank NSSF number.`
+        );
+      }
+      if (!row.shifNumber) {
+        warnings.push(
+          `${row.fullName} (${row.employeeNumber}) is missing a SHIF number. Row included with a blank SHIF number.`
+        );
+      }
+    });
+  }
+
   if (exportType === "nssf_report") {
     nextDataset.rows
       .filter((row) => row.nssf > 0 || row.employerNssf > 0 || row.voluntaryNssf > 0)
@@ -16914,6 +16934,8 @@ export async function getPayrollExportFile(
           return "SHIF";
         case "nssf_report":
           return "NSSF";
+        case "all_statutory_deductions_report":
+          return "All Statutory Deductions";
         case "helb_report":
           return "HELB";
         case "housing_levy_report":
@@ -16937,8 +16959,20 @@ export async function getPayrollExportFile(
           ? roundPayrollAmount(prepared.dataset.rows.reduce((total, row) => total + safeNumber(row.netPay), 0))
           : exportType === "paye_report" || exportType === "p9_forms"
             ? roundPayrollAmount(prepared.dataset.rows.reduce((total, row) => total + safeNumber(row.paye), 0))
-            : exportType === "shif_report"
+          : exportType === "shif_report"
               ? roundPayrollAmount(prepared.dataset.rows.reduce((total, row) => total + safeNumber(row.shif), 0))
+              : exportType === "all_statutory_deductions_report"
+                ? roundPayrollAmount(
+                    prepared.dataset.rows.reduce(
+                      (total, row) =>
+                        total +
+                        safeNumber(row.paye) +
+                        safeNumber(row.housingLevy) +
+                        safeNumber(row.nssf) +
+                        safeNumber(row.shif),
+                      0
+                    )
+                  )
               : exportType === "nssf_report"
                 ? roundPayrollAmount(
                     prepared.dataset.rows.reduce(

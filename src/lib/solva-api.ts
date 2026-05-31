@@ -47,6 +47,7 @@ type PayrollExportType =
   | "net_to_bank"
   | "net_to_mpesa"
   | "paye_report"
+  | "all_statutory_deductions_report"
   | "nssf_report"
   | "shif_report"
   | "helb_report"

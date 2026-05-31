@@ -360,6 +360,7 @@ type PayrollExportActionType =
   | "net_to_bank"
   | "net_to_mpesa"
   | "paye_report"
+  | "all_statutory_deductions_report"
   | "nssf_report"
   | "shif_report"
   | "helb_report"
@@ -4694,6 +4695,26 @@ function PayrollWorkbench({
                         type="button"
                       >
                         {exportBusy === "paye_report:download" ? "Generating..." : "Download"}
+                      </button>
+                    </div>
+                    <div className="report-export-card">
+                      <strong>All Statutory Deductions Excel</strong>
+                      <small>
+                        One sheet with serial number, payroll number, gross pay, ID, PIN, PAYE, Housing Levy,
+                        NSSF, SHIF, and phone number in one filing-ready order.
+                      </small>
+                      <button
+                        className="primary-button"
+                        disabled={exportBusy === "all_statutory_deductions_report:download"}
+                        onClick={() =>
+                          onExport("all_statutory_deductions_report", {
+                            mode: "download",
+                            periodId: selectedExportPeriodId,
+                          })
+                        }
+                        type="button"
+                      >
+                        {exportBusy === "all_statutory_deductions_report:download" ? "Generating..." : "Download"}
                       </button>
                     </div>
                     <div className="report-export-card">

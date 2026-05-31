@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   title: "Solva HR",
   description: "Kenyan cloud-based HR and Payroll Management System for modern organizations",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/pwa-icons/solva-hr-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/pwa-icons/solva-hr-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/pwa-icons/solva-hr-192.png", sizes: "192x192", type: "image/png" }],
+    shortcut: "/pwa-icons/solva-hr-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

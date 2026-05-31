@@ -183,10 +183,10 @@ export function PwaRegistrar() {
             <strong>Install Solva HR</strong>
             <small>
               {bannerMode === "native"
-                ? "Add Solva HR to this device for faster access, app-style opening, and a cleaner everyday workflow."
+                ? "Add Solva HR to this device for faster access, app-style opening, and a cleaner everyday workflow. On desktop browsers, you can also use the install icon in the address bar."
                 : bannerMode === "ios"
                   ? "On iPhone or iPad, tap Share and choose Add to Home Screen to install Solva HR."
-                  : "Use your browser menu and choose Install app or Add to Home Screen to keep Solva HR one tap away."}
+                  : "Use your browser menu or the install icon in the address bar to install Solva HR and keep it one click away."}
             </small>
           </div>
           <div className="inline-actions">

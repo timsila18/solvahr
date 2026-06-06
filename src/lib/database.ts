@@ -11698,10 +11698,13 @@ export async function updateLeaveApprovalTask(
 
   const gmHasRobotCafeOverride =
     context.profile.role === "Manager" && isRobotCafeCompany(context.profile.company_id);
+  const hrAdminHasRobotCafeOverride =
+    context.profile.role === "HR Admin" && isRobotCafeCompany(context.profile.company_id);
 
   if (
     context.profile.role !== "Super Admin" &&
     !gmHasRobotCafeOverride &&
+    !hrAdminHasRobotCafeOverride &&
     ownerRole !== context.profile.role &&
     !allowedApproverRoles.includes(context.profile.role)
   ) {
@@ -12205,9 +12208,17 @@ export async function updateApprovalTask(taskId: string, action: "approve" | "re
   const allowedApproverRoles = Array.isArray(metadata.allowed_approver_roles)
     ? metadata.allowed_approver_roles.map((value) => safeString(value)).filter(Boolean)
     : [];
+  const isRobotCafeLeaveTask =
+    safeString(taskRow.entity_type) === "leave_request" && isRobotCafeCompany(context.profile.company_id);
+  const hrAdminHasRobotCafeLeaveOverride =
+    isRobotCafeLeaveTask && context.profile.role === "HR Admin";
+  const gmHasRobotCafeLeaveOverride =
+    isRobotCafeLeaveTask && context.profile.role === "Manager";
 
   if (
     context.profile.role !== "Super Admin" &&
+    !hrAdminHasRobotCafeLeaveOverride &&
+    !gmHasRobotCafeLeaveOverride &&
     ownerRole !== context.profile.role &&
     !allowedApproverRoles.includes(context.profile.role)
   ) {

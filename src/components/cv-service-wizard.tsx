@@ -68,6 +68,24 @@ function safeString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function safeDisplay(value: unknown, fallback = "") {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return fallback;
+}
+
+function safeArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 function createBlankEducation(): CvServiceEducationEntry {
   return { institution: "", qualification: "", year: "", grade: "" };
 }
@@ -426,15 +444,47 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
 
   const packageColumns = ["Package", "Best For", "Price", "Content Depth", "Design Level", "Turnaround", "Output Formats"];
   const canRegenerate = (draftOrder?.generationAttempts ?? 0) < 2 && draftOrder?.paymentStatus === "paid";
+  const strategy = safeRecord(draftOrder?.careerStrategy);
+  const atsAnalysis = safeRecord(draftOrder?.atsAnalysis);
+  const qualityIssues = draftOrder?.qualityIssues ?? [];
+
+  async function applyRefinePreset(preset: "executive" | "concise" | "detailed" | "design" | "achievements") {
+    const updates: Partial<CvServiceWizardPayload> =
+      preset === "executive"
+        ? {
+            preferredTone: "More executive, strategic, and leadership-forward",
+            specialInstructions: `${form.specialInstructions}\nMake the tone more executive and boardroom-ready.`.trim(),
+          }
+        : preset === "concise"
+          ? {
+              preferredTone: "More concise and recruiter-friendly",
+              specialInstructions: `${form.specialInstructions}\nTighten the wording and keep the strongest impact points only.`.trim(),
+            }
+          : preset === "detailed"
+            ? {
+                preferredTone: "More detailed and premium",
+                specialInstructions: `${form.specialInstructions}\nAdd more depth and richer achievement framing where supported by facts.`.trim(),
+              }
+            : preset === "design"
+              ? {
+                  preferredCvStyle: "Different premium design",
+                  specialInstructions: `${form.specialInstructions}\nTry a different premium layout while keeping ATS-safe formatting.`.trim(),
+                }
+              : {
+                  specialInstructions: `${form.specialInstructions}\nStrengthen the key achievements and make them more compelling.`.trim(),
+                };
+    setForm((current) => ({ ...current, ...updates }));
+    setMessage("Refinement request captured. Regenerate once to apply it.");
+  }
 
   return (
     <main className="cv-service-shell">
       <section className="cv-service-hero">
         <div className="cv-service-hero__copy">
-          <p className="section-eyebrow">ATS-compliant CV service</p>
-          <h1>Premium CV revamp when you already have one. Guided help when you do not.</h1>
+          <p className="section-eyebrow">Solva AI Career Studio</p>
+          <h1>Premium CV writing, rewriting, scoring, and export for serious job seekers.</h1>
           <p className="section-description">
-            Use the quick revamp lane if your CV already exists, or keep the full guided builder for a fresh start. Solva AI improves wording, structure, depth, and ATS readiness without inventing facts.
+            Use the quick revamp lane if your CV already exists, or keep the full guided builder for a fresh start. Solva AI Career Studio analyzes, rewrites, restructures, scores, and exports premium ATS-ready CVs without inventing facts.
           </p>
           <div className="marketing-proof-strip">
             <span>Quick upload and revamp</span>
@@ -443,11 +493,11 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
           </div>
         </div>
         <div className="cv-service-hero__card">
-          <strong>What feels different now</strong>
+          <strong>What makes it premium</strong>
           <ul>
-            <li>A fast revamp lane for existing CVs, with optional photo upload.</li>
-            <li>Premium blue-and-white layouts inspired by executive presentation CVs.</li>
-            <li>ATS score, readability score, and premium DOCX/PDF output after payment.</li>
+            <li>A fast upload-and-rewrite lane for existing CVs, with optional photo upload.</li>
+            <li>Package-based writing depth from entry level to executive leadership.</li>
+            <li>ATS scoring, quality checks, and premium DOCX/PDF output after generation.</li>
           </ul>
         </div>
       </section>
@@ -852,15 +902,15 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
           {step.key === "generation" ? (
             <div className="cv-step-section">
               <section className="mini-panel">
-                <h4>{sourceMode === "upload" ? "AI CV revamp" : "AI CV generation"}</h4>
+                <h4>{sourceMode === "upload" ? "Career Studio rewrite" : "Career Studio generation"}</h4>
                 <p className="section-description">
-                  Solva AI will improve grammar, reduce clutter, strengthen bullets, remove duplication, and keep the final document truthful and ATS-compliant.
+                  Solva AI Career Studio will build a writing strategy first, then improve grammar, deepen content, sharpen achievements, remove duplication, and block weak output through the quality checker before export.
                 </p>
                 <div className="cv-generate-box">
                   <strong>Payment status: {draftOrder?.paymentStatus ?? "pending"}</strong>
                   <span>Generation status: {draftOrder?.generationStatus ?? "pending"}</span>
                   <button className="primary-button" disabled={busyAction === "generate-cv" || draftOrder?.paymentStatus !== "paid"} onClick={() => void handleGenerateCv()} type="button">
-                    {busyAction === "generate-cv" ? "Generating..." : sourceMode === "upload" ? "Revamp my CV" : "Generate ATS-compliant CV"}
+                    {busyAction === "generate-cv" ? "Generating..." : sourceMode === "upload" ? "Rewrite my CV" : "Generate premium CV"}
                   </button>
                 </div>
                 {draftOrder?.reviewNotes?.length ? (
@@ -888,7 +938,9 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
                 <article className="cv-download-card">
                   <strong>ATS score</strong>
                   <span>{draftOrder?.atsScore || 0} / 100</span>
-                  <small>Cleaner headings, keywords, and structure improve ATS parsing.</small>
+                  <small>
+                    {atsAnalysis ? `Improved from ${safeDisplay(atsAnalysis.baselineScore, "0")} to ${safeDisplay(atsAnalysis.finalScore, String(draftOrder?.atsScore || 0))}.` : "Cleaner headings, keywords, and structure improve ATS parsing."}
+                  </small>
                 </article>
                 <article className="cv-download-card">
                   <strong>Readability score</strong>
@@ -896,18 +948,69 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
                   <small>Focused on clean summary, clearer bullets, and easier recruiter reading.</small>
                 </article>
                 <article className="cv-download-card">
-                  <strong>Files available for 24 hours</strong>
-                  <span>Payment status: {draftOrder?.paymentStatus ?? "pending"}</span>
-                  <small>Downloads remain locked if payment is not confirmed.</small>
+                  <strong>Quality status</strong>
+                  <span>{draftOrder?.qualityStatus || "pending"}</span>
+                  <small>{qualityIssues.length ? qualityIssues[0] : "Passed the structure and depth checker."}</small>
                 </article>
                 <article className="cv-download-card">
-                  <strong>Enhancement profile</strong>
-                  <span>Premium document refinement</span>
+                  <strong>Files available for 24 hours</strong>
+                  <span>Payment status: {draftOrder?.paymentStatus ?? "pending"}</span>
                   <small>
-                    Processing complete for the selected package{draftOrder?.estimatedProcessingCostKes ? "." : "."}
+                    Downloads remain available for 24 hours from the latest generation.
                   </small>
                 </article>
               </div>
+              {strategy ? (
+                <section className="mini-panel">
+                  <h4>Career strategy</h4>
+                  <div className="cv-summary-grid">
+                    <article className="cv-download-card">
+                      <strong>Target role</strong>
+                      <span>{safeString(strategy.targetRole, form.targetRole || "Not set")}</span>
+                      <small>{safeString(strategy.careerLevel)}</small>
+                    </article>
+                    <article className="cv-download-card">
+                      <strong>Recommended tone</strong>
+                      <span>{safeString(strategy.recommendedTone, form.preferredTone || "Professional")}</span>
+                      <small>{safeString(strategy.idealLength)}</small>
+                    </article>
+                    <article className="cv-download-card">
+                      <strong>ATS keywords</strong>
+                      <span>{safeArray(strategy.atsKeywords).slice(0, 4).map((item) => safeString(item)).join(", ") || "Keywords not available"}</span>
+                      <small>{safeString(strategy.packageExpectation)}</small>
+                    </article>
+                  </div>
+                </section>
+              ) : null}
+              {atsAnalysis ? (
+                <section className="mini-panel">
+                  <h4>ATS analysis</h4>
+                  <div className="cv-summary-grid">
+                    <article className="cv-download-card">
+                      <strong>Keyword strength</strong>
+                      <span>{safeDisplay(atsAnalysis.keywordStrengthScore, "0")} / 100</span>
+                      <small>How strongly the CV matches target-role language.</small>
+                    </article>
+                    <article className="cv-download-card">
+                      <strong>Formatting score</strong>
+                      <span>{safeDisplay(atsAnalysis.formattingScore, "0")} / 100</span>
+                      <small>Section clarity, bullet discipline, and ATS-safe structure.</small>
+                    </article>
+                    <article className="cv-download-card">
+                      <strong>Readability</strong>
+                      <span>{safeDisplay(atsAnalysis.readabilityScore, String(draftOrder?.readabilityScore || 0))} / 100</span>
+                      <small>How quickly a recruiter can absorb the profile.</small>
+                    </article>
+                  </div>
+                  {safeArray(atsAnalysis.missingInformation).length ? (
+                    <ul className="cv-note-list">
+                      {safeArray(atsAnalysis.missingInformation).slice(0, 5).map((item, index) => (
+                        <li key={`missing-${index}`}>{safeString(item)}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+              ) : null}
               {draftOrder?.improvementSummary?.length ? (
                 <section className="mini-panel">
                   <h4>Improvement summary</h4>
@@ -919,13 +1022,19 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
               {draftOrder?.generatedPreview ? (
                 <section className="mini-panel">
                   <h4>CV preview</h4>
-                  <p className="section-description">{safeString(draftOrder.generatedPreview.professionalSummary, "Summary preview unavailable.")}</p>
+                  <ul className="cv-note-list">
+                    <li><strong>Headline:</strong> {safeString(draftOrder.generatedPreview.professionalHeadline, form.targetRole || "Not available")}</li>
+                    <li><strong>Summary:</strong> {safeString(draftOrder.generatedPreview.professionalSummary, "Summary preview unavailable.")}</li>
+                    {safeArray(draftOrder.generatedPreview.keyAchievements).slice(0, 4).map((item, index) => (
+                      <li key={`achievement-preview-${index}`}>{safeString(item)}</li>
+                    ))}
+                  </ul>
                 </section>
               ) : null}
               <div className="cv-download-grid">
                 <article className="cv-download-card">
-                  <strong>ATS-Friendly Version</strong>
-                  <span>Clean structure for recruiter systems</span>
+                  <strong>Premium export pack</strong>
+                  <span>Editable DOCX and polished PDF</span>
                   <div className="inline-actions">
                     <a className="primary-button" href={draftOrder?.generatedDownloadLinks.docx ?? "#"} rel="noreferrer" target="_blank">Download DOCX</a>
                     <a className="ghost-button" href={draftOrder?.generatedDownloadLinks.pdf ?? "#"} rel="noreferrer" target="_blank">Download PDF</a>
@@ -933,9 +1042,16 @@ export function CvServiceWizard({ packages }: { packages: CvServicePackageDefini
                 </article>
                 <article className="cv-download-card">
                   <strong>Refine once more</strong>
-                  <span>Adjust tone or design level, then regenerate once.</span>
+                  <span>Choose the kind of upgrade you want, then regenerate once.</span>
                   <label><span>Preferred tone</span><input value={form.preferredTone} onChange={(event) => setForm((current) => ({ ...current, preferredTone: event.target.value }))} /></label>
                   <label><span>Design style</span><input value={form.preferredCvStyle} onChange={(event) => setForm((current) => ({ ...current, preferredCvStyle: event.target.value }))} /></label>
+                  <div className="inline-actions">
+                    <button className="ghost-button" onClick={() => void applyRefinePreset("executive")} type="button">More executive tone</button>
+                    <button className="ghost-button" onClick={() => void applyRefinePreset("concise")} type="button">More concise</button>
+                    <button className="ghost-button" onClick={() => void applyRefinePreset("detailed")} type="button">More detailed</button>
+                    <button className="ghost-button" onClick={() => void applyRefinePreset("design")} type="button">Different design</button>
+                    <button className="ghost-button" onClick={() => void applyRefinePreset("achievements")} type="button">Stronger achievements</button>
+                  </div>
                   <button className="ghost-button" disabled={!canRegenerate || busyAction === "generate-cv"} onClick={() => void handleGenerateCv()} type="button">
                     {canRegenerate ? "Regenerate once" : "Regeneration used"}
                   </button>

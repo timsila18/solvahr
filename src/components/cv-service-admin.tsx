@@ -47,6 +47,13 @@ export function CvServiceAdmin() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [busyAction, setBusyAction] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [editor, setEditor] = useState({
+    professionalHeadline: "",
+    professionalSummary: "",
+    keyAchievements: "",
+    adminNotes: "",
+  });
 
   async function loadDashboard() {
     const payload = await readJson<{ dashboard: DashboardPayload }>("/api/admin/cv-service/dashboard");
@@ -70,6 +77,46 @@ export function CvServiceAdmin() {
       });
       await loadDashboard();
       setMessage(action === "mark_paid" ? "Order marked as paid." : "CV regenerated successfully.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not complete the CV admin action.");
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function handleAdvancedAction(
+    orderId: string,
+    action: "approve_final" | "refresh_links" | "manual_edit"
+  ) {
+    setBusyAction(`${action}-${orderId}`);
+    setMessage("");
+    try {
+      await readJson(`/api/admin/cv-service/orders/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          action === "manual_edit"
+            ? {
+                action,
+                professionalHeadline: editor.professionalHeadline,
+                professionalSummary: editor.professionalSummary,
+                keyAchievements: editor.keyAchievements
+                  .split(/\r?\n+/)
+                  .map((entry) => entry.trim())
+                  .filter(Boolean),
+                adminNotes: editor.adminNotes,
+              }
+            : { action }
+        ),
+      });
+      await loadDashboard();
+      setMessage(
+        action === "approve_final"
+          ? "CV approved for final release."
+          : action === "refresh_links"
+            ? "Download links refreshed for another 24 hours."
+            : "Manual edits saved."
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not complete the CV admin action.");
     } finally {
@@ -106,6 +153,26 @@ export function CvServiceAdmin() {
       { label: "Downloads", value: dashboard.metrics.downloads },
     ];
   }, [dashboard]);
+
+  const selectedOrder = useMemo(
+    () => dashboard?.orders.find((row) => safeString(row.id) === selectedOrderId) ?? null,
+    [dashboard, selectedOrderId]
+  );
+
+  useEffect(() => {
+    if (!selectedOrder) {
+      return;
+    }
+    const preview = (selectedOrder.generatedPreview as Record<string, unknown> | null) ?? null;
+    setEditor({
+      professionalHeadline: safeString(preview?.professionalHeadline),
+      professionalSummary: safeString(preview?.professionalSummary),
+      keyAchievements: Array.isArray(preview?.keyAchievements)
+        ? (preview?.keyAchievements as unknown[]).map((item) => safeString(item)).filter(Boolean).join("\n")
+        : "",
+      adminNotes: safeString(selectedOrder.adminNotes),
+    });
+  }, [selectedOrder]);
 
   return (
     <main className="workflow-page">
@@ -187,6 +254,8 @@ export function CvServiceAdmin() {
                   <th>Amount</th>
                   <th>Payment</th>
                   <th>Generation</th>
+                  <th>ATS</th>
+                  <th>Quality</th>
                   <th>Downloads</th>
                   <th>Created</th>
                   <th>Actions</th>
@@ -208,6 +277,8 @@ export function CvServiceAdmin() {
                         <td>{formatCurrency(safeNumber(row.amount))}</td>
                         <td>{safeString(row.paymentStatus)}</td>
                         <td>{safeString(row.generationStatus)}</td>
+                        <td>{safeNumber(row.atsScore)}</td>
+                        <td>{safeString(row.qualityStatus, "pending")}</td>
                         <td>{safeNumber(row.downloadCount)}</td>
                         <td>{safeString(row.createdAt)}</td>
                         <td>
@@ -228,6 +299,9 @@ export function CvServiceAdmin() {
                             >
                               Regenerate
                             </button>
+                            <button className="ghost-button" onClick={() => setSelectedOrderId(id)} type="button">
+                              Review
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -235,13 +309,109 @@ export function CvServiceAdmin() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={9}>No CV service orders yet.</td>
+                    <td colSpan={11}>No CV service orders yet.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
         </section>
+
+        {selectedOrder ? (
+          <section className="surface-card">
+            <div className="section-heading">
+              <div>
+                <p className="section-eyebrow">Order review</p>
+                <h3>{safeString(selectedOrder.customerName, "Customer")} - {safeString(selectedOrder.packageName)}</h3>
+              </div>
+              <div className="inline-actions">
+                <button
+                  className="ghost-button"
+                  disabled={busyAction === `refresh_links-${safeString(selectedOrder.id)}`}
+                  onClick={() => void handleAdvancedAction(safeString(selectedOrder.id), "refresh_links")}
+                  type="button"
+                >
+                  Refresh links
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={busyAction === `approve_final-${safeString(selectedOrder.id)}`}
+                  onClick={() => void handleAdvancedAction(safeString(selectedOrder.id), "approve_final")}
+                  type="button"
+                >
+                  Approve final CV
+                </button>
+              </div>
+            </div>
+            <div className="cv-summary-grid">
+              <article className="cv-download-card">
+                <strong>ATS score</strong>
+                <span>{safeNumber(selectedOrder.atsScore)} / 100</span>
+                <small>{safeString(selectedOrder.qualityStatus, "pending")}</small>
+              </article>
+              <article className="cv-download-card">
+                <strong>Customer notes</strong>
+                <span>{safeString(selectedOrder.customerNotes, "None supplied")}</span>
+                <small>{safeString(selectedOrder.sourceMode)} flow</small>
+              </article>
+              <article className="cv-download-card">
+                <strong>Uploaded CV</strong>
+                <span>{safeString(selectedOrder.uploadedCvName, "No upload")}</span>
+                <small>{safeString(selectedOrder.uploadedCvUrl) ? "Source file available" : "No source file stored"}</small>
+                {safeString(selectedOrder.uploadedCvUrl) ? (
+                  <a className="ghost-button" href={safeString(selectedOrder.uploadedCvUrl)} rel="noreferrer" target="_blank">
+                    Open uploaded CV
+                  </a>
+                ) : null}
+              </article>
+            </div>
+            {Array.isArray(selectedOrder.qualityIssues) && selectedOrder.qualityIssues.length ? (
+              <ul className="cv-note-list">
+                {(selectedOrder.qualityIssues as unknown[]).map((issue, index) => (
+                  <li key={`quality-issue-${index}`}>{safeString(issue)}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="cv-form-grid">
+              <label className="cv-field-span-2">
+                <span>Professional headline</span>
+                <input value={editor.professionalHeadline} onChange={(event) => setEditor((current) => ({ ...current, professionalHeadline: event.target.value }))} />
+              </label>
+              <label className="cv-field-span-2">
+                <span>Professional summary</span>
+                <textarea rows={6} value={editor.professionalSummary} onChange={(event) => setEditor((current) => ({ ...current, professionalSummary: event.target.value }))} />
+              </label>
+              <label className="cv-field-span-2">
+                <span>Key achievements (one per line)</span>
+                <textarea rows={6} value={editor.keyAchievements} onChange={(event) => setEditor((current) => ({ ...current, keyAchievements: event.target.value }))} />
+              </label>
+              <label className="cv-field-span-2">
+                <span>Admin notes</span>
+                <textarea rows={4} value={editor.adminNotes} onChange={(event) => setEditor((current) => ({ ...current, adminNotes: event.target.value }))} />
+              </label>
+            </div>
+            <div className="inline-actions">
+              <button
+                className="ghost-button"
+                disabled={busyAction === `manual_edit-${safeString(selectedOrder.id)}`}
+                onClick={() => void handleAdvancedAction(safeString(selectedOrder.id), "manual_edit")}
+                type="button"
+              >
+                Save manual edits
+              </button>
+              {safeString(selectedOrder.generatedDocxLink) ? (
+                <a className="primary-button" href={safeString(selectedOrder.generatedDocxLink)}>
+                  Download DOCX
+                </a>
+              ) : null}
+              {safeString(selectedOrder.generatedPdfLink) ? (
+                <a className="ghost-button" href={safeString(selectedOrder.generatedPdfLink)}>
+                  Download PDF
+                </a>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {message ? <div className="task-banner">{message}</div> : null}
       </div>

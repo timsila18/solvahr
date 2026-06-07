@@ -70,9 +70,53 @@ export type CvServiceRefereeEntry = {
   relationship: string;
 };
 
-export type CvSectionKey = "summary" | "competencies" | "experience" | "education" | "qualifications" | "skills" | "referees";
+export type CvSectionKey =
+  | "summary"
+  | "competencies"
+  | "achievements"
+  | "experience"
+  | "education"
+  | "qualifications"
+  | "skills"
+  | "memberships"
+  | "referees";
 
 export type CvTemplateKey = "sidebar" | "executive";
+
+export type CvCareerStrategy = {
+  targetRole: string;
+  careerLevel: string;
+  industry: string;
+  strongestSellingPoints: string[];
+  weakAreasToImprove: string[];
+  atsKeywords: string[];
+  bestCvStructure: string[];
+  recommendedTone: string;
+  idealLength: string;
+  packageExpectation: string;
+};
+
+export type CvAtsAnalysis = {
+  baselineScore: number;
+  finalScore: number;
+  keywordStrengthScore: number;
+  formattingScore: number;
+  readabilityScore: number;
+  missingInformation: string[];
+  recommendedImprovements: string[];
+};
+
+export type CvQualityCheck = {
+  status: "passed" | "failed";
+  checks: Array<{
+    key: string;
+    passed: boolean;
+    detail: string;
+  }>;
+  issues: string[];
+  regenerationCount: number;
+  adminApprovalStatus?: "pending" | "approved";
+};
 
 export type GeneratedCvModel = {
   packageKey: CvPackageKey;
@@ -90,8 +134,10 @@ export type GeneratedCvModel = {
   targetRole: string;
   industry: string;
   countryRegion: string;
+  professionalHeadline: string;
   professionalSummary: string;
   coreCompetencies: string[];
+  keyAchievements: string[];
   experience: Array<{
     employer: string;
     jobTitle: string;
@@ -110,12 +156,21 @@ export type GeneratedCvModel = {
     category: string;
     items: string[];
   }>;
+  professionalMemberships: Array<{
+    title: string;
+    detail: string;
+  }>;
   referees: CvServiceRefereeEntry[];
   refereesOnRequest: boolean;
   atsScore: number;
   readabilityScore: number;
   improvementSummary: string[];
   reviewNotes: string[];
+  careerStrategy: CvCareerStrategy;
+  atsAnalysis: CvAtsAnalysis;
+  qualityCheck: CvQualityCheck;
+  executiveBio?: string;
+  linkedInSummary?: string;
   generatedAtLabel: string;
   profilePhotoPath?: string;
   profilePhotoMime?: string;
@@ -188,7 +243,17 @@ const PACKAGE_STYLES: Record<
   },
 };
 
-const CV_SECTION_KEYS: CvSectionKey[] = ["summary", "competencies", "experience", "education", "qualifications", "skills", "referees"];
+const CV_SECTION_KEYS: CvSectionKey[] = [
+  "summary",
+  "competencies",
+  "achievements",
+  "experience",
+  "education",
+  "qualifications",
+  "skills",
+  "memberships",
+  "referees",
+];
 
 const LEADERSHIP_ROLE_PATTERN =
   /\b(ceo|chief|director|head|general manager|manager|lead|leader|principal|executive|consultant|specialist|strategy|governance|operations|finance manager|hr manager|program manager|country manager)\b/i;
@@ -337,6 +402,15 @@ function buildProfessionalSummary(input: BuilderInput) {
   return `${sentenceCase(parts)}. ${achievementSentence} ${objective} The profile is presented in a ${packageStyle.summaryTone} style while staying faithful to the supplied facts.`;
 }
 
+function buildProfessionalHeadline(input: BuilderInput) {
+  const target = safeString(input.targetRole);
+  const profession = safeString(input.currentProfession);
+  if (target && profession && normalizeComparableText(target) !== normalizeComparableText(profession)) {
+    return `${profession} | ${target}`;
+  }
+  return target || profession || input.packageDefinition.name;
+}
+
 function buildCoreCompetencies(input: BuilderInput) {
   const seed = new Set<string>();
   normaliseCsvItems(input.majorAchievements).forEach((entry) => seed.add(entry));
@@ -348,6 +422,39 @@ function buildCoreCompetencies(input: BuilderInput) {
     .slice(0, 4)
     .forEach((item) => seed.add(item));
   return uniqueTextItems(Array.from(seed).filter((item) => item.length <= 60), 10);
+}
+
+function buildKeyAchievements(input: BuilderInput, packageKey: CvPackageKey) {
+  const maxItems = packageKey === "executive" ? 7 : packageKey === "senior" ? 6 : packageKey === "mid" ? 5 : 4;
+  const seed: string[] = [];
+  normaliseParagraphs(input.majorAchievements).forEach((entry) => seed.push(sentenceCase(entry.replace(/\.$/, "")) + "."));
+  input.experienceEntries.forEach((entry) => {
+    normaliseParagraphs(entry.achievements)
+      .slice(0, 2)
+      .forEach((achievement) => {
+        const rolePrefix = safeString(entry.jobTitle) ? `${entry.jobTitle}: ` : "";
+        seed.push(`${rolePrefix}${sentenceCase(achievement.replace(/\.$/, ""))}.`);
+      });
+  });
+  return uniqueTextItems(seed, maxItems);
+}
+
+function splitQualificationsAndMemberships(entries: CvServiceQualificationEntry[]) {
+  const memberships: Array<{ title: string; detail: string }> = [];
+  const qualifications: Array<{ title: string; detail: string }> = [];
+
+  entries.forEach((entry) => {
+    const title = uniqueTextItems([safeString(entry.name), safeString(entry.type)]).join(" - ");
+    const detail = uniqueTextItems([safeString(entry.issuer), safeString(entry.year)]).join(" | ");
+    const combined = `${title} ${detail}`.toLowerCase();
+    if (/\b(member|membership|association|institute|board|society|chapter)\b/.test(combined)) {
+      memberships.push({ title, detail });
+      return;
+    }
+    qualifications.push({ title, detail });
+  });
+
+  return { qualifications, memberships };
 }
 
 function buildExperienceBullets(entry: CvServiceExperienceEntry, packageKey: CvPackageKey) {
@@ -414,6 +521,16 @@ function buildReviewNotes(input: BuilderInput, competencies: string[]) {
   return notes;
 }
 
+function estimateBaselineAtsScore(input: BuilderInput) {
+  let score = 42;
+  if (input.targetRole) score += 6;
+  if (input.experienceEntries.filter((entry) => safeString(entry.jobTitle) || safeString(entry.employer)).length >= 1) score += 8;
+  if (input.educationEntries.filter((entry) => safeString(entry.qualification)).length >= 1) score += 6;
+  if (input.skillEntries.some((entry) => safeString(entry.items))) score += 6;
+  if (input.existingCvText || input.sourceMode === "upload") score += 4;
+  return Math.max(34, Math.min(72, score));
+}
+
 function scoreAtsReadiness(input: BuilderInput, competencies: string[], reviewNotes: string[]) {
   let score = 56;
   if (input.targetRole) score += 8;
@@ -450,6 +567,169 @@ function buildImprovementSummary(input: BuilderInput, competencies: string[]) {
     items.push("Uploaded CV content was restructured into a more disciplined, recruiter-friendly format.");
   }
   return items.slice(0, 5);
+}
+
+function inferCareerLevelLabel(input: BuilderInput) {
+  if (input.packageDefinition.key === "executive") return "Executive leadership";
+  if (input.packageDefinition.key === "senior") return "Senior management";
+  if (input.packageDefinition.key === "mid") return "Mid-level management";
+  return "Entry level / early career";
+}
+
+function estimateIdealLength(input: BuilderInput) {
+  if (input.packageDefinition.key === "executive") return "2-3 pages";
+  if (input.packageDefinition.key === "senior") return "2 pages";
+  if (input.packageDefinition.key === "mid") return "2 pages";
+  return input.experienceEntries.filter((entry) => safeString(entry.jobTitle)).length > 1 ? "2 pages" : "1-2 pages";
+}
+
+function extractAtsKeywords(input: BuilderInput) {
+  const keywords = [
+    ...normaliseCsvItems(input.targetRole),
+    ...normaliseCsvItems(input.industry),
+    ...normaliseCsvItems(input.jobDescription),
+    ...input.skillEntries.flatMap((entry) => normaliseCsvItems(entry.items)),
+  ].filter((entry) => entry.length >= 3 && entry.length <= 40);
+  return uniqueTextItems(keywords, input.packageDefinition.key === "executive" ? 16 : 12);
+}
+
+function buildCareerStrategy(
+  input: BuilderInput,
+  competencies: string[],
+  keyAchievements: string[],
+  reviewNotes: string[]
+): CvCareerStrategy {
+  return {
+    targetRole: safeString(input.targetRole, safeString(input.currentProfession, input.packageDefinition.name)),
+    careerLevel: inferCareerLevelLabel(input),
+    industry: safeString(input.industry, "General"),
+    strongestSellingPoints: uniqueTextItems(
+      [
+        ...keyAchievements.map((entry) => entry.replace(/\.$/, "")),
+        ...competencies,
+        safeString(input.currentProfession),
+      ].filter(Boolean),
+      6
+    ),
+    weakAreasToImprove: uniqueTextItems(reviewNotes, 5),
+    atsKeywords: extractAtsKeywords(input),
+    bestCvStructure: [
+      "Headline and contact block",
+      "Professional summary",
+      "Core competencies",
+      "Key achievements",
+      "Professional experience",
+      "Education and credentials",
+      "Technical skills, memberships, and referees",
+    ],
+    recommendedTone: safeString(input.preferredTone, PACKAGE_STYLES[input.packageDefinition.key].summaryTone),
+    idealLength: estimateIdealLength(input),
+    packageExpectation: input.packageDefinition.description,
+  };
+}
+
+function buildAtsAnalysis(
+  input: BuilderInput,
+  baselineScore: number,
+  finalScore: number,
+  readabilityScore: number,
+  reviewNotes: string[],
+  competencies: string[]
+): CvAtsAnalysis {
+  const formattingScore = Math.max(
+    58,
+    Math.min(
+      96,
+      64 +
+        (input.experienceEntries.some((entry) => safeString(entry.achievements)) ? 10 : 0) +
+        (input.educationEntries.some((entry) => safeString(entry.qualification)) ? 6 : 0) +
+        (input.refereesOnRequest || input.refereeEntries.some((entry) => safeString(entry.name)) ? 4 : 0) -
+        Math.min(12, reviewNotes.length * 2)
+    )
+  );
+  const keywordStrengthScore = Math.max(52, Math.min(96, 54 + Math.min(26, competencies.length * 3) + (input.jobDescription ? 10 : 0)));
+  return {
+    baselineScore,
+    finalScore,
+    keywordStrengthScore,
+    formattingScore,
+    readabilityScore,
+    missingInformation: uniqueTextItems(reviewNotes, 5),
+    recommendedImprovements: uniqueTextItems(
+      [
+        "Tailor the headline and summary to each application.",
+        "Keep metrics and scale where you can evidence them.",
+        "Mirror the target job language naturally in the experience bullets.",
+        ...reviewNotes,
+      ],
+      6
+    ),
+  };
+}
+
+function buildQualityCheck(model: GeneratedCvModel): CvQualityCheck {
+  const duplicateTracker = new Set<string>();
+  const duplicateCount = [
+    model.professionalSummary,
+    ...model.coreCompetencies,
+    ...model.keyAchievements,
+    ...model.experience.flatMap((entry) => entry.bullets),
+  ].reduce((count, value) => {
+    const normalized = normalizeComparableText(value);
+    if (!normalized) {
+      return count;
+    }
+    if (duplicateTracker.has(normalized)) {
+      return count + 1;
+    }
+    duplicateTracker.add(normalized);
+    return count;
+  }, 0);
+
+  const brokenNumbering = /\b\d+\.\s*\d+\./.test(model.professionalSummary) || model.experience.some((entry) => entry.bullets.some((bullet) => /\b\d+\.\s*\d+\./.test(bullet)));
+  const rawDumpDetected = model.professionalSummary.length > 900 || /\b(curriculum vitae|resume|page 1|references upon request)\b/i.test(model.professionalSummary);
+  const depthThreshold = model.packageKey === "executive" ? 5 : model.packageKey === "senior" ? 4 : model.packageKey === "mid" ? 3 : 2;
+  const totalBullets = model.experience.reduce((sum, entry) => sum + entry.bullets.length, 0);
+  const checks = [
+    {
+      key: "summary_present",
+      passed: hasMeaningfulText(model.professionalSummary) && model.professionalSummary.length >= 140,
+      detail: "Professional summary should be clearly written and substantial.",
+    },
+    {
+      key: "experience_structured",
+      passed: model.experience.length > 0 && totalBullets >= depthThreshold,
+      detail: "Experience section should contain structured roles and achievement-style bullets.",
+    },
+    {
+      key: "key_achievements_present",
+      passed: model.keyAchievements.length >= Math.min(depthThreshold, 3),
+      detail: "Key achievements should be visible before the full experience section.",
+    },
+    {
+      key: "no_duplicates",
+      passed: duplicateCount === 0,
+      detail: "Duplicate paragraphs and bullets should not appear in the final CV.",
+    },
+    {
+      key: "numbering_clean",
+      passed: !brokenNumbering,
+      detail: "Broken numbering and pasted-list artifacts should not appear.",
+    },
+    {
+      key: "no_raw_dump",
+      passed: !rawDumpDetected,
+      detail: "The final summary should not look like a raw pasted CV dump.",
+    },
+  ];
+  const issues = checks.filter((check) => !check.passed).map((check) => check.detail);
+  return {
+    status: issues.length ? "failed" : "passed",
+    checks,
+    issues,
+    regenerationCount: 0,
+    adminApprovalStatus: "pending",
+  };
 }
 
 function getCvTemplateKey(packageKey: CvPackageKey): CvTemplateKey {
@@ -508,9 +788,10 @@ function mergeSectionOrder(preferred: CvSectionKey[], fallback: CvSectionKey[]) 
 }
 
 function buildHeadline(model: GeneratedCvModel) {
+  const explicitHeadline = safeString(model.professionalHeadline);
   const role = safeString(model.targetRole);
   const profession = safeString(model.experience[0]?.jobTitle);
-  return role || profession || model.packageName;
+  return explicitHeadline || role || profession || model.packageName;
 }
 
 function inferCvCompositionPlan(model: GeneratedCvModel): CvCompositionPlan {
@@ -541,13 +822,13 @@ function inferCvCompositionPlan(model: GeneratedCvModel): CvCompositionPlan {
   const fallbackOrder: CvSectionKey[] =
     template === "executive"
       ? credentialHeavy
-        ? ["summary", "competencies", "experience", "qualifications", "education", "skills", "referees"]
-        : ["summary", "competencies", "experience", "education", "qualifications", "skills", "referees"]
+        ? ["summary", "competencies", "achievements", "experience", "qualifications", "education", "skills", "memberships", "referees"]
+        : ["summary", "competencies", "achievements", "experience", "education", "qualifications", "skills", "memberships", "referees"]
       : educationForward
-        ? ["summary", "education", "experience", "qualifications", "skills", "referees", "competencies"]
+        ? ["summary", "competencies", "achievements", "education", "experience", "qualifications", "skills", "memberships", "referees"]
         : credentialHeavy
-          ? ["summary", "qualifications", "experience", "education", "skills", "referees", "competencies"]
-          : ["summary", "experience", "education", "qualifications", "skills", "referees", "competencies"];
+          ? ["summary", "competencies", "achievements", "qualifications", "experience", "education", "skills", "memberships", "referees"]
+          : ["summary", "competencies", "achievements", "experience", "education", "qualifications", "skills", "memberships", "referees"];
 
   const preferredOrder = normalizeSectionOrder(model.sectionOrder);
   const sectionOrder = mergeSectionOrder(preferredOrder, fallbackOrder);
@@ -589,6 +870,7 @@ function sanitizeGeneratedCvModel(model: GeneratedCvModel): GeneratedCvModel {
     .replace(/\bprofessional summary\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+  const professionalHeadline = cleanDisplayText(model.professionalHeadline);
   const experience = model.experience
     .map((entry) => ({
       employer: cleanDisplayText(entry.employer),
@@ -615,6 +897,13 @@ function sanitizeGeneratedCvModel(model: GeneratedCvModel): GeneratedCvModel {
       items: uniqueTextItems(entry.items.map((item) => cleanDisplayText(item)).filter(Boolean), 12),
     }))
     .filter((entry) => entry.items.length);
+  const keyAchievements = uniqueTextItems(model.keyAchievements.map((item) => cleanInlineText(item)).filter(Boolean), 8);
+  const professionalMemberships = model.professionalMemberships
+    .map((entry) => ({
+      title: cleanDisplayText(entry.title),
+      detail: cleanInlineText(entry.detail),
+    }))
+    .filter((entry) => entry.title);
   const referees = model.referees
     .map((entry) => ({
       ...entry,
@@ -632,11 +921,14 @@ function sanitizeGeneratedCvModel(model: GeneratedCvModel): GeneratedCvModel {
     customerName,
     targetRole,
     contactLine,
+    professionalHeadline,
     professionalSummary,
+    keyAchievements,
     experience,
     education,
     qualifications,
     skills,
+    professionalMemberships,
     referees,
     coreCompetencies: uniqueTextItems(model.coreCompetencies.map((item) => cleanDisplayText(item)).filter(Boolean), 12),
   };
@@ -645,9 +937,11 @@ function sanitizeGeneratedCvModel(model: GeneratedCvModel): GeneratedCvModel {
 export function generateStructuredCv(input: BuilderInput): GeneratedCvModel {
   const competencies = buildCoreCompetencies(input);
   const reviewNotes = buildReviewNotes(input, competencies);
+  const baselineAtsScore = estimateBaselineAtsScore(input);
   const atsScore = scoreAtsReadiness(input, competencies, reviewNotes);
   const readabilityScore = scoreReadability(input, competencies);
   const improvementSummary = buildImprovementSummary(input, competencies);
+  const keyAchievements = buildKeyAchievements(input, input.packageDefinition.key);
   const experience = input.experienceEntries
     .filter((entry) => hasMeaningfulText(entry.jobTitle) || hasMeaningfulText(entry.employer) || hasMeaningfulText(entry.duties) || hasMeaningfulText(entry.achievements))
     .map((entry) => ({
@@ -662,12 +956,9 @@ export function generateStructuredCv(input: BuilderInput): GeneratedCvModel {
       title: uniqueTextItems([safeString(entry.qualification), safeString(entry.institution)]).join(" - "),
       detail: uniqueTextItems([safeString(entry.year), safeString(entry.grade)]).join(" | "),
     }));
-  const qualifications = input.qualificationEntries
-    .filter((entry) => hasMeaningfulText(entry.name) || hasMeaningfulText(entry.issuer))
-    .map((entry) => ({
-      title: uniqueTextItems([safeString(entry.name), safeString(entry.type)]).join(" - "),
-      detail: uniqueTextItems([safeString(entry.issuer), safeString(entry.year)]).join(" | "),
-    }));
+  const { qualifications, memberships } = splitQualificationsAndMemberships(
+    input.qualificationEntries.filter((entry) => hasMeaningfulText(entry.name) || hasMeaningfulText(entry.issuer))
+  );
   const skills = input.skillEntries
     .map((entry) => ({
       category: safeString(entry.category, "General Skills"),
@@ -675,8 +966,10 @@ export function generateStructuredCv(input: BuilderInput): GeneratedCvModel {
     }))
     .filter((entry) => hasMeaningfulText(entry.category) && entry.items.length > 0);
   const referees = input.refereeEntries.filter((entry) => hasMeaningfulText(entry.name));
+  const careerStrategy = buildCareerStrategy(input, competencies, keyAchievements, reviewNotes);
+  const atsAnalysis = buildAtsAnalysis(input, baselineAtsScore, atsScore, readabilityScore, reviewNotes, competencies);
 
-  const draft: GeneratedCvModel = {
+  const baseDraft: GeneratedCvModel = {
     packageKey: input.packageDefinition.key,
     packageName: input.packageDefinition.name,
     designLabel: PACKAGE_STYLES[input.packageDefinition.key].designLabel,
@@ -688,29 +981,53 @@ export function generateStructuredCv(input: BuilderInput): GeneratedCvModel {
     targetRole: safeString(input.targetRole),
     industry: safeString(input.industry),
     countryRegion: safeString(input.countryRegion),
+    professionalHeadline: buildProfessionalHeadline(input),
     professionalSummary: buildProfessionalSummary(input),
     coreCompetencies: competencies,
+    keyAchievements,
     experience,
     education,
     qualifications,
     skills,
+    professionalMemberships: memberships,
     referees,
     refereesOnRequest: input.refereesOnRequest,
     atsScore,
     readabilityScore,
     improvementSummary,
     reviewNotes,
+    careerStrategy,
+    atsAnalysis,
+    qualityCheck: {
+      status: "passed",
+      checks: [],
+      issues: [],
+      regenerationCount: 0,
+      adminApprovalStatus: "pending",
+    },
+    executiveBio:
+      input.packageDefinition.key === "executive"
+        ? `${safeString(input.currentProfession, safeString(input.targetRole, "Executive leader"))} offering a strategic leadership profile shaped for board-level review and high-trust stakeholder conversations.`
+        : undefined,
+    linkedInSummary:
+      input.packageDefinition.key === "executive" || input.packageDefinition.key === "senior"
+        ? `${safeString(input.currentProfession || input.targetRole || "Professional")} | ${safeString(input.industry || input.countryRegion || "Leadership")} | ${PACKAGE_STYLES[input.packageDefinition.key].summaryTone}`
+        : undefined,
     generatedAtLabel: input.generatedAtLabel,
     profilePhotoPath: safeString(input.profilePhotoPath),
     profilePhotoMime: safeString(input.profilePhotoMime),
   };
 
-  const composition = inferCvCompositionPlan(draft);
-  return {
-    ...draft,
+  const composition = inferCvCompositionPlan(baseDraft);
+  const draft = {
+    ...baseDraft,
     designLabel: composition.template === "executive" ? "Executive band premium layout" : "Signature sidebar premium layout",
     recommendedTemplate: composition.template,
     sectionOrder: composition.sectionOrder,
+  };
+  return {
+    ...draft,
+    qualityCheck: buildQualityCheck(draft),
   };
 }
 
@@ -748,8 +1065,10 @@ export async function buildCvDocx(model: GeneratedCvModel, profilePhoto: CvProfi
   const educationEntries = sanitizedModel.education.filter((entry) => hasMeaningfulText(entry.title));
   const qualificationEntries = sanitizedModel.qualifications.filter((entry) => hasMeaningfulText(entry.title));
   const skillEntries = sanitizedModel.skills.filter((entry) => entry.items.length > 0);
+  const membershipEntries = sanitizedModel.professionalMemberships.filter((entry) => hasMeaningfulText(entry.title));
   const refereeEntries = sanitizedModel.referees.filter((entry) => hasMeaningfulText(entry.name));
   const competencyItems = uniqueTextItems(sanitizedModel.coreCompetencies, 10);
+  const keyAchievementItems = uniqueTextItems(sanitizedModel.keyAchievements, 8);
   const showRefereesOnRequest = sanitizedModel.refereesOnRequest || sanitizedModel.sourceMode === "upload";
 
   const bodyParagraph = (text: string, options?: { color?: string; size?: number; italics?: boolean; bold?: boolean; spacingAfter?: number; alignment?: (typeof AlignmentType)[keyof typeof AlignmentType] }) =>
@@ -806,6 +1125,12 @@ export async function buildCvDocx(model: GeneratedCvModel, profilePhoto: CvProfi
         bodyParagraph(uniqueTextItems(entry.items).join(", "), { size: 19, spacingAfter: 60 }),
       ])
     : [];
+  const membershipsChildren = membershipEntries.length
+    ? membershipEntries.flatMap((entry) => [
+        bodyParagraph(entry.title, { bold: true, size: 21, spacingAfter: 26 }),
+        ...(entry.detail ? [bodyParagraph(entry.detail, { size: 19, spacingAfter: 60 })] : []),
+      ])
+    : [];
 
   const refereesChildren = refereeEntries.length
     ? refereeEntries.flatMap((referee) => [
@@ -825,20 +1150,24 @@ export async function buildCvDocx(model: GeneratedCvModel, profilePhoto: CvProfi
   const mainSections = new Map<CvSectionKey, Paragraph[]>([
     ["summary", [bodyParagraph(sanitizedModel.professionalSummary, { size: composition.template === "executive" ? 22 : 21, spacingAfter: 90 })]],
     ["competencies", competencyItems.map((item) => bulletParagraph(item, { size: 19 }))],
+    ["achievements", keyAchievementItems.map((item) => bulletParagraph(item, { size: 19 }))],
     ["experience", workExperienceChildren],
     ["education", educationChildren],
     ["qualifications", qualificationChildren],
     ["skills", skillsChildren],
+    ["memberships", membershipsChildren],
     ["referees", refereesChildren],
   ]);
 
   const sectionTitles: Record<CvSectionKey, string> = {
     summary: "Professional Summary",
     competencies: composition.careerStage === "executive" ? "Leadership Focus" : "Core Competencies",
+    achievements: "Key Achievements",
     experience: "Work Experience",
     education: composition.presentationMode === "education-forward" ? "Academic Foundation" : "Education",
-    qualifications: composition.presentationMode === "credential-forward" ? "Licences, Certifications & Memberships" : "Qualifications",
-    skills: "Skills",
+    qualifications: "Certifications and Additional Qualifications",
+    skills: "Technical Skills and Tools",
+    memberships: "Professional Memberships",
     referees: "Referees",
   };
 
@@ -866,7 +1195,15 @@ export async function buildCvDocx(model: GeneratedCvModel, profilePhoto: CvProfi
       ? [
           new Paragraph({
             spacing: { after: 18 },
-            children: [new TextRun({ text: sanitizedModel.targetRole, color: accent, size: 22, bold: true })],
+            children: [new TextRun({ text: sanitizedModel.professionalHeadline || sanitizedModel.targetRole, color: accent, size: 22, bold: true })],
+          }),
+        ]
+      : []),
+    ...(sanitizedModel.targetRole && sanitizedModel.professionalHeadline && sanitizedModel.professionalHeadline !== sanitizedModel.targetRole
+      ? [
+          new Paragraph({
+            spacing: { after: 14 },
+            children: [new TextRun({ text: sanitizedModel.targetRole, color: "4D6178", size: 18 })],
           }),
         ]
       : []),
@@ -900,7 +1237,7 @@ export async function buildCvDocx(model: GeneratedCvModel, profilePhoto: CvProfi
     new Paragraph({
       spacing: { before: 140 },
       alignment: AlignmentType.RIGHT,
-      children: [new TextRun({ text: "Generated by Solva HR", color: "7C8796", size: 16 })],
+      children: [new TextRun({ text: "Prepared by Solva AI Career Studio", color: "7C8796", size: 16 })],
     }),
   ];
 
@@ -1072,15 +1409,15 @@ function drawSidebarTemplatePdf(
 
   page.drawText(model.customerName, { x: mainX, y, size: 26, font: fontBold, color: navy });
   y -= 25;
-  if (model.targetRole) {
-    page.drawText(model.targetRole, { x: mainX, y, size: 12.8, font, color: softInk });
+  if (model.professionalHeadline || model.targetRole) {
+    page.drawText(model.professionalHeadline || model.targetRole, { x: mainX, y, size: 12.8, font, color: softInk });
     y -= 20;
   }
   page.drawRectangle({ x: mainX, y: y + 8, width: 74, height: 4, color: accent, opacity: 0.95 });
   page.drawLine({ start: { x: mainX, y }, end: { x: mainX + mainWidth, y }, thickness: 1, color: softInk });
   y -= 26;
   const mainSections = composition.sectionOrder.filter((section) =>
-    ["summary", "experience", "education"].includes(section) ||
+    ["summary", "achievements", "experience", "education"].includes(section) ||
     (section === "qualifications" && composition.presentationMode === "credential-forward")
   );
   const secondarySections = composition.sectionOrder.filter((section) => !mainSections.includes(section));
@@ -1091,6 +1428,10 @@ function drawSidebarTemplatePdf(
       page.drawRectangle({ x: mainX, y: cursor - 64, width: mainWidth, height: 54, color: rgb(0.96, 0.975, 0.995) });
       cursor = drawSectionHeading(page, fontBold, "Professional Summary", mainX + 10, cursor - 8, mainWidth - 20, accent, navy);
       return drawParagraph(page, font, model.professionalSummary, mainX + 10, cursor, 9.1, 11.3, ink, 64) - 18;
+    }
+    if (section === "achievements") {
+      cursor = drawSectionHeading(page, fontBold, "Key Achievements", mainX, cursor, mainWidth, accent, navy);
+      return drawBulletList(page, font, model.keyAchievements.slice(0, 5), mainX + 2, cursor, 8.8, 11, ink, 58) - 8;
     }
     if (section === "experience") {
       cursor = drawSectionHeading(page, fontBold, "Work Experience", mainX, cursor, mainWidth, accent, navy);
@@ -1148,17 +1489,23 @@ function drawSidebarTemplatePdf(
     const titleMap: Record<CvSectionKey, string> = {
       summary: "Summary",
       competencies: "Core Strengths",
+      achievements: "Key Wins",
       experience: "Experience",
       education: "Education",
       qualifications: "Credentials",
-      skills: "Skills",
+      skills: "Technical Skills",
+      memberships: "Memberships",
       referees: "Referees",
     };
     const items =
       section === "skills"
         ? model.skills.flatMap((entry) => entry.items).slice(0, 8)
+        : section === "memberships"
+          ? model.professionalMemberships.map((entry) => `${entry.title}${entry.detail ? ` - ${entry.detail}` : ""}`).slice(0, 5)
         : section === "competencies"
           ? clampItems(model.coreCompetencies, 8)
+          : section === "achievements"
+            ? model.keyAchievements.slice(0, 5)
           : section === "qualifications"
             ? model.qualifications.map((entry) => `${entry.title}${entry.detail ? ` - ${entry.detail}` : ""}`).slice(0, 6)
             : section === "referees"
@@ -1182,8 +1529,8 @@ function drawSidebarTemplatePdf(
     rightColY = renderCompactSection(section, mainX + colWidth + colGap, rightColY);
   });
 
-  page.drawText("Generated by Solva HR", {
-    x: 448,
+  page.drawText("Prepared by Solva AI Career Studio", {
+    x: 392,
     y: 24,
     size: 7.7,
     font,
@@ -1232,13 +1579,18 @@ function drawExecutiveTemplatePdf(
   });
   y -= 48;
 
-  const mainSections = composition.sectionOrder.filter((section) => ["summary", "experience"].includes(section));
+  const mainSections = composition.sectionOrder.filter((section) => ["summary", "achievements", "experience"].includes(section));
   const secondarySections = composition.sectionOrder.filter((section) => !mainSections.includes(section));
 
   mainSections.forEach((section) => {
     if (section === "summary") {
       y = drawSectionHeading(page, fontBold, "Executive Summary", marginX, y, width, accent, ink);
       y = drawParagraph(page, font, model.professionalSummary, marginX, y, 9.3, 12.2, ink, 95) - 10;
+      return;
+    }
+    if (section === "achievements") {
+      y = drawSectionHeading(page, fontBold, "Signature Achievements", marginX, y, width, accent, ink);
+      y = drawBulletList(page, font, model.keyAchievements.slice(0, 6), marginX + 2, y, 8.8, 10.9, ink, 89) - 8;
       return;
     }
     if (section === "experience") {
@@ -1273,7 +1625,7 @@ function drawExecutiveTemplatePdf(
       return cursor;
     }
     if (section === "skills") {
-      cursor = drawSectionHeading(page, fontBold, "Capabilities", x, cursor, colWidth, accent, ink);
+      cursor = drawSectionHeading(page, fontBold, "Technical Skills", x, cursor, colWidth, accent, ink);
       return drawBulletList(page, font, model.skills.flatMap((entry) => entry.items).slice(0, 10), x, cursor, 8.6, 10.7, ink, 28);
     }
     if (section === "qualifications") {
@@ -1294,6 +1646,20 @@ function drawExecutiveTemplatePdf(
       cursor = drawSectionHeading(page, fontBold, "Strategic Strengths", x, cursor, colWidth, accent, ink);
       return drawBulletList(page, font, clampItems(model.coreCompetencies, 8), x, cursor, 8.6, 10.7, ink, 28);
     }
+    if (section === "memberships") {
+      cursor = drawSectionHeading(page, fontBold, "Memberships", x, cursor, colWidth, accent, ink);
+      return drawBulletList(
+        page,
+        font,
+        model.professionalMemberships.map((entry) => `${entry.title}${entry.detail ? ` - ${entry.detail}` : ""}`).slice(0, 6),
+        x,
+        cursor,
+        8.6,
+        10.7,
+        ink,
+        28
+      );
+    }
     if (section === "referees") {
       cursor = drawSectionHeading(page, fontBold, "Referees", x, cursor, colWidth, accent, ink);
       const items = model.referees.length
@@ -1312,8 +1678,8 @@ function drawExecutiveTemplatePdf(
   });
 
   page.drawRectangle({ x: 20, y: 40, width: 555, height: 1.5, color: accent, opacity: 0.45 });
-  page.drawText("Generated by Solva HR", {
-    x: 468,
+  page.drawText("Prepared by Solva AI Career Studio", {
+    x: 412,
     y: 25,
     size: 7.7,
     font,

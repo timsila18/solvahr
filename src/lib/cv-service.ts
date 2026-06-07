@@ -234,6 +234,11 @@ export type CvServicePublicOrder = {
   atsScore: number;
   readabilityScore: number;
   improvementSummary: string[];
+  careerStrategy: Record<string, unknown> | null;
+  atsAnalysis: Record<string, unknown> | null;
+  qualityStatus: string;
+  qualityIssues: string[];
+  uploadedCvUrl?: string | null;
   generationEngine?: string;
   estimatedProcessingCostKes?: number;
   downloadCount: number;
@@ -255,6 +260,13 @@ export type CvServiceAdminDashboard = {
     revenueByPackage: Array<{ packageName: string; revenue: number; count: number }>;
   };
   orders: Array<Record<string, unknown>>;
+};
+
+export type CvServiceAdminEditPayload = {
+  professionalHeadline?: string;
+  professionalSummary?: string;
+  keyAchievements?: string[];
+  adminNotes?: string;
 };
 
 function safeString(value: unknown, fallback = "") {
@@ -844,7 +856,7 @@ function getCvModelForPackage(packageKey: CvPackageKey) {
 }
 
 function getCvProviderLabel(model: string) {
-  return `Solva AI Premium (OpenAI ${model})`;
+  return model ? "Solva AI Career Studio" : "Solva Career Studio";
 }
 
 function extractOpenAiTextContent(content: unknown): string {
@@ -887,6 +899,9 @@ function normalizeGeneratedCvModel(
 ): GeneratedCvModel {
   const maxBullets = getMaxBulletCount(packageKey);
   const globalBulletSignatures = new Set<string>();
+  const aiKeyAchievements = Array.isArray(aiResult.keyAchievements)
+    ? uniqueStrings(aiResult.keyAchievements.map((item) => safeString(item)).filter(Boolean), packageKey === "executive" ? 8 : 6)
+    : fallback.keyAchievements;
   const aiExperience = asArray<Record<string, unknown>>(aiResult.experience).map((entry, index) => {
     const fallbackEntry = fallback.experience[index];
     const bullets = uniqueStrings(
@@ -930,6 +945,10 @@ function normalizeGeneratedCvModel(
       items: items.length ? items : fallback.skills[index]?.items ?? [],
     };
   });
+  const aiMemberships = asArray<Record<string, unknown>>(aiResult.professionalMemberships).map((entry, index) => ({
+    title: safeString(entry.title, fallback.professionalMemberships[index]?.title ?? ""),
+    detail: safeString(entry.detail, fallback.professionalMemberships[index]?.detail ?? ""),
+  }));
   const aiReferees = asArray<Record<string, unknown>>(aiResult.referees).map((entry) => ({
     name: safeString(entry.name),
     designation: safeString(entry.designation),
@@ -950,6 +969,9 @@ function normalizeGeneratedCvModel(
         packageKey === "executive" ? 14 : 12
       )
     : fallback.coreCompetencies;
+  const professionalHeadline = safeString(aiResult.professionalHeadline, fallback.professionalHeadline);
+  const executiveBio = safeString(aiResult.executiveBio, fallback.executiveBio ?? "");
+  const linkedInSummary = safeString(aiResult.linkedInSummary, fallback.linkedInSummary ?? "");
   const recommendedTemplate = (() => {
     const template = safeString(aiResult.recommendedTemplate);
     return template === "sidebar" || template === "executive" ? (template as CvTemplateKey) : fallback.recommendedTemplate;
@@ -957,28 +979,57 @@ function normalizeGeneratedCvModel(
   const sectionOrder = Array.isArray(aiResult.sectionOrder)
     ? uniqueStrings(
         aiResult.sectionOrder.map((item) => safeString(item)).filter((item) =>
-          ["summary", "competencies", "experience", "education", "qualifications", "skills", "referees"].includes(item)
+          ["summary", "competencies", "achievements", "experience", "education", "qualifications", "skills", "memberships", "referees"].includes(item)
         )
       ) as CvSectionKey[]
     : fallback.sectionOrder;
+  const careerStrategy =
+    aiResult.careerStrategy && typeof aiResult.careerStrategy === "object"
+      ? {
+          ...fallback.careerStrategy,
+          ...(aiResult.careerStrategy as Record<string, unknown>),
+        }
+      : fallback.careerStrategy;
+  const atsAnalysis =
+    aiResult.atsAnalysis && typeof aiResult.atsAnalysis === "object"
+      ? {
+          ...fallback.atsAnalysis,
+          ...(aiResult.atsAnalysis as Record<string, unknown>),
+        }
+      : fallback.atsAnalysis;
+  const qualityCheck =
+    aiResult.qualityCheck && typeof aiResult.qualityCheck === "object"
+      ? {
+          ...fallback.qualityCheck,
+          ...(aiResult.qualityCheck as Record<string, unknown>),
+        }
+      : fallback.qualityCheck;
 
   return {
     ...fallback,
+    professionalHeadline,
     professionalSummary: safeString(aiResult.professionalSummary, fallback.professionalSummary),
     coreCompetencies: competencies.length ? competencies : fallback.coreCompetencies,
+    keyAchievements: aiKeyAchievements.length ? aiKeyAchievements : fallback.keyAchievements,
     experience: aiExperience.length ? aiExperience : fallback.experience,
     education: aiEducation.length ? aiEducation : fallback.education,
     qualifications: aiQualifications.length ? aiQualifications : fallback.qualifications,
     skills: aiSkills.length ? aiSkills : fallback.skills,
+    professionalMemberships: aiMemberships.length ? aiMemberships : fallback.professionalMemberships,
     referees: aiReferees.length ? aiReferees : fallback.referees,
     atsScore: Math.max(48, Math.min(96, safeNumber(aiResult.atsScore, fallback.atsScore))),
     readabilityScore: Math.max(50, Math.min(96, safeNumber(aiResult.readabilityScore, fallback.readabilityScore))),
     reviewNotes: reviewNotes.length ? reviewNotes : fallback.reviewNotes,
     improvementSummary: improvementSummary.length ? improvementSummary : fallback.improvementSummary,
+    careerStrategy: careerStrategy as GeneratedCvModel["careerStrategy"],
+    atsAnalysis: atsAnalysis as GeneratedCvModel["atsAnalysis"],
+    qualityCheck: qualityCheck as GeneratedCvModel["qualityCheck"],
     recommendedTemplate,
     sectionOrder,
     generationEngine,
     estimatedProcessingCostKes: estimateCvAiProcessingCostKes(packageKey),
+    executiveBio: executiveBio || fallback.executiveBio,
+    linkedInSummary: linkedInSummary || fallback.linkedInSummary,
   };
 }
 
@@ -995,20 +1046,23 @@ async function tryGenerateOpenAiCvModel(
   const generationEngine = getCvProviderLabel(selectedModel);
 
   const systemPrompt = [
-    "You are Solva AI Premium, a professional CV revamp assistant.",
-    "Rewrite and restructure candidate information into a truthful, ATS-compliant, recruiter-friendly CV.",
+    "You are Solva AI Career Studio, a premium professional CV writing assistant.",
+    "Rewrite and restructure candidate information into a truthful, ATS-compliant, recruiter-friendly CV that feels like it was crafted by an expert human CV writer.",
     "Write with natural human cadence, varied sentence rhythm, specific professional detail, and polished executive-level clarity.",
     "Avoid robotic phrasing, generic filler, repeated sentence patterns, and obvious AI-style overstatement.",
     "Never repeat the same bullet, competency, achievement idea, or sentence construction across sections unless a fact absolutely requires it.",
     "Do not reuse the same opening verb pattern across consecutive bullets.",
     "Make the content elegant, substantial, and rich enough for a premium CV that can naturally extend beyond one page when the career history supports it.",
     "Strengthen achievement framing, responsibility depth, and recruiter appeal without inventing facts.",
+    "Produce a visible difference in depth and sophistication between entry, mid-level, senior management, and executive packages.",
     "Do not invent jobs, qualifications, employers, dates, grades, or achievements.",
     "Recommend the best presentation template and section order for this exact candidate instead of relying only on package defaults.",
     "Use section order intelligently based on seniority, leadership signal, qualifications, education strength, and ATS clarity.",
+    "Use this section order as the default backbone unless the profile strongly needs a slight variation: professional summary, core competencies, key achievements, experience, education, qualifications, technical skills, memberships, referees.",
     "If uploaded CV text conflicts with weak extracted fields, trust the raw uploaded CV text more than the noisy extracted field.",
     "Do not echo contact lines, CV titles, or upload artifacts inside the professional summary or role titles.",
     "If information is weak or missing, keep it conservative and mention it in reviewNotes instead of fabricating.",
+    "Use premium but ATS-safe formatting logic: short paragraphs, clean bullets, no random bolding artifacts, no broken numbering, no raw pasted dumps.",
     "Return only valid JSON.",
     "Keep the tone aligned to the package level provided.",
   ].join(" ");
@@ -1051,21 +1105,62 @@ async function tryGenerateOpenAiCvModel(
           : packageDefinition.key === "mid"
             ? "Write a polished summary with confidence, progression, and operational clarity."
             : "Write a clean but well-developed summary with confidence, clarity, and genuine early-career promise.",
+    achievementGuide:
+      packageDefinition.key === "executive"
+        ? "Create 5-7 strategic key achievements with boardroom-level language where facts support it."
+        : packageDefinition.key === "senior"
+          ? "Create 4-6 rich key achievements with leadership and KPI flavor where facts support it."
+          : packageDefinition.key === "mid"
+            ? "Create 3-5 polished key achievements showing ownership, improvement, or measurable contribution."
+            : "Create 2-4 credible key achievements that strengthen employability without exaggeration.",
     candidate: candidateContext,
     requiredOutputShape: {
+      professionalHeadline: "string",
       professionalSummary: "string",
       coreCompetencies: ["string"],
+      keyAchievements: ["string"],
       experience: [{ employer: "string", jobTitle: "string", dateRange: "string", bullets: ["string"] }],
       education: [{ title: "string", detail: "string" }],
       qualifications: [{ title: "string", detail: "string" }],
       skills: [{ category: "string", items: ["string"] }],
+      professionalMemberships: [{ title: "string", detail: "string" }],
       referees: [{ name: "string", designation: "string", organization: "string", phone: "string", email: "string", relationship: "string" }],
       recommendedTemplate: "sidebar|executive",
-      sectionOrder: ["summary", "competencies", "experience", "education", "qualifications", "skills", "referees"],
+      sectionOrder: ["summary", "competencies", "achievements", "experience", "education", "qualifications", "skills", "memberships", "referees"],
       atsScore: 0,
       readabilityScore: 0,
       improvementSummary: ["string"],
       reviewNotes: ["string"],
+      careerStrategy: {
+        targetRole: "string",
+        careerLevel: "string",
+        industry: "string",
+        strongestSellingPoints: ["string"],
+        weakAreasToImprove: ["string"],
+        atsKeywords: ["string"],
+        bestCvStructure: ["string"],
+        recommendedTone: "string",
+        idealLength: "string",
+        packageExpectation: "string",
+      },
+      atsAnalysis: {
+        baselineScore: 0,
+        finalScore: 0,
+        keywordStrengthScore: 0,
+        formattingScore: 0,
+        readabilityScore: 0,
+        missingInformation: ["string"],
+        recommendedImprovements: ["string"],
+      },
+      qualityCheck: {
+        status: "passed",
+        checks: [{ key: "string", passed: true, detail: "string" }],
+        issues: ["string"],
+        regenerationCount: 0,
+        adminApprovalStatus: "pending",
+      },
+      executiveBio: "string",
+      linkedInSummary: "string",
     },
   });
 
@@ -1145,19 +1240,52 @@ async function tryPolishOpenAiCvModel(
       "Keep the candidate truthful and ATS-compliant.",
     ],
     requiredOutputShape: {
+      professionalHeadline: "string",
       professionalSummary: "string",
       coreCompetencies: ["string"],
+      keyAchievements: ["string"],
       experience: [{ employer: "string", jobTitle: "string", dateRange: "string", bullets: ["string"] }],
       education: [{ title: "string", detail: "string" }],
       qualifications: [{ title: "string", detail: "string" }],
       skills: [{ category: "string", items: ["string"] }],
+      professionalMemberships: [{ title: "string", detail: "string" }],
       referees: [{ name: "string", designation: "string", organization: "string", phone: "string", email: "string", relationship: "string" }],
       recommendedTemplate: "sidebar|executive",
-      sectionOrder: ["summary", "competencies", "experience", "education", "qualifications", "skills", "referees"],
+      sectionOrder: ["summary", "competencies", "achievements", "experience", "education", "qualifications", "skills", "memberships", "referees"],
       atsScore: 0,
       readabilityScore: 0,
       improvementSummary: ["string"],
       reviewNotes: ["string"],
+      careerStrategy: {
+        targetRole: "string",
+        careerLevel: "string",
+        industry: "string",
+        strongestSellingPoints: ["string"],
+        weakAreasToImprove: ["string"],
+        atsKeywords: ["string"],
+        bestCvStructure: ["string"],
+        recommendedTone: "string",
+        idealLength: "string",
+        packageExpectation: "string",
+      },
+      atsAnalysis: {
+        baselineScore: 0,
+        finalScore: 0,
+        keywordStrengthScore: 0,
+        formattingScore: 0,
+        readabilityScore: 0,
+        missingInformation: ["string"],
+        recommendedImprovements: ["string"],
+      },
+      qualityCheck: {
+        status: "passed",
+        checks: [{ key: "string", passed: true, detail: "string" }],
+        issues: ["string"],
+        regenerationCount: 0,
+        adminApprovalStatus: "pending",
+      },
+      executiveBio: "string",
+      linkedInSummary: "string",
     },
   });
 
@@ -1193,6 +1321,108 @@ async function tryPolishOpenAiCvModel(
   }
   const parsed = extractJsonObject(contentText);
   return normalizeGeneratedCvModel(parsed, draft, packageDefinition.key, `${getCvProviderLabel(selectedModel)} + Editorial Pass`);
+}
+
+function uniqueGeneratedEntries(items: string[], maxItems: number) {
+  return uniqueStrings(items.map((item) => safeString(item)).filter(Boolean), maxItems);
+}
+
+function evaluateCvOutputQuality(model: GeneratedCvModel) {
+  const duplicatePool = [
+    model.professionalSummary,
+    ...model.coreCompetencies,
+    ...model.keyAchievements,
+    ...model.experience.flatMap((entry) => entry.bullets),
+  ].map((entry) => normalizeComparableText(entry)).filter(Boolean);
+  const seen = new Set<string>();
+  let duplicates = 0;
+  duplicatePool.forEach((entry) => {
+    if (seen.has(entry)) {
+      duplicates += 1;
+      return;
+    }
+    seen.add(entry);
+  });
+  const brokenNumbering =
+    /\b\d+\.\s*\d+\./.test(model.professionalSummary) ||
+    model.experience.some((entry) => entry.bullets.some((bullet) => /\b\d+\.\s*\d+\./.test(bullet)));
+  const rawDumpDetected =
+    model.professionalSummary.length > 900 ||
+    /\b(curriculum vitae|resume|references upon request|page 1)\b/i.test(model.professionalSummary);
+  const missingMajorSection =
+    !safeString(model.professionalSummary) ||
+    model.experience.length === 0 ||
+    model.coreCompetencies.length === 0 ||
+    model.keyAchievements.length === 0;
+  const packageDepth =
+    model.packageKey === "executive" ? 6 : model.packageKey === "senior" ? 5 : model.packageKey === "mid" ? 4 : 3;
+  const totalBullets = model.experience.reduce((sum, entry) => sum + entry.bullets.length, 0);
+  const insufficientDepth = totalBullets < packageDepth;
+  const issues = [
+    ...(duplicates ? ["Duplicate paragraphs or bullets detected."] : []),
+    ...(brokenNumbering ? ["Broken numbering detected in the output."] : []),
+    ...(rawDumpDetected ? ["Raw pasted CV dump detected in the summary."] : []),
+    ...(missingMajorSection ? ["A major CV section is empty or missing."] : []),
+    ...(insufficientDepth ? ["Content depth is below the selected package expectation."] : []),
+  ];
+  return {
+    status: issues.length ? "failed" : "passed",
+    issues,
+    totalBullets,
+  };
+}
+
+function finalizeGeneratedCvModel(model: GeneratedCvModel): GeneratedCvModel {
+  const normalizedAchievements = uniqueGeneratedEntries(
+    model.keyAchievements.length
+      ? model.keyAchievements
+      : model.experience.flatMap((entry) => entry.bullets.slice(0, 1)),
+    model.packageKey === "executive" ? 7 : 5
+  );
+  const normalizedModel: GeneratedCvModel = {
+    ...model,
+    professionalHeadline: safeString(model.professionalHeadline, safeString(model.targetRole, model.packageName)),
+    coreCompetencies: uniqueGeneratedEntries(model.coreCompetencies, model.packageKey === "executive" ? 14 : 12),
+    keyAchievements: normalizedAchievements,
+    experience: model.experience.map((entry) => ({
+      ...entry,
+      bullets: uniqueGeneratedEntries(entry.bullets, getMaxBulletCount(model.packageKey)),
+    })),
+    professionalMemberships: model.professionalMemberships.filter((entry) => safeString(entry.title)),
+    atsAnalysis: {
+      ...model.atsAnalysis,
+      finalScore: model.atsScore,
+      readabilityScore: model.readabilityScore,
+    },
+  };
+  const quality = evaluateCvOutputQuality(normalizedModel);
+  return {
+    ...normalizedModel,
+    qualityCheck: {
+      ...normalizedModel.qualityCheck,
+      status: quality.status as "passed" | "failed",
+      issues: quality.issues,
+      regenerationCount: safeNumber(normalizedModel.qualityCheck?.regenerationCount),
+      adminApprovalStatus: (normalizedModel.qualityCheck?.adminApprovalStatus as "pending" | "approved" | undefined) ?? "pending",
+      checks: [
+        {
+          key: "content_depth",
+          passed: quality.totalBullets >= (model.packageKey === "executive" ? 6 : model.packageKey === "senior" ? 5 : model.packageKey === "mid" ? 4 : 3),
+          detail: "Experience depth matches the package expectation.",
+        },
+        {
+          key: "clean_structure",
+          passed: !quality.issues.some((issue) => issue.includes("Broken numbering") || issue.includes("Raw pasted")),
+          detail: "Formatting is clean and free from pasted-structure artifacts.",
+        },
+        {
+          key: "deduplicated",
+          passed: !quality.issues.some((issue) => issue.includes("Duplicate")),
+          detail: "Repeated content has been removed.",
+        },
+      ],
+    },
+  };
 }
 
 async function mapOrderToPublic(row: CvServiceOrderRow): Promise<CvServicePublicOrder> {
@@ -1260,6 +1490,13 @@ async function mapOrderToPublic(row: CvServiceOrderRow): Promise<CvServicePublic
     improvementSummary: Array.isArray(generated?.improvementSummary)
       ? generated.improvementSummary.map((item) => safeString(item)).filter(Boolean)
       : [],
+    careerStrategy: generated?.careerStrategy && typeof generated.careerStrategy === "object" ? (generated.careerStrategy as Record<string, unknown>) : null,
+    atsAnalysis: generated?.atsAnalysis && typeof generated.atsAnalysis === "object" ? (generated.atsAnalysis as Record<string, unknown>) : null,
+    qualityStatus: safeString((generated?.qualityCheck as Record<string, unknown> | undefined)?.status, "pending"),
+    qualityIssues: Array.isArray((generated?.qualityCheck as Record<string, unknown> | undefined)?.issues)
+      ? (((generated?.qualityCheck as Record<string, unknown>).issues as unknown[]) ?? []).map((item) => safeString(item)).filter(Boolean)
+      : [],
+    uploadedCvUrl: safeString(row.uploaded_cv_path) ? await createSignedStorageUrl(safeString(row.uploaded_cv_path)) : null,
     generationEngine: safeString(generated?.generationEngine),
     estimatedProcessingCostKes: safeNumber(generated?.estimatedProcessingCostKes),
     downloadCount: safeNumber(row.download_count),
@@ -1561,6 +1798,31 @@ async function persistCvOutputs(order: CvServiceOrderRow) {
     };
   }
 
+  model = finalizeGeneratedCvModel(model);
+  if (model.qualityCheck.status !== "passed") {
+    const repairedModel = finalizeGeneratedCvModel({
+      ...model,
+      professionalSummary: safeString(model.professionalSummary, fallbackModel.professionalSummary),
+      professionalHeadline: safeString(model.professionalHeadline, fallbackModel.professionalHeadline),
+      coreCompetencies: model.coreCompetencies.length ? model.coreCompetencies : fallbackModel.coreCompetencies,
+      keyAchievements: model.keyAchievements.length ? model.keyAchievements : fallbackModel.keyAchievements,
+      experience: model.experience.length ? model.experience : fallbackModel.experience,
+      qualifications: model.qualifications.length ? model.qualifications : fallbackModel.qualifications,
+      skills: model.skills.length ? model.skills : fallbackModel.skills,
+      professionalMemberships: model.professionalMemberships.length ? model.professionalMemberships : fallbackModel.professionalMemberships,
+      reviewNotes: uniqueStrings([...model.reviewNotes, ...fallbackModel.reviewNotes], 8),
+      improvementSummary: uniqueStrings([...model.improvementSummary, ...fallbackModel.improvementSummary], 8),
+      qualityCheck: {
+        ...model.qualityCheck,
+        regenerationCount: safeNumber(model.qualityCheck?.regenerationCount) + 1,
+      },
+    });
+    model = repairedModel;
+  }
+  if (model.qualityCheck.status !== "passed") {
+    throw new Error("cv_quality_check_failed");
+  }
+
   const admin = createSupabaseAdminClient();
   const bucket = getStorageBucketNames().attachments;
   let profilePhotoAsset:
@@ -1739,21 +2001,44 @@ export async function getCvServiceAdminDashboard(): Promise<CvServiceAdminDashbo
       downloads: rows.reduce((total, row) => total + safeNumber(row.download_count), 0),
       revenueByPackage: Array.from(revenueByPackageMap.values()),
     },
-    orders: rows.map((row) => ({
-      id: safeString(row.id),
-      customerName: safeString(row.customer_name),
-      phone: safeString(row.phone),
-      email: safeString(row.email),
-      sourceMode: safeString(row.cv_source_mode, "manual"),
-      packageName: safeString(row.package_name),
-      amount: safeNumber(row.package_price),
-      paymentStatus: safeString(row.payment_status),
-      generationStatus: safeString(row.generation_status),
-      orderStatus: safeString(row.order_status),
-      downloadCount: safeNumber(row.download_count),
-      createdAt: safeString(row.created_at),
-      expiresAt: safeString(row.expires_at),
-    })),
+    orders: await Promise.all(
+      rows.map(async (row) => ({
+        id: safeString(row.id),
+        publicToken: safeString(row.public_token),
+        customerName: safeString(row.customer_name),
+        phone: safeString(row.phone),
+        email: safeString(row.email),
+        sourceMode: safeString(row.cv_source_mode, "manual"),
+        packageName: safeString(row.package_name),
+        amount: safeNumber(row.package_price),
+        paymentStatus: safeString(row.payment_status),
+        generationStatus: safeString(row.generation_status),
+        orderStatus: safeString(row.order_status),
+        downloadCount: safeNumber(row.download_count),
+        createdAt: safeString(row.created_at),
+        expiresAt: safeString(row.expires_at),
+        uploadedCvName: safeString(row.uploaded_cv_name),
+        uploadedCvUrl: safeString(row.uploaded_cv_path) ? await createSignedStorageUrl(safeString(row.uploaded_cv_path)) : null,
+        generatedDocxPath: safeString(row.generated_docx_path),
+        generatedPdfPath: safeString(row.generated_pdf_path),
+        generatedDocxLink:
+          safeString(row.generated_docx_path) && safeString(row.public_token)
+            ? buildDownloadUrl(safeString(row.id), safeString(row.public_token), "docx")
+            : null,
+        generatedPdfLink:
+          safeString(row.generated_pdf_path) && safeString(row.public_token)
+            ? buildDownloadUrl(safeString(row.id), safeString(row.public_token), "pdf")
+            : null,
+        customerNotes: safeString(row.special_instructions),
+        adminNotes: safeString(row.admin_notes),
+        atsScore: safeNumber((row.generated_cv_json as Record<string, unknown> | null)?.atsScore),
+        qualityStatus: safeString(((row.generated_cv_json as Record<string, unknown> | null)?.qualityCheck as Record<string, unknown> | undefined)?.status, "pending"),
+        qualityIssues: Array.isArray(((row.generated_cv_json as Record<string, unknown> | null)?.qualityCheck as Record<string, unknown> | undefined)?.issues)
+          ? ((((row.generated_cv_json as Record<string, unknown>).qualityCheck as Record<string, unknown>).issues as unknown[]) ?? []).map((item) => safeString(item)).filter(Boolean)
+          : [],
+        generatedPreview: row.generated_cv_json && typeof row.generated_cv_json === "object" ? row.generated_cv_json : null,
+      }))
+    ),
   };
 }
 
@@ -1798,6 +2083,139 @@ export async function regenerateCvOrderByAdmin(orderId: string) {
     throw new Error("payment_required_before_generation");
   }
   return persistCvOutputs(order);
+}
+
+export async function approveCvOrderByAdmin(orderId: string) {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  ensureCvAdminRole(profile.role);
+  const admin = createSupabaseAdminClient();
+  const order = await getOrderById(orderId);
+  const generated =
+    order.generated_cv_json && typeof order.generated_cv_json === "object"
+      ? ({ ...(order.generated_cv_json as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  const qualityCheck =
+    generated.qualityCheck && typeof generated.qualityCheck === "object"
+      ? { ...(generated.qualityCheck as Record<string, unknown>) }
+      : {};
+  generated.qualityCheck = {
+    ...qualityCheck,
+    adminApprovalStatus: "approved",
+    status: (safeString(qualityCheck.status, "passed") === "failed" ? "failed" : "passed") as "passed" | "failed",
+  };
+  const { data, error } = await admin
+    .from("cv_service_orders")
+    .update({
+      generated_cv_json: generated,
+      order_status: "approved",
+    })
+    .eq("id", orderId)
+    .select("*")
+    .single();
+  if (error || !data) {
+    throw error ?? new Error("cv_order_approve_failed");
+  }
+  return await mapOrderToPublic(data as CvServiceOrderRow);
+}
+
+export async function refreshCvOrderDownloadsByAdmin(orderId: string) {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  ensureCvAdminRole(profile.role);
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("cv_service_orders")
+    .update({
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      order_status: "ready",
+    })
+    .eq("id", orderId)
+    .select("*")
+    .single();
+  if (error || !data) {
+    throw error ?? new Error("cv_order_refresh_links_failed");
+  }
+  return await mapOrderToPublic(data as CvServiceOrderRow);
+}
+
+export async function saveCvOrderManualEditByAdmin(orderId: string, input: CvServiceAdminEditPayload) {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("unauthorized");
+  }
+  ensureCvAdminRole(profile.role);
+  const admin = createSupabaseAdminClient();
+  const order = await getOrderById(orderId);
+  if (!order.generated_cv_json || typeof order.generated_cv_json !== "object") {
+    throw new Error("cv_order_not_generated");
+  }
+  const generated = { ...(order.generated_cv_json as Record<string, unknown>) };
+  if (safeString(input.professionalHeadline)) {
+    generated.professionalHeadline = safeString(input.professionalHeadline);
+  }
+  if (safeString(input.professionalSummary)) {
+    generated.professionalSummary = safeString(input.professionalSummary);
+  }
+  if (Array.isArray(input.keyAchievements)) {
+    generated.keyAchievements = uniqueStrings(input.keyAchievements.map((item) => safeString(item)).filter(Boolean), 8);
+  }
+  const model = finalizeGeneratedCvModel(generated as unknown as GeneratedCvModel);
+  const bucket = getStorageBucketNames().attachments;
+  let profilePhotoAsset:
+    | {
+        bytes: Uint8Array;
+        mimeType: string;
+      }
+    | null = null;
+  if (safeString(order.profile_photo_path) && safeString(order.profile_photo_mime)) {
+    const { data: photoBlob } = await admin.storage.from(bucket).download(safeString(order.profile_photo_path));
+    if (photoBlob) {
+      profilePhotoAsset = {
+        bytes: new Uint8Array(await photoBlob.arrayBuffer()),
+        mimeType: safeString(order.profile_photo_mime),
+      };
+    }
+  }
+  const docx = await buildCvDocx(model, profilePhotoAsset);
+  const pdf = await buildCvPdf(model, profilePhotoAsset);
+  const docxPath = safeString(order.generated_docx_path) || `cv-service/generated/${safeString(order.id)}/${slugify(model.customerName)}-${safeString(order.package_key)}.docx`;
+  const pdfPath = safeString(order.generated_pdf_path) || `cv-service/generated/${safeString(order.id)}/${slugify(model.customerName)}-${safeString(order.package_key)}.pdf`;
+  const [docxUpload, pdfUpload] = await Promise.all([
+    admin.storage.from(bucket).upload(docxPath, docx, {
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      upsert: true,
+    }),
+    admin.storage.from(bucket).upload(pdfPath, pdf, {
+      contentType: "application/pdf",
+      upsert: true,
+    }),
+  ]);
+  if (docxUpload.error) {
+    throw docxUpload.error;
+  }
+  if (pdfUpload.error) {
+    throw pdfUpload.error;
+  }
+  const { data, error } = await admin
+    .from("cv_service_orders")
+    .update({
+      generated_cv_json: model,
+      generated_docx_path: docxPath,
+      generated_pdf_path: pdfPath,
+      admin_notes: safeString(input.adminNotes, safeString(order.admin_notes)),
+    })
+    .eq("id", orderId)
+    .select("*")
+    .single();
+  if (error || !data) {
+    throw error ?? new Error("cv_order_manual_edit_failed");
+  }
+  return await mapOrderToPublic(data as CvServiceOrderRow);
 }
 
 export async function cleanupExpiredCvServiceFiles() {
@@ -1858,6 +2276,11 @@ export async function exportCvServiceOrdersWorkbook() {
       "Amount",
       "Payment Status",
       "Generation Status",
+      "ATS Score",
+      "Quality Status",
+      "Quality Issues",
+      "Customer Notes",
+      "Admin Notes",
       "Order Status",
       "Downloads",
       "Created At",
@@ -1872,6 +2295,11 @@ export async function exportCvServiceOrdersWorkbook() {
       safeNumber(row.amount),
       safeString(row.paymentStatus),
       safeString(row.generationStatus),
+      safeNumber(row.atsScore),
+      safeString(row.qualityStatus),
+      Array.isArray(row.qualityIssues) ? row.qualityIssues.map((item) => safeString(item)).filter(Boolean).join(" | ") : "",
+      safeString(row.customerNotes),
+      safeString(row.adminNotes),
       safeString(row.orderStatus),
       safeNumber(row.downloadCount),
       safeString(row.createdAt),

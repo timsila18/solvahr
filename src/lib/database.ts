@@ -1621,7 +1621,7 @@ function getEmploymentFactorForBounds(employee: EmployeeRow, start: Date, end: D
     return 0;
   }
 
-  return roundPayrollAmount(diffInDaysInclusive(effectiveStart, effectiveEnd) / daysInMonth);
+  return diffInDaysInclusive(effectiveStart, effectiveEnd) / Math.max(daysInMonth, 1);
 }
 
 function getEmploymentDaysForBounds(employee: EmployeeRow, start: Date, end: Date) {
@@ -1699,7 +1699,7 @@ function getProrationFactor(
   }
 
   if (payrollType === "Weekly") {
-    return roundPayrollAmount(Math.min(1, 7 / Math.max(daysInMonth, 1)));
+    return Math.min(1, 7 / Math.max(daysInMonth, 1));
   }
 
   if (payrollType === "Off-Cycle" || payrollType === "Bonus Payroll") {
@@ -12786,15 +12786,15 @@ function calculatePayrollSnapshotForEmployee(input: {
     : 0;
   const monthlyFactor =
     isMidMonthRun || isMonthEndRun
-      ? roundPayrollAmount((workedSplitPayrollDays / Math.max(splitPayrollWindowDays, 1)) * 0.5)
+      ? (workedSplitPayrollDays / Math.max(splitPayrollWindowDays, 1)) * 0.5
       : payrollType === "Weekly"
-        ? roundPayrollAmount(7 / payrollDaysInMonth)
+        ? 7 / payrollDaysInMonth
         : isFullMonthlyPayrollType(payrollType)
           ? monthlySalaryFactor
-        : payrollType === "Off-Cycle" || payrollType === "Bonus Payroll"
-          ? 0
-          : prorationFactor;
-  const effectiveMonthlyFactor = monthlyFactor;
+          : payrollType === "Off-Cycle" || payrollType === "Bonus Payroll"
+            ? 0
+            : prorationFactor;
+  const effectiveMonthlyFactor = Math.max(0, monthlyFactor);
 
   const basicSalary =
     payrollType === "Off-Cycle" || payrollType === "Bonus Payroll"

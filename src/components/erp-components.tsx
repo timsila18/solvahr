@@ -19,21 +19,15 @@ export type ERPPlaceholderContent = {
   allowedRoles?: AppRole[];
 };
 
-const FINANCE_ROLES: AppRole[] = ["Super Admin", "Finance Officer", "Finance Manager", "Accountant", "Auditor"];
-const PROCUREMENT_ROLES: AppRole[] = ["Super Admin", "Procurement Officer", "Approver", "Finance Manager", "Manager", "Auditor"];
-const ASSET_ROLES: AppRole[] = ["Super Admin", "Finance Manager", "Asset Manager", "HR Admin", "Auditor"];
-const BUDGET_ROLES: AppRole[] = ["Super Admin", "Finance Officer", "Finance Manager", "Budget Holder", "Approver", "Manager", "Auditor"];
+const FINANCE_ROLES: AppRole[] = ["Super Admin", "Finance Officer", "Manager", "Auditor"];
+const PROCUREMENT_ROLES: AppRole[] = ["Super Admin", "Manager", "Auditor"];
+const ASSET_ROLES: AppRole[] = ["Super Admin", "HR Admin", "Manager", "Auditor"];
+const BUDGET_ROLES: AppRole[] = ["Super Admin", "Finance Officer", "Manager", "Auditor"];
 const BROAD_ERP_ROLES: AppRole[] = [
   "Super Admin",
   "HR Admin",
   "Payroll Admin",
   "Finance Officer",
-  "Finance Manager",
-  "Accountant",
-  "Procurement Officer",
-  "Asset Manager",
-  "Budget Holder",
-  "Approver",
   "Manager",
   "Auditor",
 ];

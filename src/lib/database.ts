@@ -1714,6 +1714,21 @@ function getMonthlySalaryFactor(employee: EmployeeRow, run: PayrollRunRow) {
   return getEmploymentFactorForBounds(employee, start, end, daysInMonth);
 }
 
+const CURRENT_PAYROLL_ENGINE_VERSION = 2;
+
+function getPayrollEngineVersion(run: PayrollRunRow) {
+  const metadata = asRecord(run.metadata) ?? {};
+  return Math.max(1, safeNumber(metadata.engine_version, 1));
+}
+
+function shouldRefreshPayrollRunForCurrentEngine(run: PayrollRunRow) {
+  const status = normalisePayrollStatus(safeString(run.status, "Draft"));
+  if (!["Draft", "Open", "Reopened", "Processing"].includes(status)) {
+    return false;
+  }
+  return getPayrollEngineVersion(run) < CURRENT_PAYROLL_ENGINE_VERSION;
+}
+
 function getJsonAmount(map: Record<string, unknown> | null, keys: string[], fallback = 0) {
   if (!map) return fallback;
   for (const key of keys) {
@@ -13123,6 +13138,23 @@ async function getPayrollRunById(context: RequestContext, payrollRunId: string) 
   return data as PayrollRunRow;
 }
 
+async function ensurePayrollRunUsesCurrentEngine(
+  context: RequestContext,
+  run: PayrollRunRow
+) {
+  if (!shouldRefreshPayrollRunForCurrentEngine(run)) {
+    return run;
+  }
+
+  const currentStatus = normalisePayrollStatus(safeString(run.status, "Draft"));
+  const recalculated = await recalculatePayrollRun(
+    context,
+    safeString(run.id),
+    currentStatus === "Draft" ? "Open" : currentStatus
+  );
+  return recalculated as PayrollRunRow;
+}
+
 async function recalculatePayrollRun(
   context: RequestContext,
   payrollRunId: string,
@@ -13466,6 +13498,7 @@ async function recalculatePayrollRun(
 
   const updatedMetadata = {
     ...runMetadata,
+    engine_version: CURRENT_PAYROLL_ENGINE_VERSION,
     employee_count_snapshot: computations.length,
     last_processed_at: new Date().toISOString(),
     blockers: computations.reduce((sum, item) => sum + item.blockers.length, 0),
@@ -14894,9 +14927,10 @@ export async function listEmployeePayrollData(options?: { periodId?: string | nu
   const context = await getRequestContext();
   ensureRole(context.profile, PAYROLL_ROLES);
 
-  const run = options?.periodId
+  const selectedRun = options?.periodId
     ? await getPayrollRunById(context, options.periodId)
     : await getLatestPayrollRun(context);
+  const run = selectedRun ? await ensurePayrollRunUsesCurrentEngine(context, selectedRun) : null;
   if (!run) {
     return [];
   }
@@ -15028,9 +15062,10 @@ export async function getStatutorySummary(options?: { periodId?: string | null }
   const context = await getRequestContext();
   ensureRole(context.profile, PAYROLL_ROLES);
 
-  const run = options?.periodId
+  const selectedRun = options?.periodId
     ? await getPayrollRunById(context, options.periodId)
     : await getLatestPayrollRun(context);
+  const run = selectedRun ? await ensurePayrollRunUsesCurrentEngine(context, selectedRun) : null;
   if (!run) {
     return [];
   }

@@ -2312,6 +2312,7 @@ function getSafaDairyStatutoryPolicy(
 
 function getRobotCafeCustomPaye(statutoryGrossPay: number) {
   const normalizedGross = roundPayrollAmount(Math.max(0, statutoryGrossPay));
+  if (normalizedGross < 18000) return 0;
   if (normalizedGross < 30000) return 0;
   if (normalizedGross <= 35000) return 250;
   if (normalizedGross <= 40000) return 300;
@@ -2319,6 +2320,37 @@ function getRobotCafeCustomPaye(statutoryGrossPay: number) {
   if (normalizedGross <= 50000) return 550;
   if (normalizedGross <= 60000) return 650;
   return 750;
+}
+
+function getRobotCafeStatutoryPolicy(statutoryGrossPay: number) {
+  const normalizedGross = roundPayrollAmount(Math.max(0, statutoryGrossPay));
+  if (normalizedGross <= 0) {
+    return {
+      paye: 0,
+      shif: 0,
+      nssf: 0,
+      housingLevy: 0,
+      employerNssf: 0,
+    };
+  }
+
+  if (normalizedGross < 18000) {
+    return {
+      paye: 0,
+      shif: 300,
+      nssf: 0,
+      housingLevy: 0,
+      employerNssf: 0,
+    };
+  }
+
+  return {
+    paye: getRobotCafeCustomPaye(normalizedGross),
+    shif: 300,
+    nssf: 1080,
+    housingLevy: roundPayrollAmount(normalizedGross * 0.015),
+    employerNssf: 1080,
+  };
 }
 
 function normalizeIdentity(value: string | null | undefined) {
@@ -12894,13 +12926,7 @@ function calculatePayrollSnapshotForEmployee(input: {
   const usesRobotCafeStatutoryRules = isRobotCafeCompany(safeString(run.company_id));
   const robotCafeStatutoryPolicy =
     usesRobotCafeStatutoryRules && !isMidMonthRun
-      ? {
-          paye: getRobotCafeCustomPaye(statutoryGrossPay),
-          shif: statutoryGrossPay > 0 ? 300 : 0,
-          nssf: statutoryGrossPay > 0 ? 1080 : 0,
-          housingLevy: statutoryGrossPay > 0 ? roundPayrollAmount(statutoryGrossPay * 0.015) : 0,
-          employerNssf: statutoryGrossPay > 0 ? 1080 : 0,
-        }
+      ? getRobotCafeStatutoryPolicy(statutoryGrossPay)
       : null;
   const safaDairyStatutoryPolicy = isSafaDairyCompany(safeString(run.company_id))
     ? getSafaDairyStatutoryPolicy(safeString(employee.employment_type), statutoryGrossPay, isMidMonthRun)
@@ -14298,13 +14324,14 @@ export async function getPayrollProcessData(): Promise<PayrollProcessData> {
     const safaPolicy = isSafaDairyCompany(companyId)
       ? getSafaDairyStatutoryPolicy(employmentType, monthlyGross, false)
       : null;
-    const paye = safaPolicy ? safaPolicy.paye : getRobotCafeCustomPaye(monthlyGross);
-    const nssf = safaPolicy ? safaPolicy.nssf : monthlyGross > 0 ? 1080 : 0;
-    const shif = safaPolicy ? safaPolicy.shif : monthlyGross > 0 ? 300 : 0;
+    const robotCafePolicy = isRobotCafeCompany(companyId) ? getRobotCafeStatutoryPolicy(monthlyGross) : null;
+    const paye = safaPolicy ? safaPolicy.paye : robotCafePolicy ? robotCafePolicy.paye : 0;
+    const nssf = safaPolicy ? safaPolicy.nssf : robotCafePolicy ? robotCafePolicy.nssf : 0;
+    const shif = safaPolicy ? safaPolicy.shif : robotCafePolicy ? robotCafePolicy.shif : 0;
     const housingLevy = safaPolicy
       ? safaPolicy.housingLevy
-      : monthlyGross > 0
-        ? roundPayrollAmount(monthlyGross * 0.015)
+      : robotCafePolicy
+        ? robotCafePolicy.housingLevy
         : 0;
     return roundPayrollAmount(Math.max(0, thirtiethGross - paye - nssf - shif - housingLevy));
   };
@@ -14892,13 +14919,14 @@ export async function listEmployeePayrollData(options?: { periodId?: string | nu
     const safaPolicy = isSafaDairyCompany(companyId)
       ? getSafaDairyStatutoryPolicy(employmentType, monthlyGross, false)
       : null;
-    const paye = safaPolicy ? safaPolicy.paye : getRobotCafeCustomPaye(monthlyGross);
-    const nssf = safaPolicy ? safaPolicy.nssf : monthlyGross > 0 ? 1080 : 0;
-    const shif = safaPolicy ? safaPolicy.shif : monthlyGross > 0 ? 300 : 0;
+    const robotCafePolicy = isRobotCafeCompany(companyId) ? getRobotCafeStatutoryPolicy(monthlyGross) : null;
+    const paye = safaPolicy ? safaPolicy.paye : robotCafePolicy ? robotCafePolicy.paye : 0;
+    const nssf = safaPolicy ? safaPolicy.nssf : robotCafePolicy ? robotCafePolicy.nssf : 0;
+    const shif = safaPolicy ? safaPolicy.shif : robotCafePolicy ? robotCafePolicy.shif : 0;
     const housingLevy = safaPolicy
       ? safaPolicy.housingLevy
-      : monthlyGross > 0
-        ? roundPayrollAmount(monthlyGross * 0.015)
+      : robotCafePolicy
+        ? robotCafePolicy.housingLevy
         : 0;
     return roundPayrollAmount(Math.max(0, thirtiethGross - paye - nssf - shif - housingLevy));
   };
@@ -16563,13 +16591,14 @@ async function buildPayrollOutputDataset(
     const safaPolicy = isSafaDairyCompany(companyId)
       ? getSafaDairyStatutoryPolicy(employmentType, normalizedMonthlyGross, false)
       : null;
-    const paye = safaPolicy ? safaPolicy.paye : getRobotCafeCustomPaye(normalizedMonthlyGross);
-    const nssf = safaPolicy ? safaPolicy.nssf : normalizedMonthlyGross > 0 ? 1080 : 0;
-    const shif = safaPolicy ? safaPolicy.shif : normalizedMonthlyGross > 0 ? 300 : 0;
+    const robotCafePolicy = isRobotCafeCompany(companyId) ? getRobotCafeStatutoryPolicy(normalizedMonthlyGross) : null;
+    const paye = safaPolicy ? safaPolicy.paye : robotCafePolicy ? robotCafePolicy.paye : 0;
+    const nssf = safaPolicy ? safaPolicy.nssf : robotCafePolicy ? robotCafePolicy.nssf : 0;
+    const shif = safaPolicy ? safaPolicy.shif : robotCafePolicy ? robotCafePolicy.shif : 0;
     const housingLevy = safaPolicy
       ? safaPolicy.housingLevy
-      : normalizedMonthlyGross > 0
-        ? roundPayrollAmount(normalizedMonthlyGross * 0.015)
+      : robotCafePolicy
+        ? robotCafePolicy.housingLevy
         : 0;
     return roundPayrollAmount(
       Math.max(0, normalizedThirtiethGross - paye - nssf - shif - housingLevy)
